@@ -1,0 +1,129 @@
+# F08 – Cấu hình camera và Bed ROI
+
+| Thuộc tính | Giá trị |
+|---|---|
+| Mã | F08 |
+| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Ưu tiên | MVP |
+| Milestone | M0 |
+| Ước lượng | 3 phiên |
+| Phụ thuộc | F07 |
+| Nhánh code | B+C |
+| Nguồn | PDF §7.2 (tr.9), §9.1 (tr.11); HS §4.1, §5.5; QA#15, QA#22; A02 |
+
+## 1. Mục tiêu
+
+Cho quản trị viên vẽ vùng giường (Bed ROI) dạng polygon bằng cách click lên khung hình camera (PDF §7.2: "Bed ROI được cấu hình dưới dạng polygon khi cài camera"; QA#15), chỉnh các ngưỡng quan sát chính của camera và kiểm tra chất lượng hình ảnh (PDF §9.1: màn hình "Cấu hình camera"). Vị trí camera được chốt qua thử nghiệm và khác nhau giữa các giường (HS §4.1), nên ROI và ngưỡng được lưu theo từng camera. Ngưỡng nằm trong cấu hình, không viết cứng (QA#22). Worker nhận cấu hình mới trong ≤5 giây (A02).
+
+## 2. Phạm vi
+
+**Trong phạm vi**
+- API lưu ROI, API đọc/lưu override ngưỡng theo camera.
+- Kiểm tra polygon ở backend: ≥3 điểm, toạ độ 0–1, không tự cắt.
+- Màn hình "Cấu hình camera": vẽ, sửa, xóa điểm polygon trên khung hình; form ngưỡng chính; nút "Khôi phục mặc định"; chỉ báo độ sáng trung bình và FPS.
+- Tăng `config_version` và ghi audit mỗi lần lưu.
+
+**Ngoài phạm vi** (để feature khác hoặc không làm)
+- Engine dùng ROI và ngưỡng để tính trạng thái (→ F13–F15, F17).
+- Đổi chế độ hiển thị (→ F28).
+- Chốt ngưỡng bằng hash cho đánh giá chính thức (→ F29).
+- Hiệu chỉnh ngưỡng tự động *(không có trong nguồn; hiệu chỉnh là việc thủ công trên tập dev, HS §5.5)*.
+- Đánh giá "tốt/kém" cho độ sáng/FPS *(nguồn không có ngưỡng; chỉ hiển thị số liệu)*.
+
+## 3. Yêu cầu chi tiết
+
+- **R1.** `PUT /api/v1/cameras/{id}/roi` `{roi_polygon: [[x, y], …]}` *(api-conventions.md; data-model.md `cameras.roi_polygon`)*. Chỉ ADMIN; vai trò khác → 403 *(api-conventions.md, bảng phân quyền)*.
+- **R2.** Backend kiểm tra polygon; vi phạm → 400 `INVALID_ROI_POLYGON`, `details.reason` cho biết lý do *(api-conventions.md; data-model.md)*:
+  - ≥3 điểm *(data-model.md `cameras.roi_polygon`)*;
+  - mọi toạ độ là số trong [0, 1] *(glossary.md "Vùng giường")*;
+  - không tự cắt: không có hai cạnh không kề nhau giao nhau, kể cả chồng lên nhau *(data-model.md `cameras.roi_polygon`)*;
+  - không có hai điểm liên tiếp trùng nhau và diện tích khác 0 (không phải các điểm thẳng hàng) *(giả định: polygon suy biến cũng không dùng được)*;
+  - tối đa 20 điểm *(giả định: đủ cho một giường, chặn dữ liệu bất thường)*.
+- **R3.** Hàm kiểm tra polygon là hàm hình học thuần, đặt ở `postcare/schemas/roi.py` để API (F08) và replay (F12) dùng chung *(giả định vị trí; `schemas` chỉ dùng stdlib + pydantic)*. Web có bản kiểm tra tương đương để báo lỗi ngay khi vẽ; backend vẫn là nơi quyết định *(giả định)*.
+- **R4.** `GET /api/v1/cameras/{id}/thresholds` → `{defaults, overrides, effective}` cho các ngưỡng chính; `PUT /api/v1/cameras/{id}/thresholds` `{thresholds: {…}}` thay toàn bộ override của camera *(api-conventions.md có PUT; GET là giả định để UI hiện giá trị mặc định)*:
+  - `thresholds = {}` nghĩa là "Khôi phục mặc định" *(giả định cách biểu diễn)*;
+  - override chỉ chấp nhận khóa có trong `config/engine.default.yaml` và giá trị cùng kiểu với giá trị mặc định; số phải ≥0; khóa lạ hoặc sai kiểu → 400 `VALIDATION_ERROR`, `details` chỉ rõ khóa *(giả định; QA#22)*;
+  - khi F10 đã xong, kiểm tra bằng `EngineConfig` sau khi hợp nhất mặc định + override *(F10 AC2)*.
+- **R5.** Ngưỡng chính hiển thị trên form, chọn theo HS §5.5 ("thời gian duy trì, ngưỡng chất lượng, khoảng cách tới biên giường và mức thay đổi vận động") và ghi chú ở event-engine.md §6 ("ngưỡng posture được override theo từng camera"):
+  - thời gian duy trì: các khóa `min_duration_s.*`;
+  - chất lượng: `pose.min_keypoint_visibility`, `quality.low_quality_to_no_observation_s`;
+  - khoảng cách tới biên giường: `location.edge_distance_torso`, `location.out_of_roi_margin_torso`;
+  - mức vận động: `activity.low_threshold`, `activity.high_threshold`;
+  - góc thân: `posture.lying_enter_deg`, `posture.lying_exit_deg`, `posture.sitting_enter_deg`, `posture.sitting_exit_deg`.
+  - Danh sách khóa hiển thị đặt ở một chỗ duy nhất phía web *(giả định)*; nhãn tiếng Việt trong `vi.ts`.
+- **R6.** Mỗi lần lưu ROI hoặc ngưỡng: tăng `cameras.config_version` và gọi `record_audit()` (`camera.update_roi`, `camera.update_thresholds`) với `before`/`after` *(data-model.md; api-conventions.md "Quy ước code backend")*.
+- **R7.** Worker nhận ROI và ngưỡng mới trong ≤5 giây nhờ cơ chế `config_version` của F06 *(A02; ADR-0002)*.
+- **R8.** Màn hình "Cấu hình camera" tại `/cameras/:id/config`, chỉ ADMIN *(PDF §9.1; api-conventions.md)*:
+  - nền là khung hình trực tiếp (MJPEG của F07);
+  - click lên ảnh → thêm điểm; kéo điểm → sửa vị trí; chọn điểm rồi bấm "Xóa điểm" → xóa; "Xóa tất cả" để vẽ lại *(QA#15)*;
+  - toạ độ lưu là toạ độ chuẩn hóa 0–1 theo kích thước ảnh đang hiển thị (`x = px / width`, `y = py / height`) *(glossary.md "Vùng giường")*;
+  - nút "Lưu vùng giường" bị khóa khi polygon chưa hợp lệ (<3 điểm hoặc tự cắt), kèm lý do tiếng Việt;
+  - camera offline → vẫn hiện và sửa được polygon đã lưu trên nền trống, kèm cảnh báo "Mất kết nối camera" *(giả định)*.
+- **R9.** Form ngưỡng hiện giá trị đang áp dụng, giá trị mặc định bên cạnh; nút "Lưu ngưỡng" và "Khôi phục mặc định" (có hộp thoại xác nhận) *(giả định hộp thoại)*.
+- **R10.** Chỉ báo chất lượng hình ảnh: "Độ sáng trung bình" (0–255) và "FPS", lấy từ khối `runtime` của `GET /api/v1/cameras/{id}` (F06), làm mới mỗi 2 giây *(PDF §9.1 "kiểm tra chất lượng hình ảnh"; giả định chu kỳ)*. Chưa có heartbeat → "Chưa có dữ liệu".
+- **R11.** Text giao diện nằm trong `web/src/i18n/vi.ts` *(ADR-0005; glossary.md)*.
+
+## 4. Thiết kế liên quan
+
+- **Module / file dự kiến:**
+  - `server/src/postcare/schemas/roi.py` (`RoiPolygon`, `validate_roi_polygon`, `segments_intersect`).
+  - `server/src/postcare/domain/camera_config.py` (`update_roi`, `get_thresholds`, `update_thresholds`); đọc `config/engine.default.yaml` qua PyYAML.
+  - `server/src/postcare/api/v1/cameras.py`: thêm `PUT /roi`, `GET/PUT /thresholds`.
+  - `server/tests/schemas/test_roi.py`, `server/tests/api/test_camera_roi.py`, `test_camera_thresholds.py`, `server/tests/integration/test_worker_receives_roi.py`.
+  - `web/src/pages/CameraConfig/CameraConfigPage.tsx`, `RoiEditor.tsx`, `ThresholdsForm.tsx`, `ImageQualityIndicator.tsx`.
+  - `web/src/utils/polygon.ts` (kiểm tra tự cắt phía web), `web/src/pages/CameraConfig/thresholdKeys.ts`.
+  - Test: `RoiEditor.test.tsx`, `ThresholdsForm.test.tsx`, `polygon.test.ts`.
+- **Dữ liệu:** `cameras.roi_polygon`, `cameras.thresholds`, `cameras.config_version`; ghi `audit_logs` (xem [data-model.md](../02-architecture/data-model.md#cameras-f01)). Không có migration mới.
+- **API:** `PUT /api/v1/cameras/{id}/roi`, `PUT /api/v1/cameras/{id}/thresholds` (xem [api-conventions.md](../02-architecture/api-conventions.md#danh-sách-endpoint-dự-kiến)); thêm `GET /api/v1/cameras/{id}/thresholds` *(giả định)*. Chạy `make gen-api-types`.
+- **UI:** màn hình "Cấu hình camera". Text cần thêm vào `vi.ts`: `cameraConfig.title` ("Cấu hình camera"), `roi.title` ("Vùng giường"), `roi.hint` ("Click lên khung hình để thêm điểm"), `roi.deletePoint` ("Xóa điểm"), `roi.clear` ("Xóa tất cả"), `roi.save` ("Lưu vùng giường"), `roi.tooFewPoints` ("Cần ít nhất 3 điểm"), `roi.selfIntersect` ("Các cạnh của vùng giường không được cắt nhau"), `thresholds.title` ("Ngưỡng quan sát"), `thresholds.save` ("Lưu ngưỡng"), `thresholds.reset` ("Khôi phục mặc định"), `thresholds.default` ("Mặc định"), nhãn từng ngưỡng ở R5, `quality.brightness` ("Độ sáng trung bình"), `quality.fps` ("FPS"), `quality.noData` ("Chưa có dữ liệu").
+- **Cấu hình:** đọc `config/engine.default.yaml`; override lưu ở `cameras.thresholds` (xem [event-engine.md §6](../02-architecture/event-engine.md#6-cấu-hình-và-ngưỡng-mặc-định)).
+
+## 5. Acceptance criteria
+
+- [ ] **AC1.** ADMIN click lên khung hình để vẽ polygon (≥3 điểm), kéo để sửa điểm, xóa điểm; polygon lưu với toạ độ chuẩn hóa 0–1. Vai trò khác không vào được màn hình và API trả 403. *(PDF §7.2; QA#15)* — *Kiểm chứng:* component test `RoiEditor adds point on click with normalized coords`, `RoiEditor drags and deletes points`, `RoiEditor disables save with fewer than 3 points`; API test `test_put_roi_saves_normalized_polygon`, `test_put_roi_requires_admin`.
+- [ ] **AC2.** Backend từ chối polygon tự cắt nhau (400 `INVALID_ROI_POLYGON`), cũng như polygon <3 điểm, toạ độ ngoài [0, 1] hoặc suy biến. *(data-model.md `cameras.roi_polygon`; api-conventions.md)* — *Kiểm chứng:* unit test `test_validate_roi_rejects_self_intersection` (hình "nơ"), `test_validate_roi_accepts_convex_and_concave`, `test_validate_roi_rejects_out_of_range`, `test_validate_roi_rejects_collinear`; API test `test_put_roi_self_intersecting_400`.
+- [ ] **AC3.** Sửa được các ngưỡng chính ở R5; "Khôi phục mặc định" xóa override và form hiện lại giá trị mặc định; khóa lạ hoặc sai kiểu → 400. Mỗi lần lưu tăng `config_version` và ghi audit. *(HS §5.5; QA#22)* — *Kiểm chứng:* API test `test_put_thresholds_override`, `test_reset_thresholds_with_empty_object`, `test_thresholds_unknown_key_400`, `test_thresholds_wrong_type_400`, `test_camera_config_changes_bump_version_and_audit`; component test `ThresholdsForm resets to defaults`.
+- [ ] **AC4.** Worker nhận ROI mới trong ≤5 giây sau khi lưu. *(A02)* — *Kiểm chứng:* test tích hợp `test_worker_receives_roi_within_5s` (đồng hồ giả lập, dùng worker của F06); kiểm tra tay: lưu ROI rồi xem log worker, ghi vào mục 10.
+- [ ] **AC5.** Màn hình hiện chỉ báo "Độ sáng trung bình" và "FPS" của camera; chưa có heartbeat thì hiện "Chưa có dữ liệu". *(PDF §9.1)* — *Kiểm chứng:* component test `ImageQualityIndicator shows brightness and fps`, `ImageQualityIndicator shows no data`.
+
+## 6. Kế hoạch test
+
+| AC | Loại test | Tên / mô tả | Ca âm tính |
+|---|---|---|---|
+| AC1 | component + API | `RoiEditor.test.tsx`; `test_put_roi_saves_normalized_polygon` | NURSE/CHARGE_NURSE/DOCTOR → 403; <3 điểm → nút lưu bị khóa |
+| AC2 | unit + API | `test_roi.py` (lồi, lõm, "nơ", cạnh chồng nhau, thẳng hàng, trùng điểm, ngoài [0,1], >20 điểm); `polygon.test.ts` cùng bộ ca | Polygon lõm hợp lệ **không** bị từ chối |
+| AC3 | API + component | `test_camera_thresholds.py`; `ThresholdsForm.test.tsx` | Khóa lạ, sai kiểu, số âm → 400; lưu thất bại không tăng `config_version` |
+| AC4 | tích hợp + thủ công | `test_worker_receives_roi_within_5s` | Không lưu gì → worker giữ nguyên cấu hình |
+| AC5 | component | `ImageQualityIndicator.test.tsx` | `runtime = null` → "Chưa có dữ liệu" |
+
+## 7. Giả định
+
+- *(giả định)* Polygon tối đa 20 điểm; polygon suy biến (thẳng hàng, trùng điểm liên tiếp) bị từ chối.
+- *(giả định)* Hàm kiểm tra polygon đặt ở `postcare/schemas/roi.py`, dùng chung cho API và replay; web có bản tương đương.
+- *(giả định)* Có thêm `GET /api/v1/cameras/{id}/thresholds` trả `defaults`, `overrides`, `effective`; cập nhật api-conventions.md cùng PR.
+- *(giả định)* Trước khi có `EngineConfig` (F10), override được kiểm tra theo cấu trúc của `config/engine.default.yaml` (khóa có tồn tại, cùng kiểu, số ≥0).
+- *(giả định)* Danh sách ngưỡng chính ở R5.
+- *(giả định)* Camera offline vẫn sửa được polygon đã lưu.
+- *(giả định)* Chỉ báo chất lượng chỉ hiển thị số liệu, không kết luận "tốt/kém"; làm mới mỗi 2 giây.
+
+## 8. Câu hỏi mở
+
+- F08 (nhánh B+C, M0) có thể xong trước F10 (nhánh A, M1), nên chưa có `EngineConfig` để kiểm tra override. Đề xuất ở R4: kiểm tra theo cấu trúc file YAML, chuyển sang `EngineConfig` khi F10 xong. Người dùng xác nhận cách này hoặc thêm F10 vào phụ thuộc của F08. **Không chặn.**
+
+## 9. Kế hoạch triển khai
+
+> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+
+1. …
+
+## 10. Ghi chú bàn giao
+
+> Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+## 11. Definition of Done
+
+- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [ ] Doc liên quan đã cập nhật cùng PR.
+- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).

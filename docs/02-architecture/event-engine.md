@@ -1,0 +1,230 @@
+# Event Detection Engine
+
+Nguồn: PDF §5, §6, §7; HS §5. Engine là **phần lõi** của sản phẩm (PDF §7). Engine biến output AI thành trạng thái và sự kiện có ý nghĩa theo nguyên tắc **"không tin một frame đơn lẻ"**.
+
+## 1. Ràng buộc thiết kế
+
+- `postcare.engine` là **Python thuần**: chỉ phụ thuộc `postcare.schemas`, stdlib, pydantic, numpy. Không import cv2, mediapipe, fastapi, sqlalchemy, httpx (import-linter kiểm tra).
+- Engine **xác định** (deterministic): cùng chuỗi `FrameObservation` + cùng cấu hình → cùng output. Engine không đọc đồng hồ hệ thống; chỉ dùng `obs.ts_ms`.
+- Mọi ngưỡng nằm trong `EngineConfig` (mặc định ở `config/engine.default.yaml`, override theo camera qua `cameras.thresholds`). **Không viết cứng số trong code rule.**
+- Mỗi trạng thái và sự kiện kèm `explanation` gồm `rule_id` và giá trị đặc trưng chính, để giải thích được với giám khảo (PDF §7) và lưu "căn cứ ngắn gọn" (HS §6.2).
+- Engine không biết về DB, giường hay người dùng. Engine chỉ nhận observation và trả `EngineOutput`.
+
+## 2. Schema vào/ra (`postcare.schemas`)
+
+```text
+FrameObservation
+  camera_id: int
+  frame_index: int
+  ts_ms: int                      # đơn điệu, theo đồng hồ khung hình
+  image_size: (width, height)
+  persons: list[PersonPose]       # 0..num_poses
+  face: FaceObservation | None    # chỉ có khi adapter face chạy (F25)
+  source_ok: bool
+
+PersonPose
+  keypoints: dict[KeypointName, Keypoint]   # tên trung lập với model: nose, left_shoulder, right_hip, left_ankle…
+  Keypoint: x, y ∈ [0,1] (chuẩn hóa theo khung hình), visibility ∈ [0,1]
+
+FaceObservation                   # OUTPUT của adapter face (F25)
+  status: OK | NOT_VISIBLE | TOO_SMALL | LOW_CONFIDENCE
+  head_box_px: int
+  blendshapes: dict[str, float]   # chỉ các khóa trong face.signals, xem mục 8
+
+FaceSignals                       # do ENGINE suy ra theo thời gian (F26)
+  eyes_closed, eyes_closed_prolonged, brow_down, eye_squint, nose_sneer, mouth_change: bool
+
+EngineContext                     # truyền khi tạo Engine(config, context), không nằm trong từng frame
+  camera_id: int
+  roi_polygon: list[(x, y)]       # chuẩn hóa 0–1; đổi ROI → worker tạo Engine mới
+
+EngineOutput
+  state: BodyStateSnapshot        # body_state, observation_quality, activity_level, rest_status, face_status, face_signals
+  state_changed: bool
+  events: list[EngineEvent]       # code, priority, occurred_at_ms, detected_at_ms, confidence, observation_quality, explanation
+```
+
+- `face = None` nghĩa là frame này không chạy face (do `face.run_every_n_frames`). Engine giữ tín hiệu mặt gần nhất trong tối đa `face.run_every_n_frames` frame, sau đó coi là `NOT_VISIBLE` *(giả định)*.
+- Vòng đời một instance `Engine` = một phiên theo dõi. Worker tạo `Engine` mới khi phiên đổi hoặc ROI/ngưỡng đổi *(giả định)*.
+
+`KeypointName` là danh sách tên trung lập. Adapter MediaPipe ánh xạ 33 landmark sang các tên này. Adapter khác (ví dụ RTMPose) ánh xạ tập keypoint của nó sang cùng tên (PDF §10).
+
+## 3. Pipeline (mỗi bước là một module, có test riêng)
+
+| # | Bước | Module | Feature | Output |
+|---|---|---|---|---|
+| 1 | Chọn người mục tiêu | `engine/target.py` | F13 | Người có tâm hông trong ROI, liên tục với vị trí trước; đếm số người trong ROI |
+| 2 | Tính đặc trưng | `engine/features.py` | F13 | hip_center, shoulder_center, trunk_angle_deg, torso_length, inside_roi, dist_to_roi_edge, ankles_outside_roi, velocity |
+| 3 | Làm mượt + chất lượng | `engine/quality.py`, `engine/smoothing.py` | F13 | Đặc trưng đã làm mượt (EMA/median); `observation_quality` |
+| 4 | Phân loại tư thế/vị trí thô | `engine/posture.py` | F14 | posture thô (LYING/RAISING/SITTING/STANDING/UNKNOWN), location (IN_BED/EDGE/OUT) |
+| 5 | State machine | `engine/state_machine.py` | F14 | `BodyState` ổn định (hysteresis + min duration) |
+| 6 | Rule sự kiện cơ thể | `engine/rules/body.py` | F15 | SIT_UP, STAND_UP, POSTURE_CHANGE, BED_EDGE, BED_EXIT, RETURN_TO_BED |
+| 7 | Vận động | `engine/activity.py`, `engine/rules/movement.py` | F23 | activity_level; ACTIVITY_*, ABNORMAL_MOVEMENT |
+| 8 | Khuôn mặt + kết hợp | `engine/face.py`, `engine/rules/face.py`, `engine/rest.py` | F26, F27 | face_signals; FACE_ATTENTION (có nâng ưu tiên); rest_status |
+| 9 | Debounce + quan sát | `engine/debounce.py`, `engine/rules/observation.py` | F15 (engine); F17 chỉ lưu | Lọc lặp; OBSERVATION_LOST / RESTORED |
+
+`engine/engine.py` có lớp `Engine` ghép các bước trên. Method `Engine.process(obs) -> EngineOutput` là API duy nhất mà worker và replay gọi (F10).
+
+## 4. Trạng thái cơ thể
+
+| Code | UI | Điều kiện vào (tóm tắt) | Nguồn |
+|---|---|---|---|
+| `LYING` | Nằm | Thân gần song song trục dài của giường; hông trong ROI | PDF §7; HS §5.1 |
+| `RAISING` | Đang nâng thân | Góc thân so với trục giường tăng dần từ nằm, chưa đạt ngưỡng ngồi | PDF §7.1 |
+| `SITTING` | Ngồi | Góc thân lớn so với trục giường (hoặc tỷ lệ torso_length đổi rõ), vai cao hơn hông, hông trong ROI | PDF §7.1 |
+| `AT_EDGE` | Ở mép giường | Ngồi + hông gần biên ROI hoặc cổ chân ra ngoài ROI (đứng thì là `STANDING`) | PDF §7.2; HS §5.2 |
+| `STANDING` | Đứng | Thân thẳng, hông cao, chân duỗi (gối–cổ chân thẳng hàng) | HS §5.1 |
+| `OUT_OF_BED` | Ngoài giường | Người mục tiêu **được quan sát** ra ngoài ROI đủ lâu | PDF §7.2; HS §5.2 |
+| `NO_OBSERVATION` | Không đủ dữ liệu quan sát | Chất lượng kém kéo dài (không có người, visibility thấp, ≥2 người trong ROI, mất nguồn) | PDF §4.3, §13.4; HS §7.1 |
+
+**Quy tắc chuyển trạng thái:**
+- Chỉ chuyển khi posture/location mới giữ liên tục ≥ `min_duration` của trạng thái đích.
+- Có **hysteresis**: ngưỡng vào ≠ ngưỡng ra (PDF §7).
+- Từ `NO_OBSERVATION` quay lại một trạng thái khác phải giữ ≥ `restore_duration`.
+- **Mất landmark hoặc bị che không bao giờ dẫn tới `OUT_OF_BED`**. Trường hợp này luôn dẫn tới `NO_OBSERVATION` (HS §5.2).
+- Chuỗi hợp lệ để có BED_EXIT: `… → AT_EDGE → (STANDING) → OUT_OF_BED` (PDF §7.2). Đoạn `NO_OBSERVATION` xen giữa chuỗi được bỏ qua khi xét chuỗi. Đi thẳng từ `LYING` sang `OUT_OF_BED` không sinh BED_EXIT; engine chỉ ghi `explanation.anomaly = "skipped_edge"` vào state *(giả định)*.
+- **Ưu tiên khi chồng lấn:** tư thế đứng → `STANDING`, kể cả khi ở gần biên ROI. `AT_EDGE` chỉ dành cho **ngồi** gần biên hoặc ngồi có cổ chân ra ngoài ROI *(giả định; khớp ví dụ trong testing.md)*.
+
+## 5. Catalog sự kiện
+
+Nguồn sự thật trong code là `postcare/schemas/events.py`. Bảng dưới phải khớp với file đó; F10 có test kiểm tra.
+
+| Code | UI (`vi.ts`) | Priority | Tạo cảnh báo? | Rule (tóm tắt) | Feature | Nguồn |
+|---|---|---|---|---|---|---|
+| `POSTURE_CHANGE` | Bệnh nhân thay đổi tư thế | LOG | Không | Đang LYING, hướng thân (góc vai) đổi > ngưỡng và giữ ổn định | F15 | HS §5.2, §5.4 |
+| `SIT_UP` | Bệnh nhân ngồi dậy | INFO | Không | LYING → RAISING → SITTING; SITTING giữ đủ lâu | F15 | PDF §7.1; HS §5.4 |
+| `STAND_UP` | Bệnh nhân đứng dậy | INFO *(giả định A11)* | Không | SITTING/AT_EDGE → STANDING giữ đủ lâu | F15 | HS §5.1 |
+| `BED_EDGE` | Bệnh nhân đang ở mép giường | MEDIUM | **Có** | Vào AT_EDGE giữ đủ lâu | F15 | PDF §7.2; HS §5.4 |
+| `BED_EXIT` | Bệnh nhân rời khỏi vùng giường | HIGH | **Có** | Vào OUT_OF_BED qua chuỗi hợp lệ, giữ đủ lâu | F15 | PDF §7.2; HS §5.2, §5.4 |
+| `RETURN_TO_BED` | Bệnh nhân quay lại giường | INFO *(giả định A11)* | Không | OUT_OF_BED → trong ROI (SITTING/LYING) giữ đủ lâu | F15 | HS §5.2 |
+| `ACTIVITY_INCREASED` | Mức vận động tăng | LOG *(giả định A11)* | Không | activity_level chuyển lên HIGH giữ đủ lâu | F23 | HS §5.1 |
+| `ACTIVITY_LOW_PROLONGED` | Ít vận động kéo dài | LOG *(giả định A11)* | Không | activity_level LOW liên tục ≥ ngưỡng | F23 | HS §5.1 |
+| `ABNORMAL_MOVEMENT` | Phát hiện chuyển động bất thường - đề nghị kiểm tra | HIGH | **Có** | ≥ N trong số các điều kiện cùng xảy ra trong cửa sổ ngắn: hông hạ nhanh, dịch chuyển mạnh, đổi hướng thân đột ngột, vị trí cuối thấp, giữ nguyên sau đó | F23 | HS §5.2, §5.4; PDF §7.3 |
+| `FACE_ATTENTION` | Phát hiện biểu hiện khuôn mặt cần kiểm tra | MEDIUM; **HIGH** khi kèm vận động HIGH hoặc đổi trạng thái | **Có** | ≥2 tín hiệu mặt cùng duy trì ≥ ngưỡng, face_status = OK | F26 | HS §5.3; PDF §6.2, §7.4 |
+| `OBSERVATION_LOST` | Không đủ dữ liệu quan sát | INFO *(giả định A11)* | Không | NO_OBSERVATION kéo dài ≥ ngưỡng | F17 | PDF §4.3; HS §7.1 |
+| `OBSERVATION_RESTORED` | Đã quan sát lại được | LOG | Không | Thoát NO_OBSERVATION | F17 | — *(giả định)* |
+| `CAMERA_OFFLINE` | Mất kết nối camera | MEDIUM *(giả định A11)* | **Có** | **API** sinh khi không nhận heartbeat quá ngưỡng (không phải engine) | F17 | PDF §10 |
+| `CAMERA_ONLINE` | Camera hoạt động lại | LOG | Không | API sinh khi nhận heartbeat lại | F17 | — *(giả định)* |
+
+Các sự kiện mức LOG/INFO chỉ vào timeline. MEDIUM/HIGH tạo cảnh báo PENDING *(giả định QA#17)*. Mức ưu tiên là ưu tiên **workflow**, không phải phân tầng nguy cơ lâm sàng (PDF §7).
+
+**Trạng thái hiển thị (không phải sự kiện):**
+- `activity_level`: LOW / NORMAL / HIGH / UNKNOWN. UNKNOWN khi NO_OBSERVATION, để mất quan sát không bị tính là "ít vận động" *(giả định)*.
+- `rest_status`: RESTING ("Đang nghỉ - dữ liệu tham khảo") / ACTIVE ("Đang hoạt động") / UNKNOWN. Xem HS §5.3, PDF §6.3, F27.
+- `face_status` và `face_signals`.
+
+`rest_status` chỉ hiển thị trên Tổng quan và Theo dõi trực tiếp. Nó **không** được ghi vào timeline *(giả định; F27)*.
+
+**Nâng ưu tiên FACE_ATTENTION:** từ MEDIUM lên HIGH khi, trong cửa sổ `face.attention_hold_s`, có `activity_level = HIGH` **hoặc** có chuyển trạng thái cơ thể (không tính vào/ra NO_OBSERVATION). Đây là diễn giải gộp của HS §5.3 và PDF §7.4.
+
+## 6. Cấu hình và ngưỡng mặc định
+
+File `config/engine.default.yaml`. Mọi giá trị dưới đây là ***giả định khởi điểm***: hiệu chỉnh trên tập dev (F16), **chốt** bằng `config_hash` trước khi chạy tập test (F29; HS §8.2). Thời gian tính bằng giây, khoảng cách chuẩn hóa theo chiều dài thân (`torso_length`) trừ khi ghi khác.
+
+```yaml
+version: 1
+pose:
+  num_poses: 2                    # A04
+  min_keypoint_visibility: 0.5
+  required_keypoints: [left_shoulder, right_shoulder, left_hip, right_hip]
+quality:
+  low_quality_to_no_observation_s: 2.0
+  restore_duration_s: 1.0
+  observation_lost_event_s: 10.0
+target:
+  max_jump_torso_lengths: 1.5      # nhảy xa hơn → coi là người khác
+smoothing:
+  ema_alpha: 0.4
+posture:                           # góc giữa thân (hông→vai) và trục dài của giường (lấy từ ROI), độ
+  lying_enter_deg: 25              # thân gần song song trục giường
+  lying_exit_deg: 35               # hysteresis
+  sitting_enter_deg: 55
+  sitting_exit_deg: 45
+  torso_length_ratio_sitting: 0.8  # coi là ngồi khi |torso_length / torso_length_lúc_nằm − 1| ≥ (1 − 0.8); phối cảnh có thể làm thân ngắn hoặc dài ra
+  standing_hip_above_knee_ratio: 0.8  # đứng khi (knee_y − hip_y) ≥ 0.8 × (ankle_y − knee_y), tính theo pixel ảnh (y hướng xuống)
+location:
+  edge_distance_torso: 0.3         # hip_center cách biên ROI < 0.3 × torso_length
+  out_of_roi_margin_torso: 0.2
+min_duration_s:
+  RAISING: 0.5
+  SITTING: 2.0
+  AT_EDGE: 1.5
+  STANDING: 1.0
+  OUT_OF_BED: 1.0
+  LYING: 2.0
+  RETURN_TO_BED: 3.0
+posture_change:
+  shoulder_angle_delta_deg: 35
+  stable_s: 3.0
+debounce:
+  same_code_same_session_s: 60     # A01
+activity:
+  window_s: 5.0
+  low_threshold: 0.02
+  high_threshold: 0.15
+  low_prolonged_s: 300
+  increased_hold_s: 3.0
+abnormal_movement:
+  window_s: 1.5
+  hip_drop_speed_torso_per_s: 1.5
+  displacement_torso: 1.0
+  trunk_angle_change_deg: 50
+  final_low_position_ratio: 0.8     # hip_y ≥ 0.8 × chiều cao khung hình
+  hold_after_s: 2.0
+  min_conditions: 3
+face:
+  enabled: true                    # tắt để đo FPS hoặc khi thu hẹp M3 (F25)
+  min_head_box_px: 80              # A05
+  run_every_n_frames: 2            # A05
+  head_crop_scale: 1.6             # nới vùng đầu khi cắt (F25)
+  # Gộp nhiều khóa của một tín hiệu (trái/phải, mouth*) bằng max (F26)
+  signals:                         # ngưỡng blendshape 0..1
+    eyes_closed: {keys: [eyeBlinkLeft, eyeBlinkRight], threshold: 0.6}
+    brow_down: {keys: [browDownLeft, browDownRight], threshold: 0.5}
+    eye_squint: {keys: [eyeSquintLeft, eyeSquintRight], threshold: 0.5}
+    nose_sneer: {keys: [noseSneerLeft, noseSneerRight], threshold: 0.4}
+    mouth_change: {keys: [mouthPressLeft, mouthPressRight, mouthStretchLeft, mouthStretchRight], threshold: 0.5}
+  eyes_closed_prolonged_s: 10.0
+  attention_min_signals: 2
+  attention_hold_s: 5.0
+rest:
+  low_activity_s: 60.0
+  eyes_closed_s: 30.0
+  active_hold_s: 2.0               # giữ trước khi RESTING → ACTIVE (F27)
+privacy:                           # chỉ ảnh hưởng hiển thị, KHÔNG tính vào config_hash (F28)
+  head_box_scale: 1.8
+  pixelate_blocks: 12
+  head_hold_s: 1.0
+```
+
+Engine tính `config_hash` (sha256 của cấu hình đã hợp nhất, dạng chuẩn) và gắn vào mọi sự kiện. **Hash tính trên mọi khóa trừ `privacy.*`**, vì đổi cách hiển thị không làm đổi kết quả phát hiện. Mỗi cấu hình camera (default + override) có một hash. Tập test dùng một cấu hình camera *(giả định)*.
+
+> **Lưu ý về góc nhìn *(giả định)*:** Góc thân 2D phụ thuộc vào vị trí camera.
+> - Đo **so với trục dài của giường** (trục chính của polygon ROI) thì không phụ thuộc hướng giường trong khung hình.
+> - Khi camera nhìn gần dọc theo trục giường (đặt ở đầu hoặc chân giường), góc 2D kém tin cậy. Khi đó dùng thêm tỷ lệ `torso_length` so với lúc nằm (phối cảnh làm thân ngắn hoặc dài ra khi ngồi dậy).
+> - Vị trí camera chốt qua thử nghiệm (HS §4.1). Ngưỡng posture được override theo từng camera.
+
+## 7. Debounce và chống trùng
+
+- Engine: không phát lại cùng `code` trong `same_code_same_session_s` giây, tính từ lần phát trước. "Session" ở đây là vòng đời một instance `Engine` (mục 2).
+- Worker: mỗi sự kiện có `event_uid` (UUID v4). Khi gửi lại do lỗi mạng, dùng lại uid cũ.
+- API: chống trùng theo `event_uid` (F17).
+
+## 8. Tín hiệu khuôn mặt
+
+- Face Landmarker trả 52 blendshape (PDF §6.2). Engine chỉ dùng tập con trong `face.signals`.
+- Ánh xạ tên blendshape chỉ khai báo ở `config/engine.default.yaml`. Adapter lọc đúng các khóa này (F25).
+- **Không** gán nhãn "đau", "ngủ", "mất ý thức" (PDF §6.2; HS §5.3).
+- `face_status != OK` thì không tạo tín hiệu hay sự kiện mặt, và **không** coi là bình thường (HS §9.1).
+
+## 9. Kiểm thử engine
+
+Xem [testing.md](../04-guides/testing.md#2-engine):
+- Builder tạo chuỗi pose tổng hợp (nằm → ngồi → mép → đứng → ra ngoài).
+- Fixture JSONL ghi từ video thật (chỉ toạ độ).
+- Mỗi rule có cả ca dương tính và **ca âm tính**:
+  - ngồi dậy rồi nằm lại;
+  - nhiễu 1–3 frame;
+  - mất landmark;
+  - người đi ngang ngoài ROI;
+  - trở mình.

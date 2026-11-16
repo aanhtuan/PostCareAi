@@ -1,0 +1,10 @@
+# Chuẩn hóa xuống dòng LF cho mọi file text (tránh lỗi CRLF khi dùng nhiều tool trên Windows)
+* text=auto eol=lf
+
+# Binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.mp4 binary
+*.task binary

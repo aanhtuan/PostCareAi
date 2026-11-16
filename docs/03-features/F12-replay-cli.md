@@ -1,0 +1,122 @@
+# F12 – Replay CLI và fixture
+
+| Thuộc tính | Giá trị |
+|---|---|
+| Mã | F12 |
+| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Ưu tiên | MVP |
+| Milestone | M1 |
+| Ước lượng | 2 phiên |
+| Phụ thuộc | F11 |
+| Nhánh code | A (vision/engine) |
+| Nguồn | PDF §12 (tr.13–14), §13 (tr.14), §13.1 (tr.14); HS §5.5, §8.1, §8.2; QA#27, QA#29; ADR-0003, ADR-0008 |
+
+## 1. Mục tiêu
+
+Cung cấp lệnh `postcare replay` chạy **cùng pipeline** với worker (Camera Service → pose adapter → engine) trên file video và ghi kết quả ra JSONL, không gọi API. PDF §12 đề xuất "dùng file video để xây và kiểm thử Event Engine trước, sau đó mới chuyển sang camera realtime". Replay là đầu vào của công cụ đánh giá trên tập phát triển (F16; HS §8.1–8.2; ADR-0008), giúp hiệu chỉnh ngưỡng có số liệu (HS §5.5). Từ kết quả replay, nhóm cắt các đoạn observation thành fixture test chỉ chứa toạ độ (testing.md §2), để test engine chạy xác định mà không cần video hay model.
+
+## 2. Phạm vi
+
+**Trong phạm vi**
+- `postcare replay --video … --camera-config … --out runs/<id>/` → `observations.jsonl`, `events.jsonl`, `frames.jsonl`, cộng `run.json` (thông tin lần chạy).
+- Chế độ `--from-observations`: chạy lại chỉ engine, không cần MediaPipe, kết quả giống hệt giữa các lần chạy.
+- `--preview`: ghi video mp4 có vẽ skeleton, ROI, trạng thái vào `runs/<id>/`.
+- Cắt đoạn observation làm fixture `server/tests/fixtures/<scenario>.jsonl`, kèm file kỳ vọng `.expected.json`.
+- Định dạng file cấu hình camera dùng khi quay (`config/cameras/<setup>.yaml`).
+- Khung test regression chạy engine trên mọi fixture.
+- Hàm pipeline dùng chung giữa replay và worker.
+
+**Ngoài phạm vi** (để feature khác hoặc không làm)
+- Manifest, ground truth, tính metric (→ F16).
+- Đánh giá chính thức với ngưỡng đã chốt (→ F29).
+- Phát lại video như một camera realtime cho worker (→ F30).
+- Chế độ hiển thị làm mờ / chỉ skeleton cho dashboard (→ F28). Preview ở đây chỉ là công cụ dev.
+- Face trong replay (→ F25 bổ sung khi có face adapter).
+
+## 3. Yêu cầu chi tiết
+
+- **R1.** `postcare replay --video <path> --camera-config <yaml> --out runs/<id>/` *(PDF §12; overview.md §6)*:
+  - đọc video bằng `FileSource` (F05, dùng thời gian của video);
+  - chạy `MediaPipePoseAdapter` (F11) rồi `Engine.process()` (F10) cho từng khung;
+  - ghi `observations.jsonl` (mỗi dòng một `FrameObservation`), `events.jsonl` (mỗi dòng một `EngineEvent` kèm `config_hash`), `frames.jsonl` (mỗi khung một dòng: `frame_index`, `ts_ms`, `body_state`, `observation_quality`, `activity_level`, `rest_status`, `face_status`, số người) *(giả định nội dung `frames.jsonl`; F16 dùng để tính coverage)*;
+  - ghi `run.json`: đường dẫn video, `config_hash`, phiên bản code (commit nếu có), thời lượng video, số khung, FPS xử lý, số khung bỏ, CPU %/RAM MB *(giả định; HS §8.2: FPS, CPU/RAM, frame bỏ)*;
+  - thư mục `--out` đã có dữ liệu → báo lỗi, trừ khi có `--overwrite` *(giả định)*.
+- **R2.** Replay dùng **chung** code pipeline với worker: hàm `process_frame(frame, adapter, engine) -> (FrameObservation, EngineOutput)` đặt ở module dùng chung *(overview.md §6: "`replay` dùng **chung** pipeline `vision` + `engine` với worker")*. Vị trí đề xuất `postcare/pipeline.py` *(giả định: `vision` không được import `engine` nên không đặt trong `vision`; cập nhật bảng module của overview.md cùng PR)*.
+- **R3.** File cấu hình camera `config/cameras/<setup>.yaml` gồm `roi_polygon` (toạ độ chuẩn hóa 0–1) và `thresholds` (override, có thể rỗng) *(evaluation.md §4)*. ROI kiểm tra bằng `validate_roi_polygon` (`postcare/schemas/roi.py`, F08) *(giả định: feature nào làm trước thì tạo hàm này)*; ngưỡng hợp nhất bằng `EngineConfig.load()` (F10). Sai định dạng → lỗi rõ, exit khác 0.
+- **R4.** `postcare replay --from-observations runs/<id>/observations.jsonl --camera-config <yaml> --out runs/<id2>/` chạy lại chỉ engine, **không** import hay khởi tạo MediaPipe *(ADR-0008; overview.md §6 "nhanh, xác định")*.
+- **R5.** Tính xác định: hai lần chạy `--from-observations` với cùng input và cùng cấu hình cho `events.jsonl` và `frames.jsonl` **giống hệt từng byte** *(event-engine.md §1 "Engine xác định")*. Muốn vậy:
+  - không ghi thời gian thực (đồng hồ máy) vào hai file này; thời gian chỉ lấy từ `ts_ms`;
+  - số liệu phụ thuộc máy (FPS xử lý, CPU, RAM, thời điểm chạy) chỉ ghi vào `run.json` *(giả định)*;
+  - JSON ghi theo thứ tự trường cố định, mã hóa UTF-8, xuống dòng LF.
+- **R6.** `--preview` ghi `runs/<id>/preview.mp4`: khung gốc có vẽ skeleton của mọi người, polygon ROI, `body_state` và `observation_quality` hiện tại, và nhãn sự kiện vừa phát *(PDF §12; giả định nội dung vẽ)*. Thư mục `runs/` đã nằm trong `.gitignore`. Hàm vẽ ở `postcare/vision/render.py` *(overview.md: `vision.render`)*. Đây là công cụ dev, không phải UI người dùng cuối; nhãn vẽ dùng mã nội bộ được *(giả định)*.
+- **R7.** Cắt fixture *(testing.md §2)*:
+  - `postcare replay --from-observations <file> --start-s <a> --end-s <b> --save-observations server/tests/fixtures/<scenario>.jsonl` ghi các observation trong khoảng [a, b] *(giả định tên tham số)*;
+  - `--save-expected` ghi thêm `server/tests/fixtures/<scenario>.expected.json` là danh sách sự kiện (`code`, `occurred_at_ms`) engine phát ra trên đoạn đó; người làm feature xem lại file này so với ground truth trước khi commit *(giả định)*;
+  - fixture **chỉ chứa toạ độ** và các trường của `FrameObservation`, không chứa ảnh, pixel hay đường dẫn tới video *(testing.md §2; QA#29)*.
+- **R8.** Test regression `server/tests/engine/test_fixtures_regression.py`: với mỗi `*.jsonl` trong `server/tests/fixtures/` có file `.expected.json` đi kèm, chạy engine và so danh sách sự kiện *(testing.md §2)*. Chưa có fixture nào → test này không thu ca nào và không làm đỏ `make check`.
+- **R9.** Replay không gọi API và không cần DB *(overview.md §3: `replay` không import `api`, `db`)*.
+- **R10.** Video nguồn nằm ngoài git (`data/`); không ghi khung hình nào ra file ngoài `preview.mp4` khi người dùng yêu cầu *(QA#27, QA#29)*.
+
+## 4. Thiết kế liên quan
+
+- **Module / file dự kiến:**
+  - `server/src/postcare/replay/__init__.py`, `replay/runner.py` (chạy video hoặc từ observations), `replay/writers.py` (JSONL, `run.json`), `replay/fixtures.py` (cắt đoạn, ghi expected).
+  - `server/src/postcare/replay/camera_config.py` (đọc `config/cameras/<setup>.yaml`) *(giả định tên file)*.
+  - `server/src/postcare/pipeline.py` (`process_frame`) *(giả định vị trí)*.
+  - `server/src/postcare/vision/render.py`: `draw_debug_overlay()`.
+  - `server/src/postcare/cli.py`: lệnh `replay`.
+  - `config/cameras/example.yaml` (ROI mẫu, không có dữ liệu người).
+  - Test: `server/tests/replay/test_from_observations_deterministic.py`, `test_replay_outputs.py` (dùng `FakeFrameSource` + `FakePoseAdapter`), `test_fixture_cut.py`, `server/tests/engine/test_fixtures_regression.py`; test vision `server/tests/vision/test_replay_video.py` (marker `vision`).
+- **Dữ liệu:** không có bảng. Đầu ra trong `runs/` (gitignore); fixture trong `server/tests/fixtures/` (commit, chỉ toạ độ).
+- **API:** không có.
+- **UI:** không có.
+- **Cấu hình:** `config/cameras/<setup>.yaml`; `config/engine.default.yaml` (xem [event-engine.md §6](../02-architecture/event-engine.md#6-cấu-hình-và-ngưỡng-mặc-định), [evaluation.md §4](../04-guides/evaluation.md#4-định-dạng-file)).
+
+## 5. Acceptance criteria
+
+- [ ] **AC1.** `postcare replay --video X --camera-config cam.yaml --out runs/<id>/` xuất `observations.jsonl`, `events.jsonl`, `frames.jsonl` và `run.json`; mỗi dòng JSONL parse được bằng schema tương ứng. *(PDF §12; overview.md §6)* — *Kiểm chứng:* test `test_replay_writes_all_outputs` (`FakeFrameSource` + `FakePoseAdapter`, chạy trong `make check`); test vision `test_replay_real_video` trên video trong `data/` (`make test-vision`).
+- [ ] **AC2.** `--from-observations` chạy lại engine không cần MediaPipe; 2 lần chạy cho `events.jsonl` và `frames.jsonl` giống hệt từng byte. *(ADR-0008; event-engine.md §1)* — *Kiểm chứng:* test `test_from_observations_deterministic` (so sánh byte), `test_from_observations_does_not_import_mediapipe` (kiểm tra `sys.modules`).
+- [ ] **AC3.** `--preview` ghi `runs/<id>/preview.mp4` có vẽ skeleton, ROI và trạng thái; `runs/` nằm trong `.gitignore`. *(PDF §12)* — *Kiểm chứng:* test `test_preview_writes_mp4` (đọc lại bằng OpenCV: đúng số khung, kích thước); xem tay một preview trên video thật, ghi vào mục 10.
+- [ ] **AC4.** Lệnh cắt đoạn observation tạo fixture `server/tests/fixtures/<scenario>.jsonl` chỉ chứa toạ độ (không ảnh), kèm `.expected.json`; test regression chạy engine trên mọi fixture. *(testing.md §2; HS §8.1; QA#29)* — *Kiểm chứng:* test `test_fixture_cut_range`, `test_fixture_contains_only_observation_fields`, `test_fixtures_regression` (với một fixture tổng hợp nhỏ tạo bằng builder hoặc tay).
+
+## 6. Kế hoạch test
+
+| AC | Loại test | Tên / mô tả | Ca âm tính |
+|---|---|---|---|
+| AC1 | unit + vision | `test_replay_writes_all_outputs`; `test_replay_real_video` (marker `vision`) | `--out` đã có dữ liệu, không có `--overwrite` → lỗi; `camera-config` sai ROI → exit khác 0 |
+| AC2 | unit | `test_from_observations_deterministic`, `test_from_observations_does_not_import_mediapipe` | `observations.jsonl` hỏng một dòng → lỗi nêu số dòng *(giả định)* |
+| AC3 | unit + thủ công | `test_preview_writes_mp4` | Không có `--preview` → không tạo file mp4 |
+| AC4 | unit | `test_fixture_cut_range`, `test_fixture_contains_only_observation_fields`, `test_fixtures_regression` | Khoảng `--start-s` > `--end-s` → lỗi; fixture không có `.expected.json` → bị bỏ qua có thông báo |
+
+## 7. Giả định
+
+- *(giả định)* Nội dung `frames.jsonl` và `run.json` ở R1.
+- *(giả định)* `--out` đã có dữ liệu → lỗi trừ khi `--overwrite`.
+- *(giả định)* Hàm pipeline dùng chung đặt ở `postcare/pipeline.py`; cập nhật bảng module của overview.md cùng PR.
+- *(giả định)* Số liệu phụ thuộc máy chỉ ghi vào `run.json` để giữ hai file kết quả xác định.
+- *(giả định)* Tên tham số `--start-s`, `--end-s`, `--save-observations`, `--save-expected`.
+- *(giả định)* File `.expected.json` do lệnh sinh ra và được người xem lại trước khi commit.
+- *(giả định)* Preview dùng mã nội bộ trong nhãn vẽ (công cụ dev).
+- *(giả định)* `validate_roi_polygon` dùng chung với F08; feature nào làm trước thì tạo.
+
+## 8. Câu hỏi mở
+
+- Chưa quay tập dev (task không phải code, tuần 3 theo ADR-0008) thì AC1 phần video thật và AC3 phần xem tay chỉ kiểm chứng được trên video thử của nhóm. **Không chặn** code; chặn việc tick phần kiểm chứng thủ công.
+
+## 9. Kế hoạch triển khai
+
+> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+
+1. …
+
+## 10. Ghi chú bàn giao
+
+> Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+## 11. Definition of Done
+
+- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [ ] Doc liên quan đã cập nhật cùng PR.
+- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).

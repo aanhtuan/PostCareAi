@@ -1,0 +1,107 @@
+# F28 – Chế độ riêng tư khi hiển thị
+
+| Thuộc tính | Giá trị |
+|---|---|
+| Mã | F28 |
+| Trạng thái | Todo |
+| Ưu tiên | MVP |
+| Milestone | M4 |
+| Ước lượng | 2 phiên |
+| Phụ thuộc | F07, F11 |
+| Nhánh code | A (vision/engine) + C (frontend/test) |
+| Nguồn | PDF §11 (tr.13), §14 (tr.16), §16 (tr.17), bảng tr.10; HS §6.3, §7.3; QA#29; A08 |
+
+## 1. Mục tiêu
+
+Giảm lượng hình ảnh nhận dạng mà người dùng phải xem trên dashboard, nhưng vẫn giữ nguyên khả năng phát hiện sự kiện (PDF §11, §16; HS §6.3). Mỗi camera có một trong ba chế độ hiển thị: **Video gốc** (`RAW`, chỉ dùng trong môi trường thử nghiệm), **Làm mờ khuôn mặt** (`BLUR`, mặc định) và **Chỉ skeleton + ROI** (`SKELETON`). Khung hình được render theo chế độ **ngay trong worker**, trước khi gửi lên API. Nhờ vậy ở chế độ `SKELETON`, ảnh gốc không rời khỏi tiến trình worker. HS §7.3 đặt "privacy mode" trong đầu ra tuần 9–10.
+
+## 2. Phạm vi
+
+**Trong phạm vi**
+- `vision.render`: ba hàm render `RAW` / `BLUR` / `SKELETON`.
+- Làm mờ dựa trên vùng đầu ước lượng từ pose (dùng chung hàm với F25).
+- `PUT /api/v1/cameras/{id}/display-mode`, phân quyền, audit, tăng `config_version`.
+- Worker áp dụng chế độ mới qua cơ chế poll cấu hình (F06).
+- UI "Theo dõi trực tiếp": hiển thị chế độ hiện tại; ADMIN và CHARGE_NURSE đổi được.
+- Replay có tùy chọn chế độ hiển thị cho video preview.
+
+**Ngoài phạm vi** (để feature khác hoặc không làm)
+- Lưu video hoặc ảnh (không làm; QA#29).
+- Chế độ riêng tư theo từng người dùng hoặc theo phiên (không có trong nguồn).
+- Kịch bản demo privacy (tùy chọn trong runbook → F30).
+- Nhận diện danh tính, che mặt dựa trên nhận diện (không làm; PDF §4.2).
+
+## 3. Yêu cầu chi tiết
+
+- **R1.** Ba chế độ theo camera, lưu ở `cameras.display_mode` (`RAW`, `BLUR`, `SKELETON`). Mặc định `BLUR`. Giá trị thiếu hoặc không hợp lệ phía worker → dùng `BLUR`. *(PDF §11; HS §6.3; A08; giả định cho phần dự phòng)*
+- **R2.** Chỉ ADMIN và CHARGE_NURSE đổi được chế độ; NURSE và DOCTOR nhận 403 `FORBIDDEN`. Mỗi lần đổi ghi audit `camera.update_display_mode` (before/after) và tăng `config_version`. *(api-conventions.md ma trận quyền; giả định QA#18)*
+- **R3.** Worker nhận chế độ mới qua `GET /internal/v1/cameras/{id}/config` và áp dụng trong ≤ 5 giây. *(A02; F06 AC3)*
+- **R4.** Render diễn ra trong worker (`vision.render`) trước `POST /internal/v1/cameras/{id}/frame`. API và MJPEG chỉ chuyển tiếp JPEG đã render. *(overview.md mục 2, 7)*
+- **R5.** `SKELETON`: khung gửi đi được vẽ trên nền trơn mới tạo, chỉ gồm Bed ROI và skeleton của các người pose phát hiện. **Không** chứa pixel nào lấy từ ảnh gốc. *(PDF §11, §16)*
+- **R6.** `BLUR`: làm mờ (pixelate) vùng đầu của **mọi** người pose phát hiện (tối đa `pose.num_poses`). Vùng đầu lấy từ keypoint pose (hàm của F25), nới theo `privacy.head_box_scale`. Làm mờ **không** phụ thuộc Face Landmarker: mặt quay đi hay `face_status ≠ OK` vẫn mờ. *(PDF bảng tr.10 "OpenCV + landmarks"; giả định: khóa mới `privacy.head_box_scale`, `privacy.pixelate_blocks`)*
+- **R7.** Dự phòng khi không ước lượng được vùng đầu trong frame hiện tại: dùng vùng đầu gần nhất nếu chưa quá `privacy.head_hold_s`; quá thời gian đó thì làm mờ **toàn khung**. *(giả định: ưu tiên riêng tư khi pose mất người; khóa mới `privacy.head_hold_s`)*
+- **R8.** Chế độ hiển thị **không** ảnh hưởng engine: cùng input cho cùng danh sách sự kiện ở cả ba chế độ. *(PDF §11, §16)*
+- **R9.** `postcare replay` có tùy chọn `--display-mode RAW|BLUR|SKELETON` cho video `--preview` (mặc định `BLUR`). *(giả định: để kiểm chứng R8 và chuẩn bị demo)*
+- **R10.** UI "Theo dõi trực tiếp" hiện tên chế độ: "Video gốc" / "Làm mờ khuôn mặt" / "Chỉ skeleton + ROI" (glossary.md). Chỉ ADMIN và CHARGE_NURSE thấy nút đổi. Text nằm trong `vi.ts`. *(PDF §9.1 (tr.11); glossary.md)*
+
+## 4. Thiết kế liên quan
+
+- **Module / file dự kiến:**
+  - `server/src/postcare/vision/render.py` (hoặc gói `vision/render/`): `render_raw`, `render_blur`, `render_skeleton`.
+  - `server/src/postcare/vision/inference/head_region.py`: dùng chung với F25 (feature nào làm trước thì tạo).
+  - `server/src/postcare/worker/`: chọn hàm render theo `display_mode` của cấu hình.
+  - `server/src/postcare/api/v1/cameras.py`, `server/src/postcare/domain/cameras.py`: endpoint đổi chế độ, audit.
+  - `server/src/postcare/replay/`: tùy chọn `--display-mode`.
+  - `web/src/pages/LiveView/DisplayModeControl.tsx`, `web/src/i18n/vi.ts`.
+- **Dữ liệu:** `cameras.display_mode` (enum `display_mode`, mặc định `BLUR`), `cameras.config_version`, `audit_logs` ([data-model.md](../02-architecture/data-model.md)). Không cần migration nếu F01 đã tạo cột.
+- **API:** `PUT /api/v1/cameras/{id}/display-mode` `{display_mode}` → camera; `GET /internal/v1/cameras/{id}/config` trả `display_mode` ([api-conventions.md](../02-architecture/api-conventions.md)).
+- **UI:** "Theo dõi trực tiếp": nhãn chế độ và nút đổi theo vai trò.
+- **Cấu hình:** khóa mới *(giả định)* trong mục `privacy` của `config/engine.default.yaml`: `privacy.head_box_scale`, `privacy.pixelate_blocks`, `privacy.head_hold_s`. Dùng lại `pose.num_poses`, `pose.min_keypoint_visibility`.
+
+## 5. Acceptance criteria
+
+- [ ] **AC1.** Mỗi camera có 3 chế độ, mặc định `BLUR`. ADMIN và CHARGE_NURSE đổi được (ghi audit, tăng `config_version`, worker áp dụng ≤ 5 giây); NURSE và DOCTOR → 403. *(PDF §11; A08; api-conventions.md)* — *Kiểm chứng:* API test `test_put_display_mode_by_role` (4 vai trò), `test_display_mode_change_writes_audit_and_bumps_version`; test tích hợp worker với `FakeFrameSource` nhận chế độ mới sau một chu kỳ poll.
+- [ ] **AC2.** Chế độ `SKELETON`: khung gửi đi không chứa pixel ảnh gốc. *(PDF §11, §16)* — *Kiểm chứng:* test `test_skeleton_render_independent_of_source_pixels`: render cùng pose trên hai ảnh nhiễu ngẫu nhiên khác nhau → hai output giống hệt từng byte.
+- [ ] **AC3.** Chế độ `BLUR` làm mờ vùng đầu lấy từ pose, kể cả khi Face Landmarker không thấy mặt; không ước lượng được vùng đầu quá `privacy.head_hold_s` → mờ toàn khung. *(PDF bảng tr.10; HS §6.3)* — *Kiểm chứng:* test `test_blur_uses_pose_head_region_without_face` (vùng đầu khác ảnh gốc, vùng ngoài giữ nguyên), `test_blur_falls_back_to_full_frame`.
+- [ ] **AC4.** Replay cùng một video ở 3 chế độ cho cùng danh sách sự kiện. *(PDF §11, §16)* — *Kiểm chứng:* test `test_display_mode_does_not_change_events` (replay từ fixture observation với 3 giá trị `--display-mode`, so sánh `events.jsonl`).
+- [ ] **AC5.** "Theo dõi trực tiếp" hiện tên chế độ hiện tại bằng tiếng Việt; chỉ ADMIN và CHARGE_NURSE thấy nút đổi. *(PDF §9.1; glossary.md)* — *Kiểm chứng:* component test `DisplayModeControl.test.tsx` cho 4 vai trò; `vi.test.ts` quét từ cấm.
+
+## 6. Kế hoạch test
+
+| AC | Loại test | Tên / mô tả | Ca âm tính |
+|---|---|---|---|
+| AC1 | API + tích hợp | `test_put_display_mode_by_role`, `test_display_mode_change_writes_audit_and_bumps_version`, `test_worker_applies_new_display_mode` | NURSE/DOCTOR → 403; giá trị `"FOO"` → 400 `VALIDATION_ERROR` |
+| AC2 | unit (render) | `test_skeleton_render_independent_of_source_pixels` | — |
+| AC3 | unit (render) | `test_blur_uses_pose_head_region_without_face`, `test_blur_two_people`, `test_blur_falls_back_to_full_frame` | Không có người quá `privacy.head_hold_s` → mờ toàn khung, không trả ảnh gốc |
+| AC4 | tích hợp (replay) | `test_display_mode_does_not_change_events` | — |
+| AC5 | component | `DisplayModeControl.test.tsx` | DOCTOR không thấy nút đổi |
+| — | thủ công | Xem MJPEG ở 3 chế độ với camera thật; quay mặt đi khi ở `BLUR` → vẫn mờ | — |
+
+## 7. Giả định
+
+- *(giả định A08)* Chế độ mặc định là "Làm mờ khuôn mặt".
+- *(giả định QA#18)* ADMIN và CHARGE_NURSE được đổi chế độ.
+- *(giả định)* Làm mờ bằng pixelate; khóa mới `privacy.head_box_scale`, `privacy.pixelate_blocks`, `privacy.head_hold_s`.
+- *(giả định)* Mất vùng đầu quá `privacy.head_hold_s` → mờ toàn khung.
+- *(giả định)* Tùy chọn `--display-mode` của replay.
+- *(giả định)* Giới hạn: pose chỉ phát hiện tối đa `pose.num_poses` người; người thứ ba trở đi có thể không được làm mờ. Ghi vào runbook (F30): dùng `SKELETON` khi có nhiều người trong khung.
+
+## 8. Câu hỏi mở
+
+- Khóa `privacy.*` nằm trong `config/engine.default.yaml` nên sẽ làm đổi `config_hash` dù không ảnh hưởng sự kiện. Sau khi chốt ngưỡng (F29), sửa các khóa này sẽ làm `--frozen` từ chối chạy. Có nên loại mục `privacy` khỏi phép tính hash hoặc tách ra file riêng không? **Không chặn**; mặc định giữ trong file và chốt giá trị trước F29.
+
+## 9. Kế hoạch triển khai
+
+> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+
+## 10. Ghi chú bàn giao
+
+> Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+## 11. Definition of Done
+
+- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [ ] Doc liên quan đã cập nhật cùng PR.
+- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).

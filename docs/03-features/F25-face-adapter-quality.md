@@ -1,0 +1,112 @@
+# F25 – Face adapter và cổng chất lượng khuôn mặt
+
+| Thuộc tính | Giá trị |
+|---|---|
+| Mã | F25 |
+| Trạng thái | Todo |
+| Ưu tiên | MVP |
+| Milestone | M3 |
+| Ước lượng | 2 phiên |
+| Phụ thuộc | F11, F13 |
+| Nhánh code | A (vision/engine) |
+| Nguồn | PDF §6.2 (tr.7–8), §17 (tr.17); HS §4.1, §5.3, §9.1; A05; ADR-0003 |
+
+## 1. Mục tiêu
+
+Đưa MediaPipe Face Landmarker vào pipeline như một nhánh **phụ, có điều kiện**. Face chỉ chạy khi vùng đầu của người mục tiêu đủ lớn và rõ. Kết quả được chuẩn hóa thành `FaceObservation` (schema chung) chứa một tập con blendshape nhỏ. Góc quay toàn thân làm mặt nhỏ hoặc nghiêng, nên Pose vẫn là nhánh chính; mất tín hiệu mặt hoặc lỗi face **không** được làm gián đoạn theo dõi cơ thể (HS §4.1; PDF §6.2, §17). Feature này phục vụ F26 (tín hiệu mặt, FACE_ATTENTION) và F27 (trạng thái nghỉ/hoạt động).
+
+## 2. Phạm vi
+
+**Trong phạm vi**
+- Tải model `face_landmarker.task` bằng `make models` (kèm checksum).
+- Adapter Face Landmarker chế độ `VIDEO`, bật blendshapes, chạy trên ảnh cắt vùng đầu.
+- Ước lượng vùng đầu (head box) từ keypoint đầu của pose; cổng chất lượng (`OK` / `NOT_VISIBLE` / `TOO_SMALL` / `LOW_CONFIDENCE`).
+- Lọc blendshape theo danh sách khóa khai báo trong `config/engine.default.yaml` (một chỗ duy nhất).
+- Cô lập lỗi: face lỗi thì pose và engine vẫn chạy.
+- Chạy face mỗi N frame; đo FPS khi bật và tắt face.
+
+**Ngoài phạm vi** (để feature khác hoặc không làm)
+- Tính tín hiệu theo thời gian (mắt đóng, hạ lông mày…), FACE_ATTENTION, hiển thị trên UI (→ F26).
+- Trạng thái nghỉ/hoạt động (→ F27).
+- Làm mờ khuôn mặt khi hiển thị (→ F28; F28 dùng lại hàm ước lượng vùng đầu).
+- Nhận diện danh tính bằng khuôn mặt; Py-Feat; head pose chi tiết (không làm; PDF §4.2, §6.2).
+
+## 3. Yêu cầu chi tiết
+
+- **R1.** Dùng MediaPipe Tasks `FaceLandmarker`, chế độ `VIDEO`, `output_face_blendshapes=True`, timestamp đơn điệu lấy từ `ts_ms` của frame. Model `.task` tải bằng `make models` vào `models/` (không commit) và kiểm tra checksum như model pose. *(ADR-0003; PDF §6.2)*
+- **R2.** Face chỉ chạy khi có người mục tiêu (F13) **và** vùng đầu ≥ `face.min_head_box_px`. *(HS §4.1; PDF §17; A05)*
+- **R3.** Vùng đầu tính từ keypoint đầu của pose (`nose`, mắt, tai) có visibility ≥ `pose.min_keypoint_visibility`: lấy bounding box, nới theo `face.head_crop_scale`, làm vuông. `head_box_px` là cạnh hình vuông này tính bằng pixel của khung gốc. Face Landmarker chạy trên **ảnh cắt** vùng này. *(A05; giả định: hệ số nới là khóa mới `face.head_crop_scale`)*
+- **R4.** Hàm ước lượng vùng đầu đặt trong `vision` và dùng chung với F28 (làm mờ). *(giả định: tránh hai cách tính vùng đầu khác nhau)*
+- **R5.** Cổng chất lượng gán `FaceObservation.status`: *(HS §9.1; PDF §17; giả định cho cách phân loại)*
+  - `LOW_CONFIDENCE`: không đủ keypoint đầu đạt visibility để ước lượng vùng đầu.
+  - `TOO_SMALL`: `head_box_px < face.min_head_box_px` (không gọi Face Landmarker).
+  - `NOT_VISIBLE`: không có người mục tiêu, hoặc Face Landmarker không tìm thấy mặt trong ảnh cắt (ví dụ mặt quay đi), hoặc adapter face lỗi.
+  - `OK`: tìm thấy mặt; có `blendshapes`.
+- **R6.** `FaceObservation.blendshapes` chỉ chứa các khóa xuất hiện trong `face.signals.*.keys`. Tên blendshape **không** được viết cứng trong code Python; worker/replay đọc danh sách khóa từ cấu hình và truyền vào adapter. *(event-engine.md mục 8)*
+- **R7.** Face chạy mỗi `face.run_every_n_frames` frame. Ở frame không chạy, `FrameObservation.face = None` (nghĩa là "không chạy ở frame này", khác với "không thấy mặt"). *(A05; event-engine.md mục 2)*
+- **R8.** Lỗi trong nhánh face (exception, model thiếu, ảnh cắt rỗng) được bắt trong adapter: ghi log mức WARNING, đếm số lần lỗi, trả `status = NOT_VISIBLE`. Pose, engine, heartbeat và gửi frame vẫn chạy bình thường. *(HS §4.1; PDF §14 (tr.15))*
+- **R9.** Có khóa `face.enabled` (mặc định `true`) để tắt hẳn nhánh face: dùng khi đo FPS so sánh và khi phải thu hẹp M3. *(giả định: HS §7.3 cho phép giới hạn face theo chất lượng; bảng đo hiệu năng trong tech-stack.md có cột "Face bật?")*
+- **R10.** Kiểu dữ liệu của MediaPipe không lộ ra ngoài `vision.inference`. Engine chỉ thấy `FaceObservation`. *(ADR-0003; PDF §10 (tr.12))*
+- **R11.** Đo FPS xử lý khi bật face và khi tắt face trên cùng video, ghi vào bảng "Kết quả đo hiệu năng" của `tech-stack.md`. *(HS §8.2; PDF §13.3 (tr.14–15))*
+
+## 4. Thiết kế liên quan
+
+- **Module / file dự kiến:**
+  - `server/src/postcare/vision/inference/face_landmarker.py`: adapter Face Landmarker (VIDEO, blendshapes) → `FaceObservation`.
+  - `server/src/postcare/vision/inference/head_region.py`: ước lượng vùng đầu từ `PersonPose` (dùng chung với F28).
+  - `server/src/postcare/schemas/`: `FaceObservation`, enum `FaceStatus` (đã khai báo ở F10; bổ sung nếu thiếu).
+  - Vòng lặp chung của worker và replay (F11/F12): gọi face theo cổng chất lượng và chu kỳ N frame, bọc lỗi.
+  - `Makefile` (`make models`): thêm model face và checksum.
+- **Dữ liệu:** không có bảng mới. `face_status` đi theo `POST /internal/v1/cameras/{id}/state` (xem [data-model.md](../02-architecture/data-model.md), mục "Dữ liệu không lưu trong DB").
+- **API:** không đổi. Payload state đã có `face_status` ([api-conventions.md](../02-architecture/api-conventions.md)).
+- **UI:** không có (hiển thị ở F26).
+- **Cấu hình** ([event-engine.md](../02-architecture/event-engine.md) mục 6, 8):
+  - Dùng: `face.min_head_box_px`, `face.run_every_n_frames`, `face.signals.*.keys`, `pose.min_keypoint_visibility`.
+  - Khóa mới *(giả định)*: `face.enabled` (bool, mặc định `true`), `face.head_crop_scale` (hệ số nới vùng đầu, giá trị khởi điểm chọn khi đo ở buổi thử camera).
+
+## 5. Acceptance criteria
+
+- [ ] **AC1.** Face Landmarker (VIDEO, có blendshapes) chỉ được gọi khi có người mục tiêu và `head_box_px ≥ face.min_head_box_px`, trên ảnh cắt vùng đầu lấy từ keypoint pose, mỗi `face.run_every_n_frames` frame. *(HS §4.1; A05)* — *Kiểm chứng:* test `test_face_gate_calls_landmarker_only_when_head_large_enough` (landmarker giả đếm số lần gọi và kiểm tra kích thước ảnh cắt); test `@pytest.mark.vision` `test_face_adapter_real_model` trên video trong `data/` (`make test-vision`).
+- [ ] **AC2.** Không đủ điều kiện → `NOT_VISIBLE` / `TOO_SMALL` / `LOW_CONFIDENCE` đúng theo R5. Adapter face ném lỗi thì pose và engine vẫn cho cùng chuỗi trạng thái/sự kiện cơ thể như khi tắt face. *(HS §4.1, §9.1)* — *Kiểm chứng:* test `test_face_status_classification`; test `test_face_error_does_not_stop_body` (landmarker giả luôn raise; so sánh `events.jsonl` với lần chạy `face.enabled=false`).
+- [ ] **AC3.** `FaceObservation.blendshapes` chỉ chứa khóa khai báo trong `face.signals.*.keys` (eyeBlink, browDown, eyeSquint, noseSneer trái/phải và các khóa mouth* đã chọn). Ánh xạ chỉ nằm trong `config/engine.default.yaml`. *(event-engine.md mục 8)* — *Kiểm chứng:* test `test_adapter_filters_keys_from_config` (đổi danh sách khóa trong config test → output đổi theo, không sửa code); test `test_no_blendshape_names_hardcoded` quét `server/src/postcare/` không có chuỗi tên blendshape.
+- [ ] **AC4.** Đã đo FPS xử lý khi bật và tắt face (cùng video, cùng máy), ghi vào bảng hiệu năng của `tech-stack.md`. *(HS §8.2; A05)* — *Kiểm chứng:* chạy `postcare replay` hai lần (`face.enabled` true/false), đọc FPS từ `frames.jsonl`; reviewer xem bảng đã điền.
+
+## 6. Kế hoạch test
+
+| AC | Loại test | Tên / mô tả | Ca âm tính |
+|---|---|---|---|
+| AC1 | unit (landmarker giả) | `test_face_gate_calls_landmarker_only_when_head_large_enough`, `test_face_runs_every_n_frames` | Vùng đầu 79 px với ngưỡng 80 → không gọi; không có người mục tiêu → không gọi |
+| AC1 | vision (`make test-vision`) | `test_face_adapter_real_model`: video có mặt rõ → có frame `OK` và đủ khóa blendshape | Bỏ qua nếu thiếu model/video |
+| AC2 | unit | `test_face_status_classification` (4 trạng thái) | Keypoint đầu visibility thấp → `LOW_CONFIDENCE`, không gọi landmarker |
+| AC2 | tích hợp (replay với fake) | `test_face_error_does_not_stop_body` | Landmarker raise ở mọi frame → body events giữ nguyên |
+| AC3 | unit | `test_adapter_filters_keys_from_config`, `test_no_blendshape_names_hardcoded` | Khóa không có trong config không xuất hiện trong output |
+| AC4 | thủ công | Đo FPS bật/tắt face, ghi `tech-stack.md` | — |
+
+## 7. Giả định
+
+- *(giả định A05)* Ngưỡng vùng đầu 80 px, cắt vùng đầu trước khi chạy, face chạy mỗi 2 frame (giá trị nằm trong config).
+- *(giả định)* Khóa mới `face.enabled` và `face.head_crop_scale`.
+- *(giả định)* Cách phân loại `NOT_VISIBLE` / `TOO_SMALL` / `LOW_CONFIDENCE` theo R5; lỗi adapter được quy về `NOT_VISIBLE` và đếm riêng trong log.
+- *(giả định)* `face = None` nghĩa là frame đó không chạy face; F26 giữ giá trị gần nhất cho tới lần chạy kế tiếp.
+- *(giả định)* `num_faces = 1` vì chỉ phân tích ảnh cắt vùng đầu của người mục tiêu.
+
+## 8. Câu hỏi mở
+
+- Chế độ `VIDEO` của Face Landmarker theo dõi mặt giữa các frame. Khi ảnh cắt thay đổi vị trí và kích thước liên tục, chất lượng tracking có thể giảm. Nếu đo thấy kém, có chuyển sang chế độ `IMAGE` cho ảnh cắt không? **Không chặn**; quyết định sau khi chạy `make test-vision`.
+- Giá trị khởi điểm của `face.head_crop_scale` chốt ở buổi thử camera (camera-setup.md mục 3 có ghi kích thước vùng đầu). **Không chặn.**
+
+## 9. Kế hoạch triển khai
+
+> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+
+## 10. Ghi chú bàn giao
+
+> Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+## 11. Definition of Done
+
+- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [ ] Doc liên quan đã cập nhật cùng PR.
+- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).

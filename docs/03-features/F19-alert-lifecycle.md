@@ -1,0 +1,136 @@
+# F19 – Vòng đời cảnh báo và audit
+
+| Thuộc tính | Giá trị |
+|---|---|
+| Mã | F19 |
+| Trạng thái | Todo |
+| Ưu tiên | MVP |
+| Milestone | M2 |
+| Ước lượng | 2 phiên |
+| Phụ thuộc | F17, F02 |
+| Nhánh code | B (backend) |
+| Nguồn | PDF §5 (tr.6), §9.2 (tr.11), §10.1 (tr.12–13), §11 (tr.13), §16 (tr.17); HS §4.2, §8.3, Hình 3; QA#16, QA#18; ADR-0007 |
+
+## 1. Mục tiêu
+
+Một cảnh báo không chỉ là thông báo tức thời mà phải trở thành **bản ghi truy vết được**: ai tiếp nhận, lúc nào, kết quả kiểm tra là gì, xử lý xong khi nào (HS §4.2; PDF §5 (tr.6)). Feature này làm API backend cho vòng đời cảnh báo theo [ADR-0007](../02-architecture/decisions/ADR-0007-alert-status-outcome.md):
+- `status` (vòng đời) và `outcome` (kết quả kiểm tra) là hai trường riêng.
+- Chỉ một người được tiếp nhận.
+- Mọi thao tác đều có audit.
+
+Dữ liệu `outcome` còn dùng để tính tỷ lệ cảnh báo sai (PDF §11 (tr.13); F29).
+
+## 2. Phạm vi
+
+**Trong phạm vi**
+- `POST /api/v1/alerts/{id}/acknowledge`, `POST /api/v1/alerts/{id}/outcome`, `POST /api/v1/alerts/{id}/resolve`.
+- `GET /api/v1/alerts` (lọc, sắp xếp) và `GET /api/v1/alerts/{id}`.
+- Kiểm tra chuyển trạng thái, xử lý tranh chấp khi hai người cùng tiếp nhận, phân quyền, audit.
+- Gọi publisher `alert.updated` sau commit (F18 phát).
+
+**Ngoài phạm vi** (để feature khác hoặc không làm)
+- Giao diện nút thao tác, hiển thị "Chưa ghi kết quả" (→ F20).
+- Tạo alert từ sự kiện (đã có ở F17).
+- Timeout, chuyển tiếp cảnh báo chưa tiếp nhận (→ F32, sau MVP; QA#16).
+- Mở lại cảnh báo đã xử lý *(ADR-0007: không đi lùi)*.
+- Chỉ số workflow (→ F29).
+
+## 3. Yêu cầu chi tiết
+
+- **R1.** Vòng đời `status`: `PENDING` (Chờ tiếp nhận) → `ACKNOWLEDGED` (Đã tiếp nhận) → `RESOLVED` (Đã xử lý). Không đi lùi, không bỏ bước *(ADR-0007; QA#16; PDF §5 (tr.6))*. Chuyển sai → 409 `INVALID_ALERT_TRANSITION`, gồm:
+  - `resolve` khi đang `PENDING`;
+  - `outcome` khi đang `PENDING` hoặc `RESOLVED`;
+  - `acknowledge` khi đang `RESOLVED`.
+- **R2.** `acknowledge`: chỉ **một** người tiếp nhận *(ADR-0007; QA#16)*.
+  - Cài bằng câu `UPDATE … WHERE id = :id AND status = 'PENDING'`. Không cập nhật được dòng nào thì đọc lại người đã tiếp nhận *(giả định: cách cài đặt chống tranh chấp)*.
+  - Người thứ hai (kể cả chính người đã tiếp nhận bấm lại) nhận 409 `ALERT_ALREADY_ACKNOWLEDGED`. `message` tiếng Việt có tên người đã tiếp nhận (ví dụ "Cảnh báo đã được tiếp nhận bởi Nguyễn Văn A"). `details` = `{acknowledged_by: {id, full_name}, acknowledged_at}` *(api-conventions.md, mục Lỗi; giả định: người đã tiếp nhận bấm lại cũng nhận 409)*.
+- **R3.** `outcome` `{outcome, note?}`: `outcome ∈ {CONFIRMED, FALSE_ALARM, PATIENT_SAFE}` (Xác nhận đúng / Cảnh báo sai / Bệnh nhân an toàn) *(PDF §9.2 (tr.11); HS §4.2; ADR-0007)*.
+  - Chỉ ghi được khi `status = ACKNOWLEDGED`.
+  - Ghi lại được nhiều lần trước khi đóng; lần sau ghi đè `outcome`, `outcome_by`, `outcome_at`. Mỗi lần đều có audit *(ADR-0007)*.
+  - `note` nếu có thì ghi đè ghi chú hiện tại; lịch sử ghi chú nằm ở audit *(giả định)*.
+- **R4.** `resolve` `{note?}` *(PDF §9.2 (tr.11); HS §4.2; ADR-0007)*:
+  - Chỉ khi `status = ACKNOWLEDGED`. Đặt `RESOLVED`, `resolved_by`, `resolved_at`.
+  - Được phép khi `outcome = null`. Khi đó giữ `outcome = null` (UI hiển thị "Chưa ghi kết quả", F20).
+- **R5.** Người được ghi kết quả và xử lý: bất kỳ người dùng có quyền ghi (NURSE, CHARGE_NURSE, ADMIN), không bắt buộc là người đã tiếp nhận. Người thực hiện mỗi bước được lưu riêng (`outcome_by`, `resolved_by`) *(api-conventions.md, ma trận quyền; giả định: nguồn không giới hạn người ghi kết quả)*.
+- **R6.** Phân quyền *(QA#18; api-conventions.md; PDF §3 (tr.5))*:
+  - DOCTOR gọi `acknowledge`, `outcome`, `resolve` → 403 `FORBIDDEN`.
+  - Chưa đăng nhập → 401.
+  - Mọi vai trò xem được danh sách và chi tiết.
+- **R7.** Mỗi thao tác lưu người thực hiện và thời điểm *(HS §4.2; PDF §10.1 (tr.13); ADR-0007)*:
+  - trong `alerts` (`acknowledged_by/at`, `outcome_by/at`, `resolved_by/at`);
+  - và trong `audit_logs` qua `record_audit()` (F01), với `action` là `alert.acknowledge`, `alert.outcome`, `alert.resolve`, `entity_type = "alert"`, `before`/`after` gồm `status`, `outcome`, `note`.
+  
+  Hai bảng được ghi trong cùng transaction. Thời điểm lấy từ server (UTC).
+- **R8.** Commit xong mới gọi publisher `alert.updated` (payload alert) *(HS §4.2; ADR-0002)*. Request bị 403/404/409 không gọi publisher.
+- **R9.** `GET /api/v1/alerts?status&bed_id&priority&from&to&limit&offset` → `{items, total}` *(PDF §9.1 (tr.11): danh sách theo thời gian, giường, mức ưu tiên, trạng thái; api-conventions.md)*.
+  - Sắp xếp mặc định: chưa xử lý trước (`PENDING`, rồi `ACKNOWLEDGED`, rồi `RESOLVED`); trong mỗi nhóm thì mới nhất trước *(F20 AC1: "cảnh báo chưa xử lý xếp đầu"; giả định: thứ tự trong nhóm)*.
+  - `from`/`to` lọc theo `events.occurred_at` *(giả định)*.
+- **R10.** `AlertOut` gồm:
+  - `id`, `status`, `outcome`, `note`, `created_at`;
+  - người và thời điểm từng thao tác (`{id, full_name}` + thời điểm);
+  - sự kiện kèm theo (`code`, `priority`, `occurred_at`, `observation_quality`);
+  - `bed {id, code}`, `session {id, patient_code}`.
+  
+  Không trả câu tiếng Việt cho sự kiện; frontend tự ánh xạ *(api-conventions.md)*.
+- **R11.** Không tìm thấy alert → 404 `NOT_FOUND`. Body sai (`outcome` lạ) → 400 `VALIDATION_ERROR`.
+
+## 4. Thiết kế liên quan
+
+- **Module / file dự kiến:**
+  - `server/src/postcare/domain/alerts.py`: `acknowledge_alert`, `record_outcome`, `resolve_alert`, `list_alerts`, `get_alert`; lỗi qua `DomainError`.
+  - `server/src/postcare/api/v1/alerts.py`: router.
+  - Schema `AlertOut`, `AlertOutcomeIn`, `AlertResolveIn`.
+  - Test: `server/tests/domain/test_alert_lifecycle.py`, `server/tests/api/test_alerts_api.py`.
+- **Dữ liệu:** bảng `alerts` (F17), `audit_logs` (F01), `users`. Không có migration mới.
+- **API:** các endpoint ở mục 2. Mã lỗi `INVALID_ALERT_TRANSITION`, `ALERT_ALREADY_ACKNOWLEDGED`, `FORBIDDEN`, `NOT_FOUND` (đã có trong [api-conventions.md](../02-architecture/api-conventions.md)).
+- **UI:** không có (F20). `message` lỗi tiếng Việt.
+- **Cấu hình:** không có.
+
+## 5. Acceptance criteria
+
+- [ ] **AC1.** `PENDING → ACKNOWLEDGED → RESOLVED`. Chỉ sau khi tiếp nhận mới ghi được outcome và ghi chú. Chuyển sai → 409 `INVALID_ALERT_TRANSITION` *(ADR-0007; QA#16)*. — *Kiểm chứng:* `server/tests/api/test_alerts_api.py` (`test_happy_path_ack_outcome_resolve`, `test_outcome_on_pending_409`, `test_resolve_on_pending_409`, `test_outcome_after_resolved_409`, `test_outcome_can_be_overwritten_before_resolve`).
+- [ ] **AC2.** Chỉ một người tiếp nhận. Người thứ hai nhận 409 `ALERT_ALREADY_ACKNOWLEDGED`, có tên người đã tiếp nhận trong `message` và `details` *(ADR-0007; api-conventions.md)*. — *Kiểm chứng:* `test_second_acknowledge_409_with_name`; `server/tests/domain/test_alert_lifecycle.py::test_conditional_update_only_one_winner` (hai session DB tiếp nhận cùng alert).
+- [ ] **AC3.** Mỗi thao tác lưu người thực hiện và thời điểm trong `alerts` **và** `audit_logs` (`alert.acknowledge`, `alert.outcome`, `alert.resolve`, có `before`/`after`). `alert.updated` chỉ phát sau commit *(HS §4.2; PDF §10.1 (tr.13))*. — *Kiểm chứng:* `test_each_action_writes_alert_fields_and_audit`, `test_publisher_called_after_commit_only_on_success`.
+- [ ] **AC4.** DOCTOR gọi API ghi của cảnh báo → 403; DOCTOR vẫn xem được danh sách và chi tiết *(QA#18; api-conventions.md)*. — *Kiểm chứng:* `test_doctor_cannot_ack_outcome_resolve_403`, `test_doctor_can_list_and_get`.
+- [ ] **AC5.** Bấm "Đã xử lý" khi chưa ghi kết quả → `status = RESOLVED`, `outcome = null` (UI hiển thị "Chưa ghi kết quả", kiểm ở F20) *(ADR-0007)*. — *Kiểm chứng:* `test_resolve_without_outcome_keeps_null`.
+
+## 6. Kế hoạch test
+
+| AC | Loại test | Tên / mô tả | Ca âm tính |
+|---|---|---|---|
+| AC1 | API | Đi đủ vòng đời; ghi outcome hai lần | Mọi cặp chuyển sai trả 409; `outcome` lạ → 400 |
+| AC2 | API + domain | Hai NURSE lần lượt tiếp nhận; hai session DB tranh chấp | Chính người đã tiếp nhận bấm lại → 409 |
+| AC3 | API | Đọc `alerts` và `audit_logs` sau mỗi bước; publisher giả ghi thứ tự | 403/404/409 không ghi audit, không gọi publisher |
+| AC4 | API | `auth_headers("DOCTOR")` cho 3 endpoint ghi và 2 endpoint đọc | Không token → 401 |
+| AC5 | API | Tiếp nhận rồi xử lý ngay | — |
+| R9 | API | Lọc theo `status`, `bed_id`, `priority`, `from/to`; kiểm thứ tự mặc định | `limit > 200` → 400 |
+| R11 | API | Alert không tồn tại | 404 |
+
+## 7. Giả định
+
+- *(giả định)* Chống tranh chấp bằng `UPDATE` có điều kiện (R2).
+- *(giả định)* Người đã tiếp nhận bấm lại cũng nhận 409 (R2).
+- *(giả định)* `note` ghi đè, lịch sử nằm ở audit (R3).
+- *(giả định)* Mọi người có quyền ghi đều được ghi kết quả và xử lý, không chỉ người tiếp nhận (R5).
+- *(giả định)* Thứ tự sắp trong mỗi nhóm trạng thái; `from/to` lọc theo `occurred_at` (R9).
+- Ma trận quyền theo QA#18 *(giả định)*.
+
+## 8. Câu hỏi mở
+
+- (Không)
+
+## 9. Kế hoạch triển khai
+
+> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+
+## 10. Ghi chú bàn giao
+
+> Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+## 11. Definition of Done
+
+- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [ ] Doc liên quan đã cập nhật cùng PR.
+- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).

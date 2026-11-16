@@ -1,0 +1,26 @@
+.print-only {
+  display: none;
+}
+
+/* Bàn giao ca in được (A15, F24 R9). */
+@media print {
+  .no-print,
+  .mantine-AppShell-header,
+  .mantine-AppShell-navbar,
+  .mantine-Notifications-root {
+    display: none !important;
+  }
+  .print-only {
+    display: block;
+  }
+  .mantine-AppShell-main {
+    padding: 0 !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

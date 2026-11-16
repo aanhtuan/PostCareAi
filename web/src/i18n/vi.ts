@@ -1,0 +1,332 @@
+// Toàn bộ text tiếng Việt của giao diện (ADR-0005). Không dùng từ cấm (glossary.md),
+// không hiện mã nội bộ. Có test tự động quét file này: vi.test.ts.
+import type {
+  ActivityLevel,
+  AlertOutcome,
+  AlertStatus,
+  BodyState,
+  CameraSourceType,
+  CameraStatus,
+  EventCode,
+  FaceStatus,
+  ObservationQuality,
+  Priority,
+  RestStatus,
+  UserRole,
+} from '../api/types';
+
+const role: Record<UserRole, string> = {
+  NURSE: 'Điều dưỡng',
+  CHARGE_NURSE: 'Phụ trách ca',
+  DOCTOR: 'Bác sĩ',
+  ADMIN: 'Quản trị',
+};
+
+// Catalog sự kiện (event-engine.md mục 5).
+const event: Record<EventCode, string> = {
+  POSTURE_CHANGE: 'Bệnh nhân thay đổi tư thế',
+  SIT_UP: 'Bệnh nhân ngồi dậy',
+  STAND_UP: 'Bệnh nhân đứng dậy',
+  BED_EDGE: 'Bệnh nhân đang ở mép giường',
+  BED_EXIT: 'Bệnh nhân rời khỏi vùng giường',
+  RETURN_TO_BED: 'Bệnh nhân quay lại giường',
+  ACTIVITY_INCREASED: 'Mức vận động tăng',
+  ACTIVITY_LOW_PROLONGED: 'Ít vận động kéo dài',
+  ABNORMAL_MOVEMENT: 'Phát hiện chuyển động bất thường - đề nghị kiểm tra',
+  FACE_ATTENTION: 'Phát hiện biểu hiện khuôn mặt cần kiểm tra',
+  OBSERVATION_LOST: 'Không đủ dữ liệu quan sát',
+  OBSERVATION_RESTORED: 'Đã quan sát lại được',
+  CAMERA_OFFLINE: 'Mất kết nối camera',
+  CAMERA_ONLINE: 'Camera hoạt động lại',
+};
+
+const bodyState: Record<BodyState, string> = {
+  LYING: 'Nằm',
+  RAISING: 'Đang nâng thân',
+  SITTING: 'Ngồi',
+  AT_EDGE: 'Ở mép giường',
+  STANDING: 'Đứng',
+  OUT_OF_BED: 'Ngoài giường',
+  NO_OBSERVATION: 'Không đủ dữ liệu quan sát',
+};
+
+const quality: Record<ObservationQuality, string> = {
+  GOOD: 'Quan sát tốt',
+  LOW_CONFIDENCE: 'Độ tin cậy thấp',
+  MULTIPLE_PEOPLE: 'Có nhiều người trong vùng giường',
+  NO_PERSON: 'Không thấy người trong vùng giường',
+  CAMERA_ISSUE: 'Sự cố camera',
+};
+
+const activity: Record<ActivityLevel, string> = {
+  LOW: 'Ít vận động',
+  NORMAL: 'Vận động bình thường',
+  HIGH: 'Vận động nhiều',
+  UNKNOWN: 'Chưa xác định',
+};
+
+const rest: Record<RestStatus, string> = {
+  RESTING: 'Đang nghỉ - dữ liệu tham khảo',
+  ACTIVE: 'Đang hoạt động',
+  UNKNOWN: 'Chưa xác định',
+};
+
+const faceStatus: Record<FaceStatus, string> = {
+  OK: 'Quan sát rõ khuôn mặt',
+  NOT_VISIBLE: 'Không thấy khuôn mặt',
+  TOO_SMALL: 'Khuôn mặt quá nhỏ trong khung hình',
+  LOW_CONFIDENCE: 'Khuôn mặt chưa đủ rõ',
+};
+
+const priority: Record<Priority, string> = {
+  LOG: 'Nhật ký',
+  INFO: 'Thông tin',
+  MEDIUM: 'Cần chú ý',
+  HIGH: 'Ưu tiên cao',
+};
+
+const alertTitle: Record<Priority, string> = {
+  LOG: 'Ghi nhận',
+  INFO: 'Thông tin',
+  MEDIUM: 'Cảnh báo cần chú ý',
+  HIGH: 'Cảnh báo ưu tiên cao',
+};
+
+const alertStatus: Record<AlertStatus, string> = {
+  PENDING: 'Chờ tiếp nhận',
+  ACKNOWLEDGED: 'Đã tiếp nhận',
+  RESOLVED: 'Đã xử lý',
+};
+
+const outcome: Record<AlertOutcome, string> = {
+  CONFIRMED: 'Xác nhận đúng',
+  FALSE_ALARM: 'Cảnh báo sai',
+  PATIENT_SAFE: 'Bệnh nhân an toàn',
+};
+
+const cameraStatus: Record<CameraStatus, string> = {
+  ONLINE: 'Camera hoạt động',
+  OFFLINE: 'Mất kết nối camera',
+  UNKNOWN: 'Chưa rõ trạng thái camera',
+};
+
+const sourceType: Record<CameraSourceType, string> = {
+  WEBCAM: 'Webcam',
+  URL: 'Địa chỉ stream (URL)',
+  FILE: 'File video',
+};
+
+export const vi = {
+  app: {
+    name: 'PostCare AI',
+    tagline: 'Hỗ trợ quan sát bệnh nhân hậu phẫu',
+    disclaimer:
+      'Công cụ hỗ trợ quan sát. Không thay thế việc kiểm tra thực tế và quyết định chuyên môn của nhân viên y tế.',
+    prototype: 'Bản thử nghiệm - dữ liệu mô phỏng',
+  },
+  nav: {
+    overview: 'Tổng quan',
+    live: 'Theo dõi trực tiếp',
+    alerts: 'Cảnh báo',
+    timeline: 'Lịch sử theo dõi',
+    handover: 'Bàn giao ca',
+    management: 'Quản lý giường',
+  },
+  auth: {
+    title: 'Đăng nhập',
+    username: 'Tên đăng nhập',
+    password: 'Mật khẩu',
+    submit: 'Đăng nhập',
+    logout: 'Đăng xuất',
+    invalid: 'Tên đăng nhập hoặc mật khẩu không đúng',
+    sessionExpired: 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại',
+  },
+  role,
+  common: {
+    loading: 'Đang tải…',
+    loadError: 'Không tải được dữ liệu. Đang thử lại…',
+    networkError: 'Không kết nối được máy chủ',
+    genericError: 'Có lỗi xảy ra',
+    forbidden: 'Bạn không đủ quyền thực hiện thao tác này',
+    all: 'Tất cả',
+    none: '—',
+    close: 'Đóng',
+    cancel: 'Hủy',
+    confirm: 'Xác nhận',
+    bed: 'Giường',
+    patient: 'Bệnh nhân',
+    time: 'Thời gian',
+    from: 'Từ',
+    to: 'Đến',
+    apply: 'Xem',
+    saved: 'Đã lưu',
+    total: 'Tổng: {n}',
+  },
+  shift: {
+    label: 'Ca trực: {start}–{end}',
+    none: 'Ca trực: —',
+  },
+  realtime: {
+    connected: 'Đang cập nhật trực tiếp',
+    reconnecting: 'Mất kết nối cập nhật trực tiếp, đang kết nối lại…',
+  },
+  bed: {
+    title: 'Giường {code}',
+    area: 'Khu vực',
+    code: 'Mã giường',
+  },
+  bedCard: {
+    MONITORING: 'Đang theo dõi',
+    NEEDS_CHECK: 'Cần kiểm tra',
+    NEW_ALERT: 'Cảnh báo mới',
+    NOT_MONITORED: 'Không theo dõi',
+    patient: 'Bệnh nhân {code}',
+    bodyState: 'Trạng thái cơ thể',
+    quality: 'Chất lượng quan sát',
+    pending: 'Cảnh báo đang chờ',
+    maxPriority: 'Mức ưu tiên cao nhất',
+    openLive: 'Mở theo dõi trực tiếp',
+  },
+  cameraStatus,
+  camera: {
+    notAssigned: 'Chưa gắn camera',
+    name: 'Tên camera',
+    sourceType: 'Loại nguồn',
+    source: 'Địa chỉ nguồn',
+    status: 'Trạng thái',
+  },
+  sourceType,
+  event,
+  bodyState,
+  quality,
+  activity,
+  rest,
+  faceStatus,
+  priority,
+  alertTitle,
+  alertStatus,
+  outcome,
+  overview: {
+    title: 'Tổng quan theo dõi',
+    attention: 'Sự kiện cần chú ý',
+    recent: 'Diễn biến gần đây',
+    noAttention: 'Không có cảnh báo chưa xử lý',
+    noRecent: 'Chưa có diễn biến nào',
+    status: 'Trạng thái:',
+    seeAll: 'Xem tất cả cảnh báo',
+  },
+  live: {
+    title: 'Theo dõi trực tiếp',
+    chooseBed: 'Chọn giường',
+    simulatedMode: 'Chế độ chỉ hiển thị skeleton (mô phỏng)',
+    simulatedHint:
+      'Chưa kết nối camera và AI. Hình người que được vẽ lại từ trạng thái do bộ giả lập gửi lên, không phải hình ảnh thật.',
+    roi: 'Vùng giường',
+    noState: 'Chưa nhận được trạng thái của giường này',
+    updatedAt: 'Cập nhật lúc {time}',
+    latestEvent: 'Sự kiện gần nhất',
+    noEvent: 'Chưa có sự kiện',
+    activity: 'Mức vận động',
+    rest: 'Nghỉ / hoạt động',
+    face: 'Khuôn mặt',
+    camera: 'Camera',
+    session: 'Phiên theo dõi',
+  },
+  alerts: {
+    title: 'Cảnh báo',
+    heading: 'Giường {bed} - {title}',
+    sentence: '{event} lúc {time}.',
+    acknowledge: 'Đã tiếp nhận',
+    detail: 'Xem chi tiết',
+    confirmed: 'Xác nhận đúng',
+    falseAlarm: 'Cảnh báo sai',
+    patientSafe: 'Bệnh nhân an toàn',
+    resolve: 'Đã xử lý',
+    note: 'Ghi chú',
+    notePlaceholder: 'Ghi chú kết quả kiểm tra (không bắt buộc)',
+    noOutcome: 'Chưa ghi kết quả',
+    status: 'Trạng thái xử lý',
+    priority: 'Mức ưu tiên',
+    acknowledgedBy: 'Người tiếp nhận',
+    outcomeBy: 'Người ghi kết quả',
+    resolvedBy: 'Người xử lý',
+    outcomeLabel: 'Kết quả kiểm tra',
+    personAt: '{name} lúc {time}',
+    empty: 'Không có cảnh báo phù hợp',
+    detailTitle: 'Chi tiết cảnh báo',
+    occurredAt: 'Thời điểm sự kiện',
+    session: 'Bệnh nhân của phiên',
+    quality: 'Chất lượng quan sát',
+    openLive: 'Theo dõi trực tiếp',
+    openTimeline: 'Lịch sử theo dõi',
+    newNotification: 'Giường {bed} - {title}',
+    soundHint: 'Âm thanh cảnh báo ưu tiên cao chỉ phát sau khi bạn đã thao tác trên trang.',
+  },
+  timeline: {
+    title: 'Lịch sử theo dõi',
+    session: 'Phiên theo dõi',
+    byRange: 'Theo khoảng thời gian',
+    sessionOption: 'Phiên {patient} từ {time}',
+    sessionActive: 'đang mở',
+    priority: 'Mức ưu tiên',
+    empty: 'Chưa có mục nào trong khoảng này',
+    line: '{time} - {text}',
+    acknowledge: 'Đã tiếp nhận cảnh báo ({name})',
+    outcome: 'Ghi kết quả: {outcome} ({name})',
+    resolve: 'Sự kiện đã xử lý ({name})',
+    system: 'hệ thống',
+    alertInfo: '{status} · {outcome}',
+    hint: 'Timeline là nguồn tham khảo, không thay thế hồ sơ bệnh án.',
+  },
+  handover: {
+    title: 'Bàn giao ca',
+    byShift: 'Theo ca trực',
+    byRange: 'Khoảng thời gian tùy chọn',
+    shift: 'Ca trực',
+    date: 'Ngày bắt đầu ca',
+    print: 'In',
+    period: '{name} {start}–{end}, {date}',
+    range: 'Từ {from} đến {to}',
+    printedAt: 'In lúc {time}',
+    outstanding: 'Cảnh báo tồn đọng',
+    noOutstanding: 'Không có cảnh báo tồn đọng',
+    byBed: 'Tổng hợp theo giường',
+    events: 'Sự kiện trong ca',
+    resolved: 'Cảnh báo đã xử lý',
+    unresolved: 'Cảnh báo chưa xử lý',
+    stateChanges: 'Số lần đổi trạng thái',
+    noEvents: 'Không có sự kiện',
+  },
+  management: {
+    title: 'Quản lý giường',
+    beds: 'Giường',
+    patients: 'Bệnh nhân',
+    cameras: 'Camera',
+    currentPatient: 'Bệnh nhân hiện tại',
+    startedAt: 'Bắt đầu lúc',
+    actions: 'Thao tác',
+    active: 'Đang dùng',
+    inactive: 'Ngừng dùng',
+    patientCode: 'Mã thử nghiệm',
+    patientNote: 'Ghi chú',
+    inSession: 'Đang được theo dõi',
+    free: 'Chưa có phiên',
+    readOnly: 'Bạn chỉ có quyền xem.',
+  },
+  session: {
+    start: 'Bắt đầu theo dõi',
+    end: 'Kết thúc theo dõi',
+    choosePatient: 'Chọn bệnh nhân',
+    noFreePatient: 'Không còn bệnh nhân nào chưa có phiên',
+    confirmEnd: 'Kết thúc phiên theo dõi của giường này?',
+    started: 'Đã bắt đầu theo dõi',
+    ended: 'Đã kết thúc theo dõi',
+  },
+};
+
+/** Thay `{key}` trong mẫu câu bằng giá trị. */
+export function fmt(template: string, params: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (m, key: string) =>
+    key in params ? String(params[key]) : m,
+  );
+}

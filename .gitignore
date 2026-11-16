@@ -1,0 +1,52 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# SQLite của prototype (ADR-0010)
+server/postcare.db
+server/postcare.db-*
+*.sqlite3
+
+# Node
+node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/
+
+# Môi trường / bí mật
+.env
+.env.*
+!.env.example
+
+# Dữ liệu, model, artefact chạy (KHÔNG commit, xem docs/04-guides/evaluation.md)
+data/
+runs/
+models/
+reports/*.local.md
+
+# Media: không commit video, ảnh người (trừ hình tham khảo trong docs)
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.jpg
+*.jpeg
+*.png
+!docs/**/*.png
+!web/public/**/*.png
+
+# IDE / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# Claude Code: file cá nhân
+.claude/settings.local.json
