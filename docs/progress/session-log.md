@@ -7,9 +7,10 @@ Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](..
 - **Mục tiêu phiên:** Đẩy dự án lên https://github.com/aanhtuan/PostCareAi.git theo yêu cầu người dùng.
 - **Đã làm:** Xác nhận remote trống, cấu hình origin; kiểm tra danh sách 206 file và mẫu bí mật phổ biến, không phát hiện mẫu bí mật. Dữ liệu SQLite, .env, phụ thuộc, model và video được gitignore; ảnh trong docs/00-source/assets là hình tham khảo của tài liệu nguồn. Cài lại phụ thuộc frontend bằng `npm --prefix web ci` để phù hợp Linux. Cập nhật SUMMARY.md theo kết quả mới. Không sửa code ứng dụng, không seed dữ liệu.
 - **Kết quả kiểm tra:** `make check` PASS: Ruff format/lint, Prettier, ESLint, TypeScript, pytest 40 passed (13.72 s), Vitest 25 passed và production build. Kết luận sai format hai file API ở phiên kiểm kê do gọi Prettier ngoài thư mục web, không áp dụng đúng .prettierignore; lần chạy đúng không cần sửa file. Chưa kiểm tra camera thật, trình duyệt hoặc E2E; chưa có hook thực thi trong repo, không bỏ qua hook.
-- **Đang dở:** Tạo commit đầu tiên và push main lên origin; kết quả sẽ được xác minh bằng SHA remote.
-- **Bước tiếp theo:** `git push -u origin main`, sau đó đối chiếu `git rev-parse HEAD` với `git ls-remote origin refs/heads/main`.
-- **Blocker / câu hỏi cho người dùng:** Chưa xác định quyền ghi cho tới khi push.
+- **Đã xuất bản:** Commit đầu tiên `e59d28f` đã push thành công lên `origin/main`. HTTPS không có thông tin đăng nhập dùng được; chuyển push URL sang SSH `git@github.com:aanhtuan/PostCareAi.git`, giữ fetch URL HTTPS. Không force-push.
+- **Đang dở:** Không; cập nhật bàn giao kết quả xuất bản.
+- **Bước tiếp theo:** Tiếp tục lập kế hoạch F00 khi người dùng yêu cầu; dùng `git status` và `git pull --ff-only` trước khi làm việc từ máy khác.
+- **Blocker / câu hỏi cho người dùng:** Không; quyền push qua SSH đã được xác nhận. `git diff --cached --check` trước commit có báo khoảng trắng cuối dòng trong tài liệu nguồn nhập từ trước; giữ nguyên nguồn theo docs/00-source/README.md.
 - **Giả định mới:** Không; đây là xuất bản prototype hiện có, không đánh dấu feature Done.
 
 ## 2026-11-16 12:21 – Codex – Lưu summary Markdown

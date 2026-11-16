@@ -77,7 +77,7 @@ Nhật ký ngày 12/10/2026 ghi nhận 40 test backend, 25 test frontend và bui
 - Theo `docs/progress/ROADMAP.md`, **F00–F35 đều đang Todo**.
 - Prototype nằm ngoài roadmap và chưa đạt đủ acceptance criteria của từng feature; có code không đồng nghĩa feature đã Done.
 - Chưa đủ điều kiện xác nhận milestone M0 vì chưa xem được camera thật hoặc cấu hình ROI.
-- Tại thời điểm kiểm kê ban đầu, nhánh `main` chưa có commit. Phiên xuất bản sau đó cấu hình remote `https://github.com/aanhtuan/PostCareAi.git` và chuẩn bị commit đầu tiên; xem nhật ký phiên để biết kết quả xuất bản.
+- Tại thời điểm kiểm kê ban đầu, nhánh `main` chưa có commit. Phiên xuất bản sau đó đã đẩy commit đầu tiên `e59d28f` lên `main` của [GitHub PostCareAi](https://github.com/aanhtuan/PostCareAi). Fetch dùng HTTPS, push dùng SSH; xem nhật ký phiên để biết chi tiết.
 - `TASKS.md` còn mục review tài liệu trước khi viết code từ phiên khởi tạo, trong khi prototype đã được viết theo yêu cầu sau đó được ghi trong session-log.
 
 ## 6. Bước tiếp theo đề xuất
