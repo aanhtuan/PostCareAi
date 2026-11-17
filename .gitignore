@@ -29,6 +29,7 @@ data/
 runs/
 models/
 reports/*.local.md
+reports/*.local.json
 
 # Media: không commit video, ảnh người (trừ hình tham khảo trong docs)
 *.mp4

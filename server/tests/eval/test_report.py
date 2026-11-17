@@ -2,10 +2,11 @@
 
 import json
 
+import pytest
+
 from postcare.eval.manifest import ManifestRow, TruthRow
 from postcare.eval.matching import match_events
 from postcare.eval.report import EvalReport, VideoResult, render_markdown, report_json
-
 from postcare.schemas.events import EventCode
 from tests.eval.helpers import pred
 
@@ -87,7 +88,7 @@ def test_report_contains_required_sections() -> None:
         "deadbeef",
         "test-cpu",
         "Số video: 2",
-        "2,0 phút",  # tổng thời lượng 120 s
+        "2.0 phút",  # tổng thời lượng 120 s
         "[start − 1 s, end + 3 s]",
         "| BED_EXIT | 1 | 0 | 0 |",
         "| ABNORMAL_MOVEMENT | 0 | 0 | 1 |",
@@ -127,5 +128,5 @@ def test_report_json_round_trip() -> None:
     codes = {c["code"]: c for c in loaded["per_code"]}
     assert codes["BED_EXIT"]["tp"] == 1
     assert codes["BED_EXIT"]["latency_median_s"] == 2.0
-    assert loaded["summary"]["false_alerts_per_hour"] == 30.0  # 1 FP MEDIUM / (2 phút)
-    assert loaded["summary"]["coverage"] == 80.0 / 120.0
+    assert loaded["summary"]["false_alerts_per_hour"] == pytest.approx(30.0)  # 1 FP MEDIUM / 2 phút
+    assert loaded["summary"]["coverage"] == pytest.approx(80.0 / 120.0)

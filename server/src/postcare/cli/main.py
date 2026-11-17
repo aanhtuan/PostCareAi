@@ -519,6 +519,222 @@ def _replay_observations(
     return summary
 
 
+eval_app = typer.Typer(
+    help="Đánh giá trên tập phát triển (F16): replay từng video của manifest, tính metric.",
+    invoke_without_command=True,
+)
+app.add_typer(eval_app, name="eval")
+
+DEFAULT_CAMERAS_DIR = REPO_ROOT / "config" / "cameras"
+
+
+def _default_data_dir() -> Path:
+    env = os.environ.get("POSTCARE_DATA_DIR")
+    return Path(env) if env else REPO_ROOT / "data"
+
+
+def _print_validation(result: Any) -> None:
+    for w in result.warnings:
+        typer.echo(f"Cảnh báo: {w}")
+    for e in result.errors:
+        typer.echo(f"Lỗi: {e}", err=True)
+
+
+def _hardware() -> str:
+    import platform
+
+    import psutil
+
+    ram_gb = psutil.virtual_memory().total / 2**30
+    cpu = platform.processor() or platform.machine()
+    return (
+        f"{platform.system()} {platform.release()}, {cpu}, "
+        f"{psutil.cpu_count(logical=True)} luồng logic, RAM {ram_gb:.1f} GB"
+    )
+
+
+@eval_app.command("check")
+def eval_check(
+    manifest: Annotated[Path | None, typer.Option(help="Mặc định <data>/eval/manifest.csv")] = None,
+    truth: Annotated[Path | None, typer.Option(help="Mặc định <data>/eval/truth.csv")] = None,
+) -> None:
+    """Kiểm tra manifest.csv và truth.csv (F16 R2). Lỗi → exit 1; trùng người/phiên → cảnh báo."""
+    from postcare.eval.manifest import validate_files
+
+    data_dir = _default_data_dir()
+    m = manifest or data_dir / "eval" / "manifest.csv"
+    t = truth or data_dir / "eval" / "truth.csv"
+    result = validate_files(m, t)
+    _print_validation(result)
+    if not result.ok:
+        _fail(f"{len(result.errors)} lỗi trong {m} / {t}.")
+    counts = ", ".join(f"{s}: {len(result.rows(s))}" for s in ("dev", "test"))
+    typer.echo(f"Hợp lệ: {len(result.manifest)} video ({counts}), {len(result.truth)} dòng truth.")
+
+
+@eval_app.callback()
+def eval_command(
+    ctx: typer.Context,
+    split: Annotated[str, typer.Option(help="Chỉ hỗ trợ dev (tập test: F29 với --frozen)")] = "dev",
+    manifest: Annotated[Path | None, typer.Option(help="Mặc định <data>/eval/manifest.csv")] = None,
+    truth: Annotated[Path | None, typer.Option(help="Mặc định <data>/eval/truth.csv")] = None,
+    tol_before_s: Annotated[float, typer.Option(help="Tolerance trước start_s (A06)")] = 1.0,
+    tol_after_s: Annotated[float, typer.Option(help="Tolerance sau end_s (A06)")] = 3.0,
+    runs_dir: Annotated[
+        Path | None, typer.Option(help="Thư mục kết quả replay, mặc định runs/eval-<split>/")
+    ] = None,
+    from_observations: Annotated[
+        Path | None,
+        typer.Option(help="Thư mục runs/ trước đó: chạy lại chỉ engine từ <dir>/<video_id>/"),
+    ] = None,
+    reuse: Annotated[
+        bool, typer.Option("--reuse", help="Dùng lại kết quả trong --runs-dir nếu cùng config_hash")
+    ] = False,
+    report: Annotated[
+        Path | None,
+        typer.Option(help="File báo cáo, mặc định reports/eval-<split>-<ngày>.local.md (+ .json)"),
+    ] = None,
+    camera_config: Annotated[
+        Path, typer.Option(help="Cấu hình camera khi video không có cấu hình riêng")
+    ] = DEFAULT_CAMERAS_DIR / "example.yaml",
+    engine_config: Annotated[
+        Path, typer.Option(help="Ngưỡng mặc định của engine")
+    ] = DEFAULT_ENGINE_CONFIG,
+    model: Annotated[
+        str | None, typer.Option(help="Biến thể pose: lite | full | heavy (mặc định models.yaml)")
+    ] = None,
+    models_dir: Annotated[
+        Path | None, typer.Option(help="Thư mục model (mặc định POSTCARE_MODELS_DIR hoặc models/)")
+    ] = None,
+    max_fps: Annotated[float, typer.Option(help="Giới hạn FPS xử lý (A03); 0 = mọi khung")] = 15.0,
+    video_id: Annotated[
+        list[str] | None, typer.Option(help="Chỉ chạy video này (lặp lại được)")
+    ] = None,
+    limit: Annotated[int | None, typer.Option(help="Chỉ chạy N video đầu (sau lọc)")] = None,
+) -> None:
+    """Chạy `postcare eval --split dev`: replay từng video, ghép với truth, ghi báo cáo (F16).
+
+    Lệnh con `postcare eval check` chỉ kiểm tra manifest/truth.
+    """
+    if ctx.invoked_subcommand is not None:
+        return
+    from datetime import date
+
+    from postcare.eval.manifest import validate_files
+    from postcare.eval.report import EvalReport, render_markdown, report_json
+    from postcare.eval.runner import VideoRun, run_split, score_runs
+    from postcare.replay.runner import code_version
+    from postcare.replay.writers import write_json
+
+    if split == "test":
+        _fail(
+            "postcare eval (F16) chỉ chạy --split dev. Tập test chỉ đánh giá một lần sau khi chốt "
+            "cấu hình: dùng lệnh của F29 với --frozen <config_hash> (HS §8.2).",
+            2,
+        )
+    if split != "dev":
+        _fail(f"--split '{split}' không hợp lệ; chỉ hỗ trợ dev.", 2)
+    if tol_before_s < 0 or tol_after_s < 0 or max_fps < 0:
+        _fail("--tol-before-s, --tol-after-s, --max-fps phải ≥ 0.", 2)
+    data_dir = _default_data_dir()
+    m = manifest or data_dir / "eval" / "manifest.csv"
+    t = truth or data_dir / "eval" / "truth.csv"
+    result = validate_files(m, t)
+    _print_validation(result)
+    if not result.ok:
+        _fail(f"{len(result.errors)} lỗi trong manifest/truth; sửa trước khi chạy eval.")
+    rows = result.rows(split)
+    if video_id:
+        wanted = set(video_id)
+        unknown = wanted - {r.video_id for r in rows}
+        if unknown:
+            _fail(f"Không có video {', '.join(sorted(unknown))} trong split {split}.")
+        rows = [r for r in rows if r.video_id in wanted]
+    if limit is not None:
+        rows = rows[: max(limit, 0)]
+    if not rows:
+        _fail(f"Split {split} không có video nào.")
+
+    runs = runs_dir or REPO_ROOT / "runs" / f"eval-{split}"
+    if from_observations is not None and from_observations.resolve() == runs.resolve():
+        _fail("--from-observations phải khác --runs-dir (không ghi đè observation nguồn).", 2)
+    adapter_factory = None
+    model_info: dict[str, Any] | None = None
+    if from_observations is None:
+        adapter_factory, model_info = _pose_adapter_factory(model, models_dir)
+    mode = "observations" if from_observations is not None else f"video (pose {model_info})"
+
+    typer.echo(f"Eval split {split}: {len(rows)} video → {runs}")
+    results = run_split(
+        rows,
+        runs_dir=runs,
+        engine_config=engine_config,
+        default_camera_config=camera_config,
+        cameras_dir=DEFAULT_CAMERAS_DIR,
+        data_dir=data_dir,
+        adapter_factory=adapter_factory,
+        from_observations=from_observations,
+        reuse=reuse,
+        max_fps=max_fps or None,
+        model_info=model_info,
+        on_progress=lambda i, n, row, status: typer.echo(f"[{i}/{n}] {row.video_id}: {status}"),
+    )
+    videos, failures = score_runs(
+        results, result.truth_by_video(), tol_before_s=tol_before_s, tol_after_s=tol_after_s
+    )
+    hashes = list(dict.fromkeys(r.run["config_hash"] for r in results if isinstance(r, VideoRun)))
+    notes: list[str] = []
+    if video_id or limit is not None:
+        total = len(result.rows(split))
+        notes.append(f"Tập con: {len(rows)}/{total} video của split (--video-id/--limit)")
+    today = date.today().isoformat()
+    ev = EvalReport(
+        split=split,
+        created=today,
+        videos=videos,
+        failures=failures,
+        tol_before_s=tol_before_s,
+        tol_after_s=tol_after_s,
+        config_hashes=hashes,
+        commit=code_version()["commit"],
+        hardware=_hardware(),
+        mode=mode + (", dùng lại runs/ cùng config_hash" if reuse else ""),
+        manifest=str(m),
+        notes=notes,
+    )
+    out = report or REPO_ROOT / "reports" / f"eval-{split}-{today}.local.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="\n") as f:
+        f.write(render_markdown(ev))
+    write_json(out.with_suffix(".json"), report_json(ev))
+    typer.echo(f"Báo cáo: {out} (+ {out.with_suffix('.json').name})")
+    if failures:
+        _fail(f"{len(failures)} video lỗi (xem mục 'Video lỗi' trong báo cáo).")
+
+
+def _pose_adapter_factory(model: str | None, models_dir: Path | None) -> tuple[Any, dict[str, Any]]:
+    from postcare.vision.inference.base import ModelNotFoundError
+    from postcare.vision.inference.pose_mediapipe import MediaPipePoseAdapter
+    from postcare.vision.models import ManifestError, load_manifest
+
+    directory = models_dir or _default_models_dir()
+    try:
+        entry = load_manifest(DEFAULT_MODELS_MANIFEST).pose_entry(model)
+    except ManifestError as exc:
+        _fail(str(exc))
+    path = directory / entry.filename
+    if not path.is_file():
+        _fail(f"Không tìm thấy model {path}. Chạy `make models` hoặc đặt POSTCARE_MODELS_DIR.")
+
+    def factory(config: Any) -> Any:
+        try:
+            return MediaPipePoseAdapter.from_config(path, config)
+        except ModelNotFoundError as exc:
+            raise RuntimeError(str(exc)) from exc
+
+    return factory, {"variant": entry.name, "file": entry.filename}
+
+
 @app.command()
 def models(
     variant: Annotated[
