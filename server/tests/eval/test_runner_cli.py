@@ -3,11 +3,11 @@
 import json
 from pathlib import Path
 
-from postcare.eval.manifest import validate_files
-from postcare.eval.runner import VideoFailure, VideoRun, run_split
 from typer.testing import CliRunner
 
 from postcare.cli.main import app
+from postcare.eval.manifest import validate_files
+from postcare.eval.runner import VideoFailure, VideoRun, run_split
 from postcare.settings import REPO_ROOT
 from tests.eval.helpers import manifest_row, truth_row, write_dataset
 from tests.replay.helpers import (
@@ -94,6 +94,57 @@ def test_runner_from_observations_and_reuse(tmp_path: Path) -> None:
     assert isinstance(second, VideoRun)
     assert second.reused
     assert second.frames == first.frames
+
+
+def test_reuse_requires_same_model_and_max_fps(tmp_path: Path) -> None:
+    m, t = _dataset(tmp_path, "S03_P01_r1")
+    rows = validate_files(m, t).manifest
+    video = tmp_path / "data" / "videos" / "S03_P01_r1.mp4"
+    video.parent.mkdir(parents=True)
+    video.write_bytes(b"")
+
+    def run(model: str, max_fps: float) -> VideoRun:
+        source, adapter = fake_source_and_adapter(scenario())
+        [res] = run_split(
+            rows,
+            runs_dir=tmp_path / "runs",
+            engine_config=ENGINE,
+            default_camera_config=write_camera_yaml(tmp_path / "cam.yaml"),
+            cameras_dir=tmp_path,
+            data_dir=tmp_path / "data",
+            adapter_factory=lambda config: adapter,
+            source_factory=lambda path, fps: source,
+            reuse=True,
+            max_fps=max_fps,
+            model_info={"variant": model, "file": f"{model}.task"},
+        )
+        assert isinstance(res, VideoRun)
+        return res
+
+    assert not run("full", 15.0).reused
+    assert run("full", 15.0).reused
+    assert not run("lite", 15.0).reused  # khác model → chạy lại
+    assert not run("lite", 10.0).reused  # khác max_fps → chạy lại
+
+
+def test_report_path_gets_local_suffix(tmp_path: Path) -> None:
+    m, t = _dataset(tmp_path, "S03_P01_r1")
+    report = tmp_path / "eval-dev.md"
+    args = [
+        "eval",
+        "--manifest", str(m),
+        "--truth", str(t),
+        "--camera-config", str(write_camera_yaml(tmp_path / "cam.yaml")),
+        "--from-observations", str(_obs_dir(tmp_path, "S03_P01_r1")),
+        "--runs-dir", str(tmp_path / "runs"),
+        "--report", str(report),
+    ]  # fmt: skip
+    result = cli.invoke(app, args)
+    assert result.exit_code == 0, result.output
+    assert not report.exists()
+    assert (tmp_path / "eval-dev.local.md").is_file()
+    assert (tmp_path / "eval-dev.local.json").is_file()
+    assert ".local" in result.output
 
 
 def test_camera_config_named_after_video_file(tmp_path: Path) -> None:

@@ -3,7 +3,6 @@
 from pathlib import Path
 
 from postcare.eval.manifest import validate_files
-
 from postcare.schemas.events import EventCode
 from tests.eval.helpers import (
     MANIFEST_HEADER,
@@ -133,6 +132,21 @@ def test_scenario_falls_back_to_video_id_prefix(tmp_path: Path) -> None:
 def test_unknown_eval_code_in_notes_rejected(tmp_path: Path) -> None:
     errors = _errors(tmp_path, [manifest_row(notes="eval_codes=SIT_UP,FALL")], [])
     assert "FALL" in errors
+
+
+def test_truth_code_outside_eval_codes_rejected(tmp_path: Path) -> None:
+    errors = _errors(
+        tmp_path,
+        [manifest_row("urfd_01", notes="eval_codes=ABNORMAL_MOVEMENT")],
+        [truth_row("urfd_01", "SIT_UP", "1", "2")],
+    )
+    assert "SIT_UP" in errors
+    assert "eval_codes" in errors
+
+
+def test_empty_eval_codes_rejected(tmp_path: Path) -> None:
+    errors = _errors(tmp_path, [manifest_row("urfd_01", notes="scenario=S15;eval_codes=")], [])
+    assert "eval_codes" in errors
 
 
 def test_external_columns_are_read(tmp_path: Path) -> None:
