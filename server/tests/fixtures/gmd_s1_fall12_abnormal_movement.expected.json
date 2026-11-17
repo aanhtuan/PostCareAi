@@ -1,0 +1,40 @@
+{
+  "camera": {
+    "version": 1,
+    "camera_id": 0,
+    "roi_polygon": [
+      [
+        0.1,
+        0.38
+      ],
+      [
+        0.86,
+        0.38
+      ],
+      [
+        0.86,
+        0.66
+      ],
+      [
+        0.1,
+        0.66
+      ]
+    ],
+    "thresholds": {}
+  },
+  "range_s": [
+    0.0,
+    7.0
+  ],
+  "config_hash": "209d60d22e16de6783bcdd230666e573c7c900487178e89812efd757d0491dda",
+  "events": [
+    {
+      "code": "BED_EXIT",
+      "occurred_at_ms": 2494
+    },
+    {
+      "code": "ABNORMAL_MOVEMENT",
+      "occurred_at_ms": 2563
+    }
+  ]
+}

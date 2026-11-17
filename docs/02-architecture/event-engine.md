@@ -54,7 +54,7 @@ Quy ước của code (F10, file trong `postcare/schemas/`: `observation.py`, `s
 - Mọi schema là Pydantic frozen và JSON round-trip được (định dạng `observations.jsonl`).
 - `EngineEvent` kiểm tra `explanation.rule_id` không rỗng, `priority` thuộc các mức cho phép của mã trong catalog, `occurred_at_ms ≤ detected_at_ms` *(giả định)*.
 - `Engine.process(obs)`: `obs.ts_ms` phải tăng ngặt so với frame trước, `obs.camera_id` phải bằng `context.camera_id`; sai → `ValueError` *(giả định)*. `state_changed` là `true` ở output đầu tiên và khi `BodyStateSnapshot` khác lần trước.
-- Chưa có vận động, nghỉ, khuôn mặt (trước F23, F26, F27): `activity_level = UNKNOWN`, `rest_status = UNKNOWN`, `face_status = NOT_VISIBLE`.
+- Chưa có nghỉ, khuôn mặt (trước F26, F27): `rest_status = UNKNOWN`, `face_status = NOT_VISIBLE`. `activity_level` do F23 điền (mục 5); `UNKNOWN` khi chưa đủ dữ liệu hoặc mất quan sát. `Engine.activity_index` trả chỉ số vận động hiện tại (None khi `UNKNOWN`).
 
 ## 3. Pipeline (mỗi bước là một module, có test riêng)
 
@@ -142,10 +142,21 @@ Nguồn sự thật trong code là `postcare/schemas/events.py`. Bảng dưới 
 - `POSTURE_CHANGE`: đang `LYING`, tham chiếu = `shoulder_line_angle_deg` ở frame đầu sau khi vào `LYING` và sau mỗi lần phát; lệch (0°–180°) > `posture_change.shoulder_angle_delta_deg` liên tục ≥ `posture_change.stable_s`.
 - Trường: `occurred_at_ms` = đầu khoảng giữ (min_duration hoặc stable), `detected_at_ms` = `ts_ms` lúc phát; `confidence` = trung bình visibility của `pose.required_keypoints` trên các frame trong khoảng đó; `explanation` có `rule_id` (`body.<mã viết thường>`), `from_state`, `to_state`, `held_ms` và đặc trưng chính; `config_hash` = `Engine.config_hash`.
 
+**Mức vận động và sự kiện vận động (F23, `engine/activity.py`, `engine/rules/movement.py`)** *(giả định; hiệu chỉnh ở F16)*:
+- Chỉ số vận động (torso_length/giây): keypoint vai, khuỷu, cổ tay, hông, gối, cổ chân của người mục tiêu có visibility ≥ `pose.min_keypoint_visibility`, làm mượt EMA. Mỗi frame `GOOD`: tốc độ mẫu = trung bình trên các keypoint của `|Δp| / torso_length / Δt`, với `Δ` là bước ≥ `activity.sample_interval_s` (không đo giữa hai frame liền nhau: nhiễu keypoint 1–2 px mỗi frame cộng dồn làm người ngồi yên đã vượt `high_threshold`). Chỉ số = **trung vị** các mẫu trong `activity.window_s` (keypoint lệch 1–3 frame không kéo chỉ số lên).
+- `activity_level`: `LOW` < `low_threshold` ≤ `NORMAL` ≤ `high_threshold` < `HIGH`. `UNKNOWN` khi mẫu chưa phủ đủ `window_s` (khoảng `sample_interval_s + window_s` sau khi quan sát được), khi `NO_OBSERVATION` và ngay sau khi đổi người mục tiêu (bộ đếm reset). Frame kém trong lúc cổng còn mở: giữ mức.
+- `ACTIVITY_INCREASED`: mức vào `HIGH` và giữ ≥ `activity.increased_hold_s`. `ACTIVITY_LOW_PROLONGED`: `LOW` liên tục ≥ `activity.low_prolonged_s`. Mỗi đoạn mức liên tục phát tối đa một lần; `occurred_at_ms` = đầu đoạn; `explanation`: `rule_id` (`movement.<mã>`), `activity_level`, `activity_index`, `threshold`, `held_ms`, `window_s`.
+- `ABNORMAL_MOVEMENT`: chỉ xét chuỗi frame `GOOD` liên tục của cùng người mục tiêu; frame không `GOOD`, `NO_OBSERVATION` hoặc đổi mục tiêu → hủy (không xét ROI: mục tiêu đã ra khỏi giường vẫn được xét).
+  1. Frame `t` có mốc `ref` = mẫu cách ≥ `abnormal_movement.window_s` về trước. Dấu hiệu nhanh: vận tốc đi xuống lớn nhất của `hip_center` trong cửa sổ ≥ `hip_drop_speed_torso_per_s` (chia torso lớn hơn giữa frame và mốc); `|hip(t) − hip(ref)| / torso(ref)` ≥ `displacement_torso`; `|trunk(t) − trunk(ref)|` ≥ `trunk_angle_change_deg`.
+  2. Có dấu hiệu → một "chuyển động"; mẫu "trước" = `ref` của frame có nhiều dấu hiệu nhất. Hết dấu hiệu liên tục `hold_after_s` → chấm C1–C5 với vị trí **cuối**: C1 vận tốc đi xuống lớn nhất; C2, C3 so vị trí/góc thân cuối với mẫu "trước" (nhiễu nhảy rồi quay về không tính); C4 `hip_y / chiều cao khung hình` ≥ `final_low_position_ratio`; C5 trung vị tốc độ mẫu vận động trong khoảng giữ < `activity.low_threshold`. Đủ `min_conditions` **và** có ít nhất một điều kiện hạ thấp (C1 hoặc C4) → phát *(giả định, chốt 18/11/2026)*; `explanation.lowering_required = true`.
+  3. `occurred_at_ms` = mẫu đầu trong cửa sổ có tốc độ hông ≥ `hip_drop_speed_torso_per_s` (không có thì frame đầu có dấu hiệu); `detected_at_ms` = lúc chấm (≈ `window_s + hold_after_s` sau khi hết chuyển động). Chuyển động còn đang chờ (chưa đủ `hold_after_s`) khi luồng kết thúc thì **không** được chấm, không phát sự kiện. `explanation`: `conditions_met` (`hip_drop_speed`, `displacement`, `trunk_angle_change`, `final_low_position`, `still_after`), giá trị đo từng điều kiện, `min_conditions`, `window_s`, `hold_after_s`, `held_ms`.
+  4. Điều kiện hạ thấp bắt buộc để đứng dậy nhanh từ sàn rồi đứng yên (C2 + C3 + C5) hoặc đi rồi dừng không cảnh báo (HS §8.1 "chuyển động nhanh xuống nệm"; ADR-0009). Giới hạn còn lại: C4 là vị trí tuyệt đối trong khung, nên đi rồi dừng khi hông đã ở thấp trong khung (≥ `final_low_position_ratio`) vẫn có thể đủ điều kiện; ngưỡng C4 cần đặt theo góc camera. Trên clip thật C5 hiếm khi thỏa với `low_threshold = 0,02` (nhiễu tĩnh ~0,02–0,07): xem F23 mục 10.
+- Mọi mã vận động qua cùng `Debouncer` với rule cơ thể.
+
 Các sự kiện mức LOG/INFO chỉ vào timeline. MEDIUM/HIGH tạo cảnh báo PENDING *(giả định QA#17)*. Mức ưu tiên là ưu tiên **workflow**, không phải phân tầng nguy cơ lâm sàng (PDF §7).
 
 **Trạng thái hiển thị (không phải sự kiện):**
-- `activity_level`: LOW / NORMAL / HIGH / UNKNOWN. UNKNOWN khi NO_OBSERVATION, để mất quan sát không bị tính là "ít vận động" *(giả định)*.
+- `activity_level`: LOW / NORMAL / HIGH / UNKNOWN. UNKNOWN khi NO_OBSERVATION, khi cửa sổ chưa đủ dữ liệu hoặc vừa đổi người mục tiêu, để mất quan sát không bị tính là "ít vận động" *(giả định)*.
 - `rest_status`: RESTING ("Đang nghỉ - dữ liệu tham khảo") / ACTIVE ("Đang hoạt động") / UNKNOWN. Xem HS §5.3, PDF §6.3, F27.
 - `face_status` và `face_signals`.
 
@@ -196,6 +207,7 @@ debounce:
   same_code_same_session_s: 60     # A01
 activity:
   window_s: 5.0
+  sample_interval_s: 1.0           # tốc độ keypoint đo trên bước 1 s (giảm nhiễu từng frame; F23)
   low_threshold: 0.02
   high_threshold: 0.15
   low_prolonged_s: 300

@@ -22,12 +22,34 @@ from tests.engine.builders import (
     SITTING,
     STANDING,
     PoseSequence,
-    codes,
     context,
     default_config,
-    events,
     run_engine,
 )
+from tests.engine.builders import codes as all_codes
+from tests.engine.builders import events as all_events
+
+BODY_CODES = frozenset(
+    {
+        EventCode.SIT_UP,
+        EventCode.STAND_UP,
+        EventCode.BED_EDGE,
+        EventCode.BED_EXIT,
+        EventCode.RETURN_TO_BED,
+        EventCode.POSTURE_CHANGE,
+    }
+)
+"""Mã của F15. Sự kiện vận động (F23, LOG) xuất hiện song song khi người bệnh cử động; test ở đây
+chỉ xét rule cơ thể (vận động: `test_rules_movement.py`)."""
+
+
+def events(outs: list[EngineOutput]) -> list[EngineEvent]:
+    return [e for e in all_events(outs) if e.code in BODY_CODES]
+
+
+def codes(outs: list[EngineOutput]) -> list[str]:
+    return [c for c in all_codes(outs) if c in BODY_CODES]
+
 
 CONFIG = default_config()
 MIN = CONFIG.min_duration_s
@@ -429,6 +451,8 @@ def test_every_body_event_has_required_fields() -> None:
         outs = [engine.process(obs) for obs in seq]
         for obs, out in zip(seq, outs, strict=True):
             for ev in out.events:
+                if ev.code not in BODY_CODES:
+                    continue
                 seen.add(ev.code)
                 assert ev.priority == default_priority(ev.code), name
                 assert 0.0 <= ev.confidence <= 1.0, name

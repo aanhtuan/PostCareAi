@@ -178,6 +178,24 @@ OUTSIDE = STANDING.moved_to((1180, 590))
 """Đứng ngoài ROI, bên phải giường."""
 NURSE = STANDING.moved_to((1150, 400))
 """Điều dưỡng đứng cạnh mép phải giường, tâm hông ngoài ROI."""
+UPRIGHT = STANDING.moved_to((900, 400))
+"""Đứng, tâm hông giữa khung (y = 0,56 chiều cao): trên ảnh 2D hông nằm trong ROI (F23)."""
+FLOOR = Body(
+    hip=(800, 660), shoulder=(TORSO_PX, 0), knee=(-180, 0), ankle=(-360, 0), half_width=(0, 35)
+)
+"""Nằm trên sàn phía trước giường: hông thấp trong khung (y = 0,92), ngoài ROI (F23)."""
+CHAIR_SEATED = Body(
+    hip=(900, 540), shoulder=(0, -TORSO_PX), knee=(80, 0), ankle=(80, 120), half_width=(40, 0)
+)
+"""Ngồi trên ghế cạnh giường: hông thấp hơn `UPRIGHT` 0,7 torso, thân vẫn thẳng đứng (F23)."""
+BENT_FORWARD = Body(
+    hip=(880, 410),
+    shoulder=(0.85 * TORSO_PX, -0.53 * TORSO_PX),
+    knee=(0, 60),
+    ankle=(0, 120),
+    half_width=(40, 0),
+)
+"""Cúi người về trước từ `UPRIGHT`: thân nghiêng ~32° so với phương ngang, hông gần như yên."""
 
 
 class PoseSequence:
@@ -277,6 +295,57 @@ class PoseSequence:
             )
             self.body = replace(start, half_width=rotated)
             self._emit(self.body.person(self.image_size))
+        return self
+
+    def fast_drop(self, seconds: float = 0.6, to: Body = FLOOR) -> "PoseSequence":
+        """Hạ thấp nhanh (F23): từ tư thế hiện tại xuống `to` (mặc định nằm sàn) trong `seconds`."""
+        return self._move(to, seconds)
+
+    def limb_motion(
+        self, seconds: float, speed_torso_per_s: float, whole_body: bool = False
+    ) -> "PoseSequence":
+        """Cử động tại chỗ (F23): gối và cổ chân (hoặc cả thân khi `whole_body`) dao động lên xuống
+        theo sóng tam giác, tốc độ không đổi `speed_torso_per_s` × chiều dài thân hiện tại.
+
+        Biên độ cố định 0,25 × thân; đổi chiều khi chạm biên. Tư thế gốc giữ nguyên sau thao tác.
+        """
+        base = self.body
+        torso = math.hypot(*base.shoulder)
+        amplitude = 0.25 * torso
+        step = speed_torso_per_s * torso / self.fps
+        offset, direction = 0.0, 1.0
+        for _ in range(self._n(seconds)):
+            offset += direction * step
+            if abs(offset) > amplitude:
+                direction = -direction
+                offset = math.copysign(2 * amplitude, offset) - offset
+            if whole_body:
+                body = base.moved_to((base.hip[0], base.hip[1] + offset))
+            else:
+                body = replace(
+                    base,
+                    knee=(base.knee[0], base.knee[1] + offset),
+                    ankle=(base.ankle[0], base.ankle[1] + offset),
+                )
+            self.body = body
+            self._emit(body.person(self.image_size))
+        self.body = base
+        return self
+
+    def scaled(self, factor: float) -> "PoseSequence":
+        """Đổi kích thước người (quanh tâm hông) cho các thao tác sau: kiểm tra chuẩn hóa torso."""
+        b = self.body
+
+        def sc(v: Px) -> Px:
+            return (v[0] * factor, v[1] * factor)
+
+        self.body = Body(
+            hip=b.hip,
+            shoulder=sc(b.shoulder),
+            knee=sc(b.knee),
+            ankle=sc(b.ankle),
+            half_width=sc(b.half_width),
+        )
         return self
 
     def frames(self, bodies: Iterable[Body]) -> "PoseSequence":
