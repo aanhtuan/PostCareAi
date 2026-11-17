@@ -82,7 +82,7 @@ F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được tr�
 | F12 | Replay CLI và fixture | M1 | Todo |
 | F13 | Đặc trưng cơ thể, người mục tiêu, chất lượng quan sát | M1 | Done |
 | F14 | State machine tư thế và vị trí | M1 | Done |
-| F15 | Sự kiện cơ thể và vị trí | M1 | Todo |
+| F15 | Sự kiện cơ thể và vị trí | M1 | Done |
 | F16 | Công cụ đánh giá trên tập phát triển | M1 | Todo |
 | F17 | Lưu sự kiện và tạo cảnh báo | M2 | Todo |
 | F18 | Realtime gateway (WebSocket) | M2 | Todo |
