@@ -78,24 +78,46 @@ Sai định dạng (ROI tự cắt, khóa lạ, ngưỡng sai kiểu) → `postc
 
 Kết quả `postcare replay` (`runs/<id>/`, không commit): `observations.jsonl`, `events.jsonl` (mỗi dòng `EngineEvent` + `config_hash`), `frames.jsonl` (mỗi khung: `frame_index`, `ts_ms`, `body_state`, `observation_quality`, `activity_level`, `rest_status`, `face_status`, `persons`), `run.json` (video, `config_hash`, commit, thời lượng, số khung, khung bỏ, FPS xử lý, CPU %, RAM MB). Hai file `events.jsonl`, `frames.jsonl` không chứa số liệu phụ thuộc máy nên so sánh từng byte được. Cách chạy: [dev-setup.md §7](dev-setup.md#7-replay-video-và-cắt-fixture-f12).
 
+Cột tuỳ chọn của manifest *(giả định F16)*: `camera_config` (đường dẫn `config/cameras/*.yaml` dùng khi replay video đó). Trống thì `postcare eval` dùng `config/cameras/<tên file video>.yaml` nếu có (ví dụ `pexels-8090735.yaml`), còn lại dùng `--camera-config` (mặc định `example.yaml`). Đường dẫn `path` bắt đầu bằng `data/` được tính từ thư mục dữ liệu (`POSTCARE_DATA_DIR`, mặc định `data/` ở gốc repo), đường dẫn khác tính từ gốc repo, đường dẫn tuyệt đối giữ nguyên.
+
 **Quy tắc chia tập** (HS §8.1):
 - Một `video_id` chỉ thuộc **một** split.
 - Không cắt frame của cùng một video sang hai tập.
 - Tập test nên có `participant_id` hoặc `session_id` khác tập dev.
 
-Validator của F16 kiểm tra các quy tắc này.
+Validator của F16 kiểm tra các quy tắc này (`postcare eval check`):
+- **lỗi** (exit 1): thiếu cột bắt buộc; `split` ngoài `{dev, test}`; `video_id` hoặc `path` ở hai dòng; `event_code` hoặc mã trong `eval_codes` không thuộc `EventCode`; `start_s > end_s`; `end_s` vượt `duration_s`; truth tham chiếu `video_id` không có trong manifest;
+- **cảnh báo** (exit 0): `participant_id` hoặc `session_id` có ở cả dev và test.
 
 ## 5. Cách khớp và metric
 
-- **Khớp sự kiện:** một sự kiện dự đoán cùng `code` khớp ground truth nếu thời điểm `occurred_at` nằm trong `[start_s − 1, end_s + 3]` giây *(giả định A06, cấu hình được)*. Mỗi ground truth khớp tối đa một dự đoán.
+- **Khớp sự kiện:** một sự kiện dự đoán cùng `code` khớp ground truth nếu thời điểm `occurred_at` nằm trong `[start_s − 1, end_s + 3]` giây *(giả định A06, đổi bằng `--tol-before-s`, `--tol-after-s`)*. Mỗi ground truth khớp tối đa một dự đoán và ngược lại; ghép tham lam theo khoảng cách thời gian nhỏ nhất tới đoạn `[start_s, end_s]`. Dự đoán không khớp là FP, ground truth không khớp là FN. Video có `eval_codes` (dữ liệu ngoài): dự đoán mã khác không tính FP.
 - **Metric** (HS §8.2):
   - TP, FP, FN, Precision, Recall, F1 cho từng `code`.
   - False alerts / giờ: số FP mức MEDIUM/HIGH chia cho tổng giờ video.
   - Detection latency: `detected_at − start_s` của các TP (trung vị, p90).
   - Delivery latency (F29): `WS nhận − events.created_at` (trung vị, p90).
-  - Coverage: tỷ lệ thời gian không ở NO_OBSERVATION.
-  - FPS trung bình, frame bỏ, CPU %, RAM MB (psutil).
+  - Coverage: tỷ lệ thời gian không ở NO_OBSERVATION (theo `body_state` trong `frames.jsonl`; mỗi khung kéo dài tới khung sau).
+  - FPS trung bình, frame bỏ, CPU %, RAM MB (psutil, đo trong replay, đọc từ `run.json`).
   - Workflow (F29): thời gian Chờ → Tiếp nhận → Xử lý, tỷ lệ cảnh báo có ghi kết quả, tỷ lệ "Cảnh báo sai".
+
+### Lệnh `postcare eval` (F16)
+
+Chạy trong `server/` (Windows và Linux). Không cần DB, không gọi API.
+
+```bash
+uv run postcare eval check                     # chỉ kiểm tra manifest/truth
+uv run postcare eval --split dev               # replay mọi video dev (pose + engine) rồi tính metric
+uv run postcare eval --split dev --reuse       # dùng lại runs/eval-dev/<video_id>/ nếu cùng config_hash
+uv run postcare eval --split dev --from-observations ../runs/eval-dev \
+  --runs-dir ../runs/eval-dev-thr2             # đổi ngưỡng: chạy lại chỉ engine, không cần MediaPipe
+uv run postcare eval --split dev --video-id stock_pexels_8090735 --limit 20   # tập con
+```
+
+- Mặc định: manifest/truth ở `<data>/eval/` (`POSTCARE_DATA_DIR`), model ở `POSTCARE_MODELS_DIR` hoặc `models/`, `--max-fps 15`, kết quả replay ở `runs/eval-<split>/<video_id>/` (F12: `observations.jsonl`, `events.jsonl`, `frames.jsonl`, `run.json`).
+- Báo cáo: `reports/eval-<split>-<ngày>.local.md` và `.local.json` cùng tên (gitignore; đổi bằng `--report`).
+- `--split test` bị chặn: tập test chỉ chạy một lần bằng F29 với `--frozen <hash>`.
+- Video không mở được hoặc thiếu file: ghi ở mục "Video lỗi" của báo cáo, lệnh exit 1 sau khi ghi báo cáo.
 
 ## 6. Quy trình hiệu chỉnh và chốt (HS §8.2)
 
@@ -110,7 +132,9 @@ Validator của F16 kiểm tra các quy tắc này.
    - điều kiện camera;
    - phần cứng.
 
-## 7. Mẫu báo cáo (`reports/eval-<split>-<date>.md`)
+## 7. Mẫu báo cáo (`reports/eval-<split>-<date>.local.md`)
+
+`postcare eval` sinh đủ các mục dưới đây, thêm bảng "Theo nguồn dữ liệu và code" (ghi nguồn nhãn, §8).
 
 - **Thông tin chung:** ngày, `config_hash`, phiên bản code (commit), phần cứng, số video, tổng thời lượng.
 - **Bảng theo `code`:** TP, FP, FN, Precision, Recall, F1, latency trung vị/p90.
