@@ -61,7 +61,7 @@ erDiagram
 |---|---|---|---|
 | id | bigint PK | | |
 | code | text | unique, not null | `A01`, `A02`… (HS Hình 3) |
-| area_id | FK → areas | not null | Khu vực (PDF §10.1). Thay cột chuỗi `area` của F01 từ migration `0005` (F37): mỗi giá trị `btrim(area)` khác nhau thành một dòng `areas`; `downgrade` khôi phục `area` từ `areas.name` |
+| area_id | FK → areas | not null | Khu vực (PDF §10.1). Thay cột chuỗi `area` của F01 từ migration `0006` (F37): mỗi giá trị `btrim(area)` khác nhau thành một dòng `areas`; `downgrade` khôi phục `area` từ `areas.name` |
 | is_active | bool | default true | |
 | created_at | timestamptz | default now() | |
 
@@ -105,10 +105,10 @@ erDiagram
 | started_by | FK → users | not null | |
 | ended_at | timestamptz | null | null = đang mở |
 | ended_by | FK → users | null | |
-| previous_session_id | FK → monitoring_sessions | unique, null | Phiên trước trong chuỗi chuyển giường (F04) |
+| previous_session_id | FK → monitoring_sessions | unique, null | Phiên trước trong chuỗi chuyển giường (F04, migration 0005_f04) |
 | transfer_reason | text | null | Lý do chuyển giường, có khi `previous_session_id` khác null (F04) |
-| paused_at | timestamptz | null | null = không tạm dừng thu hình (F36) |
-| paused_by | FK → users | null | Người tạm dừng (F36); lịch sử tạm dừng/tiếp tục nằm trong audit |
+| paused_at | timestamptz | null | null = không tạm dừng thu hình (F04, migration 0005_f04). Kết thúc hoặc chuyển giường thì xóa về null |
+| paused_by | FK → users | null | Người tạm dừng (F04); lịch sử tạm dừng/tiếp tục nằm trong audit (`session.pause`, `session.resume`) |
 
 Ràng buộc:
 - `UNIQUE (bed_id) WHERE ended_at IS NULL`
@@ -211,6 +211,6 @@ Bảng chỉ INSERT; code không có hàm update hay delete.
 - Cột có `default` cũng là `NOT NULL`, trừ cột ghi rõ `null` *(giả định F01)*. Kiểu: id/FK `bigint`, chuỗi `text`, JSON `jsonb`, thời gian `timestamptz`.
 - Tên constraint theo quy ước trong `postcare/db/base.py` (`pk_<bảng>`, `uq_<bảng>_<cột>`, `fk_<bảng>_<cột>_<bảng đích>`), để migration sau tham chiếu được.
 - Mọi thay đổi schema đi qua migration Alembic (`server/src/postcare/db/migrations/`). Không sửa migration đã merge. Test `test_models_match_migrations` báo lỗi khi model và migration lệch nhau.
-- Migration hiện có: `0001` (F01: 7 bảng nền), `0002` (prototype ADR-0010: `events`, `alerts` theo mục tương ứng ở trên và cột `cameras.last_config_hash`; F17 tiếp nhận bằng migration mới), `0003` (F35: thêm `FAMILY` vào `user_role`; downgrade dừng nếu còn tài khoản `FAMILY`), `0004` (F35: `users.token_version`), `0005` (F37: bảng `areas`, `beds.area` → `beds.area_id` có chuyển dữ liệu, `shift_definitions.is_active`/`created_at`).
+- Migration hiện có: `0001` (F01: 7 bảng nền), `0002` (prototype ADR-0010: `events`, `alerts` theo mục tương ứng ở trên và cột `cameras.last_config_hash`; F17 tiếp nhận bằng migration mới), `0003` (F35: thêm `FAMILY` vào `user_role`; downgrade dừng nếu còn tài khoản `FAMILY`), `0004` (F35: `users.token_version`), `0005_f04` (F04: chuyển giường, tạm dừng thu hình trên `monitoring_sessions`), `0006` (F37: bảng `areas`, `beds.area` → `beds.area_id` có chuyển dữ liệu, `shift_definitions.is_active`/`created_at`).
 - Trạng thái cơ thể không lưu từng lần đổi. "Số lần đổi trạng thái" ở bàn giao ca (PDF §9.1) đếm qua các sự kiện tư thế/vị trí (F24) *(giả định)*.
 - Xóa mềm (`is_active = false`) với bảng danh mục (`beds`, `patients`, `cameras`, `areas`, `shift_definitions`, `users`), có khôi phục (QA#36). Không xóa cứng bất kỳ bảng nào; không xóa cứng sự kiện, cảnh báo hay audit. Bản ghi đã xóa vẫn giữ lịch sử, timeline, audit. Mã (`code`, `username`) duy nhất kể cả bản ghi đã xóa.

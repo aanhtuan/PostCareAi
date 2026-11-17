@@ -179,6 +179,13 @@ class SessionOut(BaseModel):
     started_by: UserRef
     ended_at: datetime | None
     ended_by: UserRef | None
+    previous_session_id: int | None
+    # Mã giường của phiên trước, để UI hiện "Chuyển từ giường …" (F04 R18).
+    previous_bed_code: str | None
+    next_session_id: int | None
+    transfer_reason: str | None
+    paused_at: datetime | None
+    paused_by: UserRef | None
 
 
 class SessionCreate(StrictIn):
@@ -199,6 +206,31 @@ class AreaOut(BaseModel):
     is_active: bool
     created_at: datetime
     bed_count: int  # số giường đang dùng (chưa xóa) trong khu vực
+
+
+# Lý do chuyển giường bắt buộc, bỏ khoảng trắng đầu/cuối (F04 R12).
+Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+
+
+class SessionTransfer(StrictIn):
+    target_bed_id: int
+    reason: Reason
+
+
+class SessionPause(StrictIn):
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)] | None = None
+
+
+class SessionChainItem(BaseModel):
+    """Một phiên trong chuỗi chuyển giường, để F22 ghép timeline (F04 R16)."""
+
+    id: int
+    bed_id: int
+    bed_code: str
+    started_at: datetime
+    ended_at: datetime | None
+    previous_session_id: int | None
+    transfer_reason: str | None
 
 
 class BedOut(BaseModel):
@@ -315,6 +347,12 @@ def session_out(s: MonitoringSession) -> SessionOut:
         started_by=UserRef(id=s.starter.id, full_name=s.starter.full_name),
         ended_at=s.ended_at,
         ended_by=user_ref(s.ender),
+        previous_session_id=s.previous_session_id,
+        previous_bed_code=s.previous_session.bed.code if s.previous_session else None,
+        next_session_id=s.next_session.id if s.next_session else None,
+        transfer_reason=s.transfer_reason,
+        paused_at=s.paused_at,
+        paused_by=user_ref(s.pauser),
     )
 
 
@@ -651,3 +689,5 @@ class CameraConfigOut(BaseModel):
     display_mode: DisplayMode
     config_version: int
     active_session_id: int | None
+    # Phiên đang mở của giường đang tạm dừng thu hình: worker dừng đọc khung (F04 R22; F36 R18).
+    capture_paused: bool = False

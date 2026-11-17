@@ -98,6 +98,7 @@ class DebounceConfig(_Block):
 
 class ActivityConfig(_Block):
     window_s: PosFloat
+    sample_interval_s: PosFloat
     low_threshold: NonNegFloat
     high_threshold: NonNegFloat
     low_prolonged_s: NonNegFloat

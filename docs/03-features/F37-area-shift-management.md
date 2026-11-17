@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F37 |
-| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | Done <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -124,39 +124,40 @@ Cho ADMIN quản lý danh mục **khu vực** và **ca trực** trên giao diệ
 1. **Plan** (commit `docs(F37): plan`).
 2. **Test trước** (commit `test(F37): …`), xác nhận đỏ đúng lý do:
    - `server/tests/domain/test_shift_overlap.py`: bảng ca (thường/thường, qua đêm/thường, qua đêm/qua đêm, kề nhau 14–22 và 22–06 không chồng, trùng hệt, chứa nhau) cho `shifts_overlap`.
-   - `server/tests/db/test_migration_areas.py`: `test_migration_areas_groups_same_area` (2 giường cùng khu vực + 1 giường khác + 1 chuỗi chỉ khác khoảng trắng; downgrade tới `0004`, chèn dữ liệu, upgrade `0005`), `test_migration_areas_downgrade_restores_text`.
+   - `server/tests/db/test_migration_areas.py`: `test_migration_areas_groups_same_area` (2 giường cùng khu vực + 1 giường khác + 1 chuỗi chỉ khác khoảng trắng; downgrade tới `0005_f04`, chèn dữ liệu, upgrade `0006`), `test_migration_areas_downgrade_restores_text`.
    - `server/tests/api/test_areas.py`: `test_admin_crud_areas`, `test_duplicate_area_code_409`, `test_delete_area_with_active_beds_409`, `test_delete_area_only_deleted_beds_ok`, `test_bed_cannot_use_deleted_area`, `test_beds_list_shows_area_name`, `test_area_shift_writes_admin_only` (tham số hóa NURSE/CHARGE_NURSE/DOCTOR/FAMILY), `test_family_cannot_read_areas_shifts`, `test_repeat_delete_restore_no_audit`.
    - `server/tests/api/test_shifts_admin.py`: `test_admin_crud_shifts`, `test_shift_overlap_409`, `test_overnight_shift_overlap_detected`, `test_adjacent_shifts_do_not_overlap`, `test_restore_overlapping_shift_409`, `test_shift_equal_start_end_400`, `test_shift_time_with_seconds_400`, `test_deleted_shift_does_not_block_new`, `test_area_shift_writes_audited`, `test_handover_works_for_deleted_shift`, `test_current_shift_ignores_deleted`.
    - Sửa test cũ dùng `area` chuỗi → `area_id` (`test_beds.py`, `test_cameras.py`, `test_catalog_delete.py`, `test_migrations.py`, `test_isolation.py`, `test_seed.py`).
-3. **Model + migration** `0005_areas_shift_admin.py` (`down_revision = "0004"`): tạo `areas`, chèn từ `DISTINCT btrim(beds.area)` với `code = 'KV' || lpad(row_number, 2, '0')` theo `name`, gán `beds.area_id`, `NOT NULL`, FK, bỏ `beds.area`; `shift_definitions` thêm `is_active`, `created_at`. `downgrade` thêm lại `beds.area` từ `areas.name`.
+3. **Model + migration** `0006_areas_shift_admin.py` (`down_revision = "0005_f04"`; ban đầu là `0005`/`0004`, đánh lại số khi merge sau F04): tạo `areas`, chèn từ `DISTINCT btrim(beds.area)` với `code = 'KV' || lpad(n, GREATEST(2, length(n)), '0')` theo `name`, gán `beds.area_id`, `NOT NULL`, FK, bỏ `beds.area`; `shift_definitions` thêm `is_active`, `created_at`. `downgrade` thêm lại `beds.area` từ `areas.name`.
 4. **Domain**: `domain/areas.py` (CRUD, `AREA_IN_USE`), `domain/shifts.py` (`shifts_overlap`, CRUD, `SHIFT_OVERLAP`, `list_shifts(active_only)`), sửa `domain/catalog.py` (giường nhận `area_id`, 400 nếu khu vực đã xóa/không tồn tại), `dto.py` (`AreaRef`, `AreaOut`, `AreaCreate/Update`, `ShiftCreate/Update`, `ShiftOut.is_active`), `overview.py` (`area` = tên khu vực), `seed.py` (khu vực "Khu hậu phẫu").
 5. **API**: `api/v1/areas.py`, mở rộng `api/v1/catalog.py` (shifts), đăng ký router trong `api/main.py`. `make gen-api-types`.
 6. **Web**: `api/hooks.ts` (`useAreas`, `useShifts(includeInactive)`, resource `areas`/`shifts` trong `useSaveCatalogItem`/`useCatalogLifecycle`), `pages/Management/AreasTab.tsx`, `ShiftsTab.tsx`, `AreaForm.tsx`, `ShiftForm.tsx`, sửa `BedForm.tsx` (Select khu vực), `ManagementPage.tsx`; text trong khối `area`, `shift` của `vi.ts`. Test component `AreasTab.test.tsx`, `ShiftsTab.test.tsx`, `BedForm selects area from list`.
 7. **Doc**: `data-model.md`, `api-conventions.md` (shape `BedOut.area`, mã lỗi, `GET /shifts`).
 8. **Kiểm chứng**: `make check`, `scripts\dev.ps1 check`, curl trên DB `postcare_f37` cổng 8037; ghi §10; trạng thái In review.
 
-**Rủi ro:** F04 song song cũng thêm migration `0005` → khi merge phải nối lại `down_revision`. `OverviewBedOut.area` giữ là chuỗi tên khu vực *(giả định: không đổi F09)*. `GET /shifts` giữ dạng danh sách (không phân trang) vì F24 đang dùng.
+**Rủi ro:** F04 song song cũng thêm migration sau `0004` → đã nối lại khi merge (F37 thành `0006`, sau `0005_f04`). `OverviewBedOut.area` giữ là chuỗi tên khu vực *(giả định: không đổi F09)*. `GET /shifts` giữ dạng danh sách (không phân trang) vì F24 đang dùng.
 
 ## 10. Ghi chú bàn giao
 
-**2026-11-18 (builder F37), trạng thái In review.** Nhánh `feat/F37-area-shift-management`.
+**2026-11-18 (builder F37).** Hoàn thành 2026-11-18. Nhánh `feat/F37-area-shift-management`.
 
-- **Migration:** `0005_areas_shift_admin.py` (revision `0005`, `down_revision = "0004"`). F04 làm song song cũng thêm migration sau `0004` → khi merge phải nối lại `down_revision` (một trong hai thành `0006`, trỏ về revision kia). Test `tests/db/test_migration_areas.py` hạ về `"0004"` và nâng lên `"0005"` theo id, nên cập nhật hằng `BEFORE`/`AREAS_REVISION` nếu đổi số.
+- **Migration:** `0006_areas_shift_admin.py` (revision `0006`, `down_revision = "0005_f04"`). Ban đầu là `0005` sau `0004`; F04 merge trước với `0005_f04` nên đã đánh lại số khi merge main (2026-11-18). Test `tests/db/test_migration_areas.py` hạ về `BEFORE = "0005_f04"` và nâng lên `AREAS_REVISION = "0006"`.
 - **Bằng chứng AC:**
   - AC1: `test_migration_areas_groups_same_area` (2 giường "Khu hậu phẫu" + 1 bản có khoảng trắng thừa → cùng khu vực `KV02`; "Hồi sức" → `KV01`), `test_migration_areas_downgrade_restores_text`, `test_migration_areas_empty_db`, `test_beds_list_shows_area_name`; `test_migrations.py` (schema, FK `beds.area_id → areas`, unique `areas.code`, model khớp migration).
   - AC2: `tests/api/test_areas.py` (`test_admin_crud_areas`, `test_duplicate_area_code_409`, `test_delete_area_with_active_beds_409`, `test_delete_area_only_deleted_beds_ok`, `test_bed_cannot_use_deleted_area`, `test_bed_moves_to_other_area`, `test_repeat_delete_restore_no_audit`).
   - AC3: `tests/domain/test_shift_overlap.py` (13 cặp ca × 2 chiều), `tests/api/test_shifts_admin.py` (`test_admin_crud_shifts`, `test_shift_overlap_409`, `test_overnight_shift_overlap_detected`, `test_adjacent_shifts_do_not_overlap`, `test_restore_overlapping_shift_409`, `test_shift_equal_start_end_400`, `test_shift_time_validation`, `test_deleted_shift_does_not_block_new`, `test_duplicate_active_shift_name_409`, `test_restore_duplicate_name_409`).
   - AC4: `test_area_shift_writes_admin_only` (8 endpoint ghi × NURSE/CHARGE_NURSE/DOCTOR/FAMILY → 403, không audit), `test_family_cannot_read_areas_shifts`, `test_area_shift_writes_audited`, `test_handover_works_for_deleted_shift`, `test_current_shift_ignores_deleted`; web `AreasTab.test.tsx` ("AreasTab shows restore for deleted area", 409 `AREA_IN_USE` hiện message), `ShiftsTab.test.tsx` ("ShiftsTab marks overnight shift", 409 chồng giờ, cảnh báo khi sửa), `ManagementPage.test.tsx` ("BedForm selects area from list").
 - **Kiểm chứng thủ công** (DB `postcare_f37`, API cổng 8037): tạo DB ở `0004`, chèn giường `A01 "Khu hậu phẫu"`, `A02 "Khu hậu phẫu "`, `B01 "Hồi sức"`; `alembic upgrade head` → `KV01 Hồi sức (B01)`, `KV02 Khu hậu phẫu (A01, A02)`; `postcare seed` thêm A03 vào `KV02` (không tạo khu vực trùng). curl: nurse `POST /areas` → 403; admin tạo `HP-1` → 201, trùng → 409 `DUPLICATE_CODE`; `DELETE /areas/2` → 409 `AREA_IN_USE` `bed_ids [1,2,4]`; ca 12:00–16:00 → 409 `conflicting_shift_ids [1,2]`; 04:00–07:00 → 409 `[1,3]`; 21:00–01:00 → 409 `[2,3]`; 08:00–08:00 → 400; xóa Ca đêm rồi `GET /handover?shift_id=3&date=…` → 200; xóa Ca sáng, tạo 05:00–06:00 → 409 (chồng Ca đêm), khôi phục Ca sáng → 200; `audit_logs` có `area.create`, `shift.delete`, `shift.restore`. Lưu ý: Git Bash trên Windows gửi chuỗi tiếng Việt trong `-d` sai mã hóa, dùng `--data-binary @file.json`.
-- **UI:** trang Quản lý thêm hai mục "Khu vực" và "Ca trực" (dạng mục như Giường/Bệnh nhân/Camera, không phải tab). Thành phần dùng chung tách ra `CatalogParts.tsx`, `catalogActions.ts`. Màn hình Bàn giao ca chỉ liệt kê ca đang dùng (`useShifts()` mặc định).
+- **Ghi chú UI:** trang Quản lý thêm hai mục "Khu vực" và "Ca trực" (dạng mục như Giường/Bệnh nhân/Camera, không phải tab). Thành phần dùng chung tách ra `CatalogParts.tsx`, `catalogActions.ts`. Màn hình Bàn giao ca chỉ liệt kê ca đang dùng (`useShifts()` mặc định).
 - `make check` và `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` đều exit 0 (2026-11-18, DB test `postcare_w1_test`).
-- Chưa review.
+- **Review (2026-11-18): Đạt**, kèm điều kiện merge: F04 merge trước, F37 đánh lại migration thành `0006` sau `0005_f04`. Các mục sửa không phụ thuộc merge (5–8) đã làm trước khi merge, xem dòng dưới.
+- **Merge main sau F04 (2026-11-18):** migration đổi thành `0006_areas_shift_admin.py`; `ManagementPage.tsx` gộp tay (giữ `SessionCell`, `EndSessionButton`, `TransferSessionDialog`, `PauseCaptureButton` của F04; thành phần danh mục dùng chung lấy từ `CatalogParts.tsx`/`catalogActions.ts`); `sessionTestUtils.tsx` dùng `area` dạng object; `make gen-api-types` chạy lại. `make check` và `scripts\dev.ps1 check` chạy lại sau merge.
 - **Sửa theo review (2026-11-18):** (5) `data-model.md` liệt kê migration của F37; (6) seed chỉ dùng khu vực "Khu hậu phẫu" **đang dùng**, khu vực đã xóa bị bỏ qua và tạo khu vực mới với mã còn trống (`test_seed_area_skips_deleted_area`, `test_seed_area_prefers_active_area`); (7) mã migration `'KV' || lpad(n, GREATEST(2, length(n)), '0')` → `KV99`, `KV100`… không bị cắt (`test_migration_area_codes_beyond_99`); (8) seed bỏ qua ca mẫu chồng giờ một ca đang dùng, ca đã xóa không chặn (`test_seed_shifts_do_not_overlap_existing`, `test_seed_shifts_ignore_deleted_overlap`).
 
 ## 11. Definition of Done
 
-- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
-- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
-- [ ] Doc liên quan đã cập nhật cùng PR.
-- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [x] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [x] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [x] Doc liên quan đã cập nhật cùng PR.
+- [x] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).

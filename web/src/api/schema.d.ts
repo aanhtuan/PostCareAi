@@ -397,6 +397,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transfer Session
+         * @description Chuyển giường: kết thúc phiên này và mở phiên mới ở giường đích (F04 R12–R17).
+         */
+        post: operations["transfer_session_api_v1_sessions__session_id__transfer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/chain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Session Chain */
+        get: operations["session_chain_api_v1_sessions__session_id__chain_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause Session
+         * @description Tạm dừng thu hình của phiên (F04 R19–R22; F36 R15–R18).
+         */
+        post: operations["pause_session_api_v1_sessions__session_id__pause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Session */
+        post: operations["resume_session_api_v1_sessions__session_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/timeline": {
         parameters: {
             query?: never;
@@ -912,6 +986,11 @@ export interface components {
             config_version: number;
             /** Active Session Id */
             active_session_id: number | null;
+            /**
+             * Capture Paused
+             * @default false
+             */
+            capture_paused: boolean;
         };
         /** CameraCreate */
         CameraCreate: {
@@ -1267,6 +1346,13 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[SessionChainItem] */
+        Page_SessionChainItem_: {
+            /** Items */
+            items: components["schemas"]["SessionChainItem"][];
+            /** Total */
+            total: number;
+        };
         /** Page[SessionOut] */
         Page_SessionOut_: {
             /** Items */
@@ -1338,6 +1424,29 @@ export interface components {
          * @enum {string}
          */
         RestStatus: "RESTING" | "ACTIVE" | "UNKNOWN";
+        /**
+         * SessionChainItem
+         * @description Một phiên trong chuỗi chuyển giường, để F22 ghép timeline (F04 R16).
+         */
+        SessionChainItem: {
+            /** Id */
+            id: number;
+            /** Bed Id */
+            bed_id: number;
+            /** Bed Code */
+            bed_code: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Ended At */
+            ended_at: string | null;
+            /** Previous Session Id */
+            previous_session_id: number | null;
+            /** Transfer Reason */
+            transfer_reason: string | null;
+        };
         /** SessionCreate */
         SessionCreate: {
             /** Bed Id */
@@ -1368,6 +1477,22 @@ export interface components {
             /** Ended At */
             ended_at: string | null;
             ended_by: components["schemas"]["UserRef"] | null;
+            /** Previous Session Id */
+            previous_session_id: number | null;
+            /** Previous Bed Code */
+            previous_bed_code: string | null;
+            /** Next Session Id */
+            next_session_id: number | null;
+            /** Transfer Reason */
+            transfer_reason: string | null;
+            /** Paused At */
+            paused_at: string | null;
+            paused_by: components["schemas"]["UserRef"] | null;
+        };
+        /** SessionPause */
+        SessionPause: {
+            /** Reason */
+            reason?: string | null;
         };
         /** SessionRef */
         SessionRef: {
@@ -1375,6 +1500,13 @@ export interface components {
             id: number;
             /** Patient Code */
             patient_code: string;
+        };
+        /** SessionTransfer */
+        SessionTransfer: {
+            /** Target Bed Id */
+            target_bed_id: number;
+            /** Reason */
+            reason: string;
         };
         /**
          * ShiftCreate
@@ -2644,6 +2776,138 @@ export interface operations {
         };
     };
     end_session_api_v1_sessions__session_id__end_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transfer_session_api_v1_sessions__session_id__transfer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionTransfer"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    session_chain_api_v1_sessions__session_id__chain_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SessionChainItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pause_session_api_v1_sessions__session_id__pause_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SessionPause"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_session_api_v1_sessions__session_id__resume_post: {
         parameters: {
             query?: never;
             header?: never;

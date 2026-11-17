@@ -5,8 +5,8 @@ Chuyển dữ liệu (F37 R2, giả định): mỗi giá trị `btrim(beds.area)
 `name`; gán `beds.area_id` rồi bỏ cột `beds.area`. `downgrade` khôi phục `beds.area` từ
 `areas.name`.
 
-Revision ID: 0005
-Revises: 0004
+Revision ID: 0006
+Revises: 0005_f04 (F04; F37 làm song song, nối lại khi merge)
 Create Date: 2026-11-18
 """
 
@@ -15,8 +15,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0005"
-down_revision: str | None = "0004"
+revision: str = "0006"
+down_revision: str | None = "0005_f04"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

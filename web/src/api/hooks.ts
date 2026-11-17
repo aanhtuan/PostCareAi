@@ -202,6 +202,34 @@ export function useEndSession() {
   });
 }
 
+/** Chuyển giường (F04 R12): trả phiên mới ở giường đích. */
+export function useTransferSession() {
+  const invalidate = useInvalidateMonitoring();
+  return useMutation({
+    mutationFn: (v: { sessionId: number; target_bed_id: number; reason: string }) =>
+      api<SessionOut>(`/sessions/${v.sessionId}/transfer`, {
+        method: 'POST',
+        body: { target_bed_id: v.target_bed_id, reason: v.reason },
+      }),
+    onSettled: invalidate,
+  });
+}
+
+/** Tạm dừng / tiếp tục thu hình của phiên (F04 R19). */
+export function useCaptureToggle() {
+  const invalidate = useInvalidateMonitoring();
+  return useMutation({
+    mutationFn: (v: { sessionId: number; pause: boolean; reason?: string }) =>
+      v.pause
+        ? api<SessionOut>(`/sessions/${v.sessionId}/pause`, {
+            method: 'POST',
+            body: { reason: v.reason?.trim() || null },
+          })
+        : api<SessionOut>(`/sessions/${v.sessionId}/resume`, { method: 'POST' }),
+    onSettled: invalidate,
+  });
+}
+
 export type CatalogResource = 'beds' | 'patients' | 'cameras' | 'areas' | 'shifts';
 
 /** Thêm (`id` rỗng) hoặc sửa (`PATCH`) một mục danh mục. Chỉ ADMIN (F03 R2). */

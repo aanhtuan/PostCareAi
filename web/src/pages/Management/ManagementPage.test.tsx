@@ -52,6 +52,12 @@ const a01: BedOut = {
     started_by: { id: 1, full_name: 'Nguyễn Thị Hoa' },
     ended_at: null,
     ended_by: null,
+    previous_session_id: null,
+    previous_bed_code: null,
+    next_session_id: null,
+    transfer_reason: null,
+    paused_at: null,
+    paused_by: null,
   },
 };
 const a02: BedOut = {

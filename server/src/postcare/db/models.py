@@ -6,7 +6,7 @@ migration mới; test `test_models_match_migrations` bắt lệch giữa model v
 - 7 bảng nền của F01: users, patients, beds, cameras, monitoring_sessions, audit_logs,
   shift_definitions (migration 0001).
 - areas, beds.area_id (thay chuỗi beds.area), shift_definitions.is_active/created_at: F37,
-  migration 0005.
+  migration 0006.
 - events, alerts và cột cameras.last_config_hash: phần prototype (ADR-0010) được giữ để API
   chạy được, tạo ở migration 0002; F17 tiếp nhận.
 """
@@ -173,11 +173,28 @@ class MonitoringSession(Base):
     started_by: Mapped[int] = _fk("users.id")
     ended_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     ended_by: Mapped[int | None] = _fk("users.id", nullable=True)
+    # Chuyển giường (F04): phiên trước trong chuỗi; unique nên chuỗi tuyến tính.
+    previous_session_id: Mapped[int | None] = _fk(
+        "monitoring_sessions.id", nullable=True, unique=True
+    )
+    transfer_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Tạm dừng thu hình (F04/F36): null = không tạm dừng; lịch sử nằm trong audit.
+    paused_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    paused_by: Mapped[int | None] = _fk("users.id", nullable=True)
 
     patient: Mapped[Patient] = relationship()
     bed: Mapped[Bed] = relationship()
     starter: Mapped[User] = relationship(foreign_keys=[started_by])
     ender: Mapped[User | None] = relationship(foreign_keys=[ended_by])
+    pauser: Mapped[User | None] = relationship(foreign_keys=[paused_by])
+    previous_session: Mapped["MonitoringSession | None"] = relationship(
+        foreign_keys=[previous_session_id],
+        remote_side="MonitoringSession.id",
+        back_populates="next_session",
+    )
+    next_session: Mapped["MonitoringSession | None"] = relationship(
+        foreign_keys=[previous_session_id], back_populates="previous_session", uselist=False
+    )
 
 
 class Event(Base):

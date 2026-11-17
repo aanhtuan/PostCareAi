@@ -6,7 +6,15 @@ from postcare.api.deps import get_session as db_session
 from postcare.db.models import User
 from postcare.domain import sessions as svc
 from postcare.domain import timeline as tl
-from postcare.domain.dto import Page, SessionCreate, SessionOut, TimelineItemOut
+from postcare.domain.dto import (
+    Page,
+    SessionChainItem,
+    SessionCreate,
+    SessionOut,
+    SessionPause,
+    SessionTransfer,
+    TimelineItemOut,
+)
 from postcare.domain.notifications import Publisher
 from postcare.schemas.enums import Priority
 
@@ -52,6 +60,59 @@ def end_session(
     publisher: Publisher = Depends(get_publisher),
 ) -> SessionOut:
     return svc.end_session(db, session_id=session_id, user=user, publisher=publisher)
+
+
+@router.post("/{session_id}/transfer", response_model=SessionOut, status_code=201)
+def transfer_session(
+    session_id: int,
+    body: SessionTransfer,
+    user: User = Depends(require_writer),
+    db: Session = Depends(db_session),
+    publisher: Publisher = Depends(get_publisher),
+) -> SessionOut:
+    """Chuyển giường: kết thúc phiên này và mở phiên mới ở giường đích (F04 R12–R17)."""
+    return svc.transfer_session(
+        db,
+        session_id=session_id,
+        target_bed_id=body.target_bed_id,
+        reason=body.reason,
+        user=user,
+        publisher=publisher,
+    )
+
+
+@router.get(
+    "/{session_id}/chain",
+    response_model=Page[SessionChainItem],
+    dependencies=[Depends(require_staff)],
+)
+def session_chain(session_id: int, db: Session = Depends(db_session)) -> Page[SessionChainItem]:
+    return svc.session_chain(db, session_id)
+
+
+@router.post("/{session_id}/pause", response_model=SessionOut)
+def pause_session(
+    session_id: int,
+    body: SessionPause | None = None,
+    user: User = Depends(require_writer),
+    db: Session = Depends(db_session),
+    publisher: Publisher = Depends(get_publisher),
+) -> SessionOut:
+    """Tạm dừng thu hình của phiên (F04 R19–R22; F36 R15–R18)."""
+    reason = body.reason if body else None
+    return svc.pause_session(
+        db, session_id=session_id, reason=reason, user=user, publisher=publisher
+    )
+
+
+@router.post("/{session_id}/resume", response_model=SessionOut)
+def resume_session(
+    session_id: int,
+    user: User = Depends(require_writer),
+    db: Session = Depends(db_session),
+    publisher: Publisher = Depends(get_publisher),
+) -> SessionOut:
+    return svc.resume_session(db, session_id=session_id, user=user, publisher=publisher)
 
 
 @router.get(

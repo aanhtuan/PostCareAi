@@ -1,7 +1,8 @@
-"""F37 AC1, R2: migration 0005 chuyển `beds.area` (chuỗi) sang bảng `areas` + `beds.area_id`.
+"""F37 AC1, R2: migration 0006 chuyển `beds.area` (chuỗi) sang bảng `areas` + `beds.area_id`.
 
-Chạy trên DB test thật (commit thật): hạ về 0004, chèn giường dạng cũ, nâng lên 0005, rồi hạ
-lại 0004 để kiểm tra `downgrade`. Luôn dọn dữ liệu và nâng về `head` trong `finally`.
+Chạy trên DB test thật (commit thật): hạ về 0005_f04 (F04, ngay trước F37), chèn giường dạng
+cũ, nâng lên 0006, rồi hạ lại 0005_f04 để kiểm tra `downgrade`. Luôn dọn dữ liệu và nâng về
+`head` trong `finally`.
 """
 
 from collections.abc import Iterator
@@ -11,8 +12,8 @@ from sqlalchemy import Engine, inspect, text
 
 from postcare.db.migrate import downgrade, upgrade
 
-BEFORE = "0004"
-AREAS_REVISION = "0005"
+BEFORE = "0005_f04"
+AREAS_REVISION = "0006"
 
 # Hai giường cùng khu vực (một bản có khoảng trắng thừa), một giường khu vực khác.
 OLD_BEDS = [
@@ -74,7 +75,7 @@ def test_migration_areas_downgrade_restores_text(old_schema: Engine) -> None:
     assert not insp.has_table("areas")
     with old_schema.connect() as conn:
         beds = dict(conn.execute(text("SELECT code, area FROM beds")).all())
-    # Chuỗi đã chuẩn hóa (bỏ khoảng trắng đầu/cuối) khi lên 0005.
+    # Chuỗi đã chuẩn hóa (bỏ khoảng trắng đầu/cuối) khi lên 0006.
     assert beds == {"M01": "Khu hậu phẫu", "M02": "Khu hậu phẫu", "M03": "Hồi sức"}
     shift_cols = {c["name"] for c in insp.get_columns("shift_definitions")}
     assert {"is_active", "created_at"}.isdisjoint(shift_cols)

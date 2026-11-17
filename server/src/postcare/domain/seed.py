@@ -40,7 +40,7 @@ from postcare.schemas.enums import (
 from postcare.schemas.events import ALERT_PRIORITIES, EventCode, default_priority
 
 AREA = "Khu hậu phẫu"  # giả định F01
-AREA_CODE = "KV01"  # trùng mã migration 0005 sinh cho DB cũ có khu vực này (F37 R2)
+AREA_CODE = "KV01"  # trùng mã migration 0006 sinh cho DB cũ có khu vực này (F37 R2)
 BED_CODES = ("A01", "A02", "A03")  # HS Hình 3
 DEMO_ROI = [[0.2, 0.25], [0.8, 0.25], [0.8, 0.85], [0.2, 0.85]]
 
@@ -83,7 +83,7 @@ def _seed_area(db: Session, created: dict[str, int]) -> Area:
         used = set(db.scalars(select(Area.code)))
         code = AREA_CODE
         n = 1
-        while code in used:  # KV01 đã dùng (khu vực khác hoặc đã xóa; DB cũ qua migration 0005)
+        while code in used:  # KV01 đã dùng (khu vực khác hoặc đã xóa; DB cũ qua migration 0006)
             n += 1
             code = f"KV{n:02d}"
         area = Area(code=code, name=AREA)

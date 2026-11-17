@@ -1,0 +1,15 @@
+# CAUCAFall (Eraso et al., CC BY 4.0; datasets.md §3.3): camera gắn cao ở góc phòng, nhìn chéo
+# xuống sàn. Video data/external/caucafall/Subject<n>/<Hoạt động>/*.avi (không commit), 720×480, 20 fps.
+# Không có giường: dùng để đo ABNORMAL_MOVEMENT (F23) trên clip ngã và ADL.
+# (giả định) ROI gần trọn khung (bỏ 2 % mỗi biên). Người nằm trên sàn vẫn ở khoảng giữa khung
+# (hip_y ≈ 0,6), nên điều kiện C4 (final_low_position_ratio) thường không thỏa ở góc nhìn này.
+
+version: 1
+camera_id: 0
+roi_polygon:
+  - [0.02, 0.02]
+  - [0.98, 0.02]
+  - [0.98, 0.98]
+  - [0.02, 0.98]
+thresholds: {}
+notes: "CAUCAFall, không có giường. ROI gần trọn khung (giả định), chỉ dùng cho F23."

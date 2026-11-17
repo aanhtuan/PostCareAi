@@ -119,7 +119,7 @@ def test_seed_demo_skips_existing_camera_names(db_session: Session) -> None:
 
 
 def test_seed_area_code_taken_by_other_area(db_session: Session) -> None:
-    """F37: DB cũ qua migration 0005 có thể đã dùng KV01 cho khu vực khác; seed không gán nhầm."""
+    """F37: DB cũ qua migration 0006 có thể đã dùng KV01 cho khu vực khác; seed không gán nhầm."""
     db_session.add(Area(code="KV01", name="Hồi sức"))
     db_session.commit()
     seed_base(db_session, PW)

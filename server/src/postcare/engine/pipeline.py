@@ -28,3 +28,5 @@ class FrameAssessment:
     observable: bool
     """Cổng chất lượng đang mở (R7). False → engine báo `NO_OBSERVATION`."""
     persons_in_roi: int
+    target_is_new: bool = False
+    """True khi frame này vừa nhận người mục tiêu mới (F13 `TargetSelection.is_new`; F23 R8)."""

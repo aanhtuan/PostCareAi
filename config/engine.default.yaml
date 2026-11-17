@@ -40,6 +40,7 @@ debounce:
   same_code_same_session_s: 60     # A01
 activity:
   window_s: 5.0
+  sample_interval_s: 1.0           # tốc độ keypoint đo trên bước 1 s (giảm nhiễu từng frame; F23)
   low_threshold: 0.02
   high_threshold: 0.15
   low_prolonged_s: 300

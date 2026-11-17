@@ -71,7 +71,7 @@ F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được tr�
 | F01 | CSDL và migration nền | M0 | Done |
 | F02 | Đăng nhập và phân quyền | M0 | Done |
 | F03 | Quản lý giường, bệnh nhân, camera | M0 | Done |
-| F04 | Phiên theo dõi | M0 | Todo |
+| F04 | Phiên theo dõi | M0 | Done |
 | F05 | Nguồn video (Camera Service) | M0 | Done |
 | F06 | Kết nối worker với backend | M0 | Todo |
 | F07 | Theo dõi trực tiếp cơ bản | M0 | Todo |
@@ -83,14 +83,14 @@ F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được tr�
 | F13 | Đặc trưng cơ thể, người mục tiêu, chất lượng quan sát | M1 | Done |
 | F14 | State machine tư thế và vị trí | M1 | Done |
 | F15 | Sự kiện cơ thể và vị trí | M1 | Done |
-| F16 | Công cụ đánh giá trên tập phát triển | M1 | Todo |
+| F16 | Công cụ đánh giá trên tập phát triển | M1 | Done |
 | F17 | Lưu sự kiện và tạo cảnh báo | M2 | Todo |
 | F18 | Realtime gateway (WebSocket) | M2 | Todo |
 | F19 | Vòng đời cảnh báo và audit | M2 | Todo |
 | F20 | Màn hình Cảnh báo | M2 | Todo |
 | F21 | Dashboard Tổng quan realtime | M2 | Todo |
 | F22 | Timeline / Lịch sử theo dõi | M2 | Todo |
-| F23 | Mức vận động và chuyển động bất thường | M2 | Todo |
+| F23 | Mức vận động và chuyển động bất thường | M2 | Done |
 | F24 | Bàn giao ca | M2 | Todo |
 | F25 | Face adapter và cổng chất lượng khuôn mặt | M3 | Todo |
 | F26 | Tín hiệu khuôn mặt và FACE_ATTENTION | M3 | Todo |

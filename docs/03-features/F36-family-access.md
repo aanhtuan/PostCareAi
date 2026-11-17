@@ -83,6 +83,8 @@ Người nhà muốn biết trạng thái và diễn biến của đúng ngườ
 
 **Tạm dừng thu hình**
 
+> **Đã làm ở F04 (18/11/2026):** cột `paused_at`/`paused_by` (migration 0005_f04), `POST /sessions/{id}/pause`, `/resume`, audit `session.pause`/`session.resume`, mã lỗi `SESSION_ALREADY_PAUSED`/`SESSION_NOT_PAUSED`/`CAPTURE_PAUSED`, `capture_paused` trong config nội bộ, nút trên "Quản lý giường". F36 còn: `family.state`, worker dừng đọc khung, API bỏ `state`/`frame` khi tạm dừng, mục tạm dừng trên timeline, nút trên màn hình chi tiết phiên.
+
 - **R15.** Quyết định: tạm dừng thu hình là **cờ ở mức phiên**, **không** phải chế độ hiển thị thứ tư của F28 *(giả định: F28 chỉ đổi cách render khung, camera vẫn đọc và engine vẫn chạy; tạm dừng thì camera dừng đọc khung và engine dừng, áp dụng cho cả nhân viên lẫn người nhà)*. Cột mới trong `monitoring_sessions`: `paused_at` (null = không tạm dừng), `paused_by`.
 - **R16.** `POST /api/v1/sessions/{id}/pause` `{reason?}` và `POST /api/v1/sessions/{id}/resume`. Quyền: `NURSE`, `CHARGE_NURSE`, `ADMIN` *(giả định: như mở/đóng phiên)*; `DOCTOR`, `FAMILY` → 403. Đang tạm dừng mà gọi pause → 409 `SESSION_ALREADY_PAUSED`; không tạm dừng mà gọi resume → 409 `SESSION_NOT_PAUSED`; phiên đã kết thúc → 409 `SESSION_ALREADY_ENDED` *(giả định mã lỗi mới)*. Kết thúc phiên hoặc chuyển giường khi đang tạm dừng là hợp lệ *(giả định)*.
 - **R17.** Audit `session.pause` / `session.resume` (entity `session`). Sau commit, phát `session.updated` (nhân viên) và `family.state` với `capture_paused` (người nhà).
