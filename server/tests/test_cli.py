@@ -1,6 +1,7 @@
 """F00 AC3 (R9) và AC6 (R12): CLI `postcare` và kiểm tra OpenAPI đã sinh còn khớp."""
 
 import json
+import re
 from importlib.metadata import version
 from pathlib import Path
 
@@ -84,6 +85,10 @@ def test_openapi_check_fails_when_file_missing(tmp_path: Path) -> None:
 
 def test_seed_help_lists_reset_option() -> None:
     """F01 R7: `postcare seed` có trong CLI; `--reset` là chế độ dữ liệu demo của prototype."""
-    result = runner.invoke(app, ["seed", "--help"])
+    # CI (GITHUB_ACTIONS) bật màu cho rich: mã ANSI chen giữa "-" và "-reset".
+    result = runner.invoke(
+        app, ["seed", "--help"], env={"NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "200"}
+    )
     assert result.exit_code == 0, result.output
-    assert "--reset" in result.output
+    plain = re.sub(r"\[[0-9;]*m", "", result.output)
+    assert "--reset" in plain
