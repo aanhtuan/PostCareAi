@@ -80,7 +80,7 @@ F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được tr�
 | F10 | Schema quan sát chung và khung Event Engine | M1 | Todo |
 | F11 | Pose adapter MediaPipe | M1 | Todo |
 | F12 | Replay CLI và fixture | M1 | Todo |
-| F13 | Đặc trưng cơ thể, người mục tiêu, chất lượng quan sát | M1 | Todo |
+| F13 | Đặc trưng cơ thể, người mục tiêu, chất lượng quan sát | M1 | Done |
 | F14 | State machine tư thế và vị trí | M1 | Todo |
 | F15 | Sự kiện cơ thể và vị trí | M1 | Todo |
 | F16 | Công cụ đánh giá trên tập phát triển | M1 | Todo |
