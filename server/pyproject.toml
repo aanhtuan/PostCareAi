@@ -17,6 +17,8 @@ dependencies = [
     # F01: PostgreSQL 16 + migration (ADR-0004)
     "alembic>=1.13",
     "psycopg[binary]>=3.2",
+    # EngineConfig đọc config/engine.default.yaml (F10); test_tooling.py cũng dùng
+    "pyyaml>=6.0",
 ]
 
 [project.scripts]
@@ -30,8 +32,6 @@ dev = [
     "import-linter>=2.1",
     "pre-commit>=4.0",
     "honcho>=2.0",
-    # test_tooling.py đọc .pre-commit-config.yaml, ci.yml, config/engine.default.yaml
-    "pyyaml>=6.0",
 ]
 
 [build-system]
@@ -68,3 +68,8 @@ python_version = "3.12"
 mypy_path = "src"
 packages = ["postcare.schemas", "postcare.engine"]
 plugins = ["pydantic.mypy"]
+
+# PyYAML không kèm type stub; không thêm types-PyYAML (F10), safe_load trả Any và được validate bằng Pydantic.
+[[tool.mypy.overrides]]
+module = ["yaml"]
+ignore_missing_imports = true

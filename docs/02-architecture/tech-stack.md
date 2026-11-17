@@ -25,7 +25,7 @@ Phiên bản chính xác được **khóa ở F00** bằng `server/uv.lock` và 
 | Auth | PyJWT + pwdlib[bcrypt] | 2.x / 0.x | pyjwt 2.15.1, pwdlib 0.3.1, bcrypt 5.0.0 | Giống hướng dẫn bảo mật của FastAPI | fastapi-users, session cookie |
 | CLI | Typer | 0.x | 0.27.3 | Đơn giản, có type hint | click, argparse |
 | HTTP client (worker) | httpx | 0.x | 0.28.1 | Sync + async, keep-alive | requests |
-| Cấu hình engine | PyYAML | 6.x | 6.0.3 (F00: nhóm dev, cho test_tooling.py đọc YAML; F10 chuyển sang phụ thuộc chính khi đọc config) | File ngưỡng dễ đọc | TOML |
+| Cấu hình engine | PyYAML | 6.x | 6.0.3 (phụ thuộc chính từ F10: `postcare.schemas.engine_config` đọc `config/engine.default.yaml` và `config/cameras/*.yaml`; không thêm `types-PyYAML`, mypy bỏ qua stub thiếu cho `yaml`) | File ngưỡng dễ đọc | TOML |
 | Đo tài nguyên | psutil | 5.x+ | — | CPU/RAM cho báo cáo (HS §8.2) | — |
 | Client WebSocket (đo delivery) | websockets | 12.x+ | — | Lệnh `measure-delivery` của F29 đo thời gian WS nhận sự kiện | httpx-ws |
 | Chạy nhiều tiến trình dev | honcho | 2.x | 2.0.0 | Đọc `Procfile.dev`, chạy được trên Windows | 3 terminal riêng |

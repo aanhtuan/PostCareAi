@@ -129,6 +129,7 @@ Cho quản trị viên khai báo giường, bệnh nhân (chỉ mã thử nghi�
 
 - (Đã chốt) Xóa giường hoặc bệnh nhân đang có phiên mở: chặn bằng 409, yêu cầu kết thúc phiên trước (R14; QA#36).
 - Giường đã xóa nhưng camera vẫn gắn: worker của camera đó có nên dừng hẳn không? Mặc định: worker vẫn chạy nhưng không có phiên nên không sinh sự kiện engine (409 `NO_ACTIVE_SESSION`). **Không chặn.**
+- (Ghi chú từ F01 review) `seed_base` (`server/src/postcare/domain/seed.py`, `make db-seed`) tìm camera của A01 theo `cameras.bed_id`. Xóa mềm camera ở F03 đặt `bed_id` về null, nên chạy lại `db-seed` sẽ tạo thêm một "Camera A01". F03 phải xử lý (ví dụ seed bỏ qua khi đã có camera tên "Camera A01") và thêm test. **Không chặn.**
 
 ## 9. Kế hoạch triển khai
 

@@ -6,13 +6,13 @@ from typing import Any
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
-from postcare.db.base import Base
-from postcare.db.migrate import downgrade, upgrade
 from sqlalchemy import Engine, inspect, text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from postcare.db.base import Base
+from postcare.db.migrate import downgrade, upgrade
 from postcare.db.models import Bed, Camera, MonitoringSession, Patient, User
 from postcare.schemas.enums import CameraSourceType, UserRole
 
@@ -263,11 +263,13 @@ def test_timestamps_are_stored_as_utc(db_session: Session) -> None:
 
 
 def test_migrations_roundtrip(test_engine: Engine) -> None:
-    downgrade(test_engine, "base")
-    insp = inspect(test_engine)
-    assert set(insp.get_table_names()) <= {"alembic_version"}
-    with test_engine.connect() as conn:
-        enums = conn.scalars(text("SELECT typname FROM pg_type WHERE typtype = 'e'")).all()
-    assert enums == [], f"downgrade còn sót enum: {enums}"
-    upgrade(test_engine, "head")
+    try:
+        downgrade(test_engine, "base")
+        insp = inspect(test_engine)
+        assert set(insp.get_table_names()) <= {"alembic_version"}
+        with test_engine.connect() as conn:
+            enums = conn.scalars(text("SELECT typname FROM pg_type WHERE typtype = 'e'")).all()
+        assert enums == [], f"downgrade còn sót enum: {enums}"
+    finally:
+        upgrade(test_engine, "head")  # để test sau vẫn có schema dù assert trên lỗi
     assert set(inspect(test_engine).get_table_names()) >= FOUNDATION_TABLES

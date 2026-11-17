@@ -179,7 +179,14 @@ Prototype vẫn chạy: `make seed` (`postcare seed --reset`) trên `postcare_f0
 - SQLite đã bỏ hoàn toàn (ADR-0010 thay thế một phần). `make check` cần PostgreSQL đang chạy (`docker start postcare-db`) và DB `postcare_test`.
 - Dependency FastAPI đổi tên `get_db` → `get_session` (R13). Router `sessions.py` có hàm endpoint trùng tên nên import dưới tên `db_session`; OpenAPI không đổi.
 - Test API dùng chung connection của test (savepoint) và `TRUNCATE … RESTART IDENTITY` đầu test; test "lưu trước, phát sau" dùng marker `real_commit` (commit thật, dọn bằng TRUNCATE).
-- Job Windows trên CI dùng PostgreSQL cài sẵn trên runner (phiên bản do image quyết định, có thể khác 16) vì Windows runner không hỗ trợ service container.
+- Job Windows trên CI không dùng được service container: dừng PostgreSQL cài sẵn trên runner (bản 17) và cài PostgreSQL 16 bằng `choco install postgresql16`, mỗi lệnh native kiểm tra `$LASTEXITCODE`.
+
+**Review (coordinator, 17/11/2026): Cần sửa.** Đã sửa:
+1. Merge `main` (F10) vào nhánh; `server/pyproject.toml` có `alembic`, `psycopg[binary]`, `pyyaml` trong phụ thuộc chính, bỏ extra `postgres`, giữ marker `real_commit` và override mypy cho `yaml`; `uv lock`.
+2. `ci.yml` job Windows: `$ErrorActionPreference = 'Stop'`, kiểm tra `$LASTEXITCODE` sau mỗi lệnh native, dùng PostgreSQL 16 qua chocolatey.
+3. `test_migrations_roundtrip`: `upgrade(head)` nằm trong `finally` để test sau vẫn có schema.
+4. Ghi chú vào F03 §8: `seed_base` tìm camera A01 theo `bed_id`, xóa mềm camera ở F03 có thể làm `db-seed` tạo camera trùng.
+Sau khi sửa: `make check` và `scripts\dev.ps1 check` exit 0 (pytest 158 passed, vitest 30 passed).
 
 ## 11. Definition of Done
 

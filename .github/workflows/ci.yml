@@ -64,16 +64,25 @@ jobs:
           node-version-file: web/.nvmrc
           cache: npm
           cache-dependency-path: web/package-lock.json
-      # Windows runner khong ho tro service container: dung PostgreSQL cai san tren image
-      # (bien PGBIN, PGUSER, PGPASSWORD do runner dat san).
-      - name: start PostgreSQL (preinstalled) and create postcare_test
+      # Windows runner khong ho tro service container va ban PostgreSQL cai san la 17:
+      # dung service cai san (neu dang chay) va cai PostgreSQL 16 qua chocolatey (ADR-0004).
+      - name: install PostgreSQL 16 and create postcare_test
         shell: pwsh
         run: |
-          $pg = Get-Service -Name postgresql*
-          Set-Service -InputObject $pg -Status Running -StartupType Automatic
-          & "$env:PGBIN\pg_isready.exe" -t 30
-          & "$env:PGBIN\psql.exe" -c "CREATE USER postcare WITH PASSWORD 'postcare';"
-          & "$env:PGBIN\psql.exe" -c "CREATE DATABASE postcare_test OWNER postcare;"
+          $ErrorActionPreference = 'Stop'
+          Get-Service -Name postgresql* -ErrorAction SilentlyContinue | Stop-Service -Force
+          choco install postgresql16 --no-progress -y --params '/Password:postgres /Port:5432'
+          if ($LASTEXITCODE -ne 0) { throw "choco install postgresql16 failed: $LASTEXITCODE" }
+          $bin = 'C:\Program Files\PostgreSQL\16\bin'
+          $env:PGPASSWORD = 'postgres'
+          & "$bin\pg_isready.exe" -h localhost -p 5432 -t 60
+          if ($LASTEXITCODE -ne 0) { throw "pg_isready failed: $LASTEXITCODE" }
+          & "$bin\psql.exe" -h localhost -U postgres -v ON_ERROR_STOP=1 -c "SELECT version();"
+          if ($LASTEXITCODE -ne 0) { throw "psql version failed: $LASTEXITCODE" }
+          & "$bin\psql.exe" -h localhost -U postgres -v ON_ERROR_STOP=1 -c "CREATE USER postcare WITH PASSWORD 'postcare';"
+          if ($LASTEXITCODE -ne 0) { throw "CREATE USER failed: $LASTEXITCODE" }
+          & "$bin\psql.exe" -h localhost -U postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE postcare_test OWNER postcare;"
+          if ($LASTEXITCODE -ne 0) { throw "CREATE DATABASE failed: $LASTEXITCODE" }
       - name: setup
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 setup
