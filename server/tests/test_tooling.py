@@ -55,7 +55,7 @@ CHECK_STEPS = [
     "test",
     "build-web",
 ]
-PLACEHOLDER_TARGETS = {"worker": "F06", "models": "F11"}
+PLACEHOLDER_TARGETS = {"worker": "F06"}
 
 
 # --------------------------------------------------------------------------- helpers
@@ -237,6 +237,16 @@ def test_dev_ps1_db_tasks_match_makefile() -> None:
     assert re.search(r"'seed'\s*\{[^}]*'postcare', 'seed', '--reset'", text)
 
 
+def test_models_target_calls_postcare_models() -> None:
+    """F11 R1: `make models` / `dev.ps1 models` gọi `postcare models` (không curl/wget)."""
+    _, recipes, _, _ = _makefile()
+    body = "\n".join(recipes.get("models", []))
+    assert re.search(r"uv --directory server run postcare models\s*$", body, re.M), body
+    assert not re.search(r"\bexit\s+1\b|curl|wget", body), body
+    text = DEV_PS1.read_text(encoding="utf-8")
+    assert re.search(r"'models'\s*\{[^}]*'postcare', 'models'\s*\)", text)
+
+
 def test_worker_takes_camera_variable() -> None:
     _, _, _, text = _makefile()
     assert re.search(r"^CAMERA\s*\?=", text, re.M)
@@ -367,6 +377,32 @@ def test_importlinter_declares_every_boundary() -> None:
         pairs |= {(s, f) for s in sources for f in forbidden}
     missing = REQUIRED_FORBIDDEN - pairs
     assert not missing, f"thiếu ranh giới import: {sorted(missing)}"
+
+
+def test_only_vision_inference_imports_mediapipe() -> None:
+    """F11 R5: chỉ `vision.inference` được import trực tiếp mediapipe."""
+    cfg = _importlinter()
+    found = []
+    for name in cfg.sections():
+        sec = cfg[name]
+        if sec.get("type") != "forbidden" or sec.get("forbidden_modules", "").split() != [
+            "mediapipe"
+        ]:
+            continue
+        found.append(
+            (
+                sec.get("source_modules", "").split(),
+                sec.get("ignore_imports", "").split("\n"),
+                sec.getboolean("allow_indirect_imports", fallback=False),
+            )
+        )
+    assert len(found) == 1, f"cần đúng một contract forbidden mediapipe, có {found}"
+    sources, ignores, indirect = found[0]
+    assert sources == ["postcare"]
+    assert [i.strip() for i in ignores if i.strip()] == [
+        "postcare.vision.inference.** -> mediapipe"
+    ]
+    assert indirect is True
 
 
 def test_lint_imports_passes_on_current_code() -> None:
