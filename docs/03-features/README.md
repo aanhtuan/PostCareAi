@@ -10,7 +10,7 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F00](F00-project-skeleton.md) | Khung xương dự án | M0 | MVP | A+B+C | — | Yêu cầu người dùng; HS §6.1 | Done |
 | [F01](F01-database-foundation.md) | CSDL và migration nền | M0 | MVP | B | F00 | PDF §10, §10.1; HS §6.2 | Done |
 | [F02](F02-auth-roles.md) | Đăng nhập và phân quyền | M0 | MVP | B+C | F01 | PDF §3; HS §2.2; QA#18 | Done |
-| [F03](F03-bed-patient-camera-management.md) | Quản lý giường, bệnh nhân, camera | M0 | MVP | B+C | F02 | PDF §4.2, §9.1, §10.1 | Todo |
+| [F03](F03-bed-patient-camera-management.md) | Quản lý giường, bệnh nhân, camera | M0 | MVP | B+C | F02 | PDF §4.2, §9.1, §10.1 | Done |
 | [F04](F04-monitoring-sessions.md) | Phiên theo dõi | M0 | MVP | B+C | F03 | PDF §4.2, §10.1; HS §6.2 | Todo |
 | [F05](F05-camera-service.md) | Nguồn video (Camera Service) | M0 | MVP | A | F00 | PDF §10, tr.10; HS §4.2 | Done |
 | [F06](F06-worker-backend-link.md) | Kết nối worker với backend | M0 | MVP | B | F04, F05 | PDF §10; HS §4.2, §6.1 | Todo |

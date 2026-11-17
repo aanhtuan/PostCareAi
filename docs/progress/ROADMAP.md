@@ -70,7 +70,7 @@ F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được tr�
 | F00 | Khung xương dự án | M0 | Done |
 | F01 | CSDL và migration nền | M0 | Done |
 | F02 | Đăng nhập và phân quyền | M0 | Done |
-| F03 | Quản lý giường, bệnh nhân, camera | M0 | Todo |
+| F03 | Quản lý giường, bệnh nhân, camera | M0 | Done |
 | F04 | Phiên theo dõi | M0 | Todo |
 | F05 | Nguồn video (Camera Service) | M0 | Done |
 | F06 | Kết nối worker với backend | M0 | Todo |
