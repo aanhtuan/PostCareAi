@@ -1,0 +1,14 @@
+# Clip stock Pexels 8090735 "A woman getting out of bed" (PNW Production; datasets.md §3.4).
+# Video ở data/external/pexels/pexels-8090735.mp4 (không commit), 1280×720, 24 fps, 7,7 s.
+# (giả định) ROI ước lượng bằng mắt từ khung ở 0,5 s và 6,5 s: mặt nệm nhìn ngang từ x ≈ 0,31
+# tới mép phải khung, y ≈ 0,5–0,6; ROI gồm cả phần thân người phía trên nệm. Camera hơi lắc.
+
+version: 1
+camera_id: 0
+roi_polygon:
+  - [0.31, 0.32]
+  - [1.0, 0.32]
+  - [1.0, 0.62]
+  - [0.31, 0.62]
+thresholds: {}
+notes: "Stock footage - diễn viên. ROI ước lượng (giả định), chưa đo trên tập dev."
