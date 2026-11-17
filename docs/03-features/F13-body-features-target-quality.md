@@ -143,7 +143,7 @@ Code hiện có dùng lại: `postcare/engine/pipeline.py` (khung F10: `TargetSe
 5. **`engine/target.py`**: `TargetSelector.select(obs) -> TargetSelection(target, persons_in_roi, changed)`, `forget()`.
 6. **`engine/quality.py`**: `assess_frame_quality` (R6) và `QualityGate` (R7, hysteresis theo `obs.ts_ms`).
 7. **`engine/engine.py`**: ghép bước 1–3 + cổng chất lượng; xóa phần tương ứng khỏi `pipeline.py`. `FrameAssessment` thêm `features` (chỉ có khi frame `GOOD`) và `observable`.
-8. **Static guard**: test AST trong `test_engine_static_guards.py` (import-linter không chặn được module stdlib một cách tin cậy; nếu chặn được thì thêm contract).
+8. **Static guard**: contract import-linter `engine-no-clock` (cấm `time`, `datetime`, `random` trong `postcare.engine`) + test AST `test_engine_static_guards.py` (bắt cả `__import__`).
 9. **Doc**: `event-engine.md` mục 2–3 (cổng chất lượng, giữ mục tiêu); không đổi khóa cấu hình. `make check`, `scripts\dev.ps1 check`, ghi mục 10.
 
 **Quyết định thiết kế** *(giả định, ghi thêm ở mục 7)*:
