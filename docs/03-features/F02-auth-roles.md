@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F02 |
-| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | Done <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -161,6 +161,14 @@ Kiểm chứng thủ công (API chạy cổng 8102, DB đã seed, curl):
 | `GET /overview` không token | 401 `UNAUTHORIZED` |
 
 Không làm (F35/F36): vai trò `FAMILY`, `require_staff`, quản lý người dùng. `require_roles(*roles)` nhận tập vai trò bất kỳ và đọc vai trò từ DB nên thêm vai trò sau không phải sửa guard.
+
+**2026-11-17, review: Đạt.** Đã sửa theo góp ý review (test viết trước, commit `06e6c66`, `f370c65`, `a937485`):
+
+1. **Bí mật mặc định:** `Settings.ensure_secure_secrets()` (`server/src/postcare/settings.py`) từ chối `JWT_SECRET` / `WORKER_TOKEN` bắt đầu bằng `change-me` hoặc ngắn hơn 32 byte (`InsecureSecretError`, thông báo tiếng Việt + tiếng Anh, kèm lệnh tạo giá trị). API gọi hàm này trong lifespan: `uvicorn` dừng với "Application startup failed"; import module (sinh OpenAPI) vẫn chạy. `.env.example` có giá trị chỉ dùng cho dev (`dev-only-…`, ≥ 32 byte); README §2 và `dev-setup.md` §3 hướng dẫn copy `.env` và tạo giá trị mới. Worker và giả lập đọc cùng `.env` qua `get_settings()`. Fixture test dùng `WORKER_TOKEN` ≥ 32 byte; CI không cần thêm biến. Test: `server/tests/test_settings_secrets.py` (mặc định, mặc định cũ đủ dài, ngắn, tính theo byte, API từ chối khởi động / khởi động được, `.env.example` hợp lệ). Kiểm chứng thủ công: không có `.env` thì `uvicorn postcare.api.main:app` báo `InsecureSecretError` và thoát.
+2. **Thời gian đăng nhập:** `authenticate` (`server/src/postcare/domain/users.py`) luôn gọi `verify_password`, với `DUMMY_PASSWORD_HASH` (bcrypt của chuỗi ngẫu nhiên) khi không có tài khoản, kể cả tài khoản ngừng. Test: `server/tests/domain/test_users.py` (cả hai nhánh đều gọi verify).
+3. `RequireRole` chưa gắn vào route nào; gắn khi có màn hình chỉ ADMIN (F03, F08, F35).
+
+`make check` và `scripts\dev.ps1 check` exit 0 (231 test server, 47 test web) với `TEST_DATABASE_URL=.../postcare_f02_test`.
 
 ## 11. Definition of Done
 
