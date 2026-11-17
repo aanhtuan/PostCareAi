@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 
 import pytest
-from postcare.vision.inference.face_gate import FaceGate
 
 from postcare.schemas.enums import FaceStatus
+from postcare.vision.inference.face_gate import FaceGate
 from tests.face.helpers import (
     FakeFaceDetector,
     config_keys,
@@ -147,7 +147,7 @@ def test_face_crop_outside_frame_is_clipped() -> None:
 
     detector = FakeFaceDetector({"x": 0.1})
     gate = _gate(detector)
-    person = with_head(LYING.person(), half_width_px=_half_width_for(160), center_px=(10, 10))
+    person = with_head(LYING.person(), half_width_px=_half_width_for(160), center_px=(60, 60))
     obs = gate.observe(image_frame(0, 0), person)
     assert obs is not None
     assert obs.head_box_px == 160
