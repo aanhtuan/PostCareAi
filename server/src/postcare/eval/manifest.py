@@ -180,6 +180,8 @@ def _parse_manifest(path: Path, errors: list[str]) -> list[ManifestRow]:
             camera_config=r.get("camera_config", ""),
         )
         unknown = [c for c in row.eval_codes_raw or [] if c not in EventCode.__members__]
+        if row.eval_codes_raw == []:
+            errors.append(f"{where} ({video_id}): eval_codes rỗng; bỏ khóa hoặc ghi ít nhất một mã")
         if unknown:
             errors.append(f"{where} ({video_id}): eval_codes có mã lạ {', '.join(unknown)}")
         out.append(row)
@@ -257,6 +259,12 @@ def validate(
         if row is None:
             errors.append(f"truth.csv: video_id {t.video_id} không có trong manifest")
             continue
+        codes = row.eval_codes
+        if codes is not None and t.event_code not in codes:
+            errors.append(
+                f"truth.csv ({t.video_id}): {t.event_code.value} không thuộc eval_codes của video "
+                f"({', '.join(sorted(c.value for c in codes))})"
+            )
         if t.end_s > row.duration_s:
             errors.append(
                 f"truth.csv ({t.video_id}, {t.event_code.value}): end_s {t.end_s:g} vượt "

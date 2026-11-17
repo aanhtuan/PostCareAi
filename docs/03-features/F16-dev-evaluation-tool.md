@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F16 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -168,6 +168,15 @@ Ngày 2026-11-18, nhánh `feat/F16-dev-eval`, Windows 11, Intel i5-10300H (8 lu�
 3. `min_duration_s.LYING` (2,0) cho trạng thái đầu: chỉ ảnh hưởng clip bắt đầu giữa hành động; **không** đề xuất hạ khi chưa có video nhóm quay (bắt đầu từ nằm yên theo evaluation.md §3).
 4. ABNORMAL_MOVEMENT: chạy lại eval sau F23; tách URFD cam1 (trần nhà, coverage 3,5 %) khỏi kết luận vì pose gần như không thấy người từ trên xuống.
 5. Metric BED_EDGE/STAND_UP/BED_EXIT ở đây chỉ để tham khảo cho tới khi có tập dev nhóm quay (HS §7.3).
+
+**Review (2026-11-18): Đạt.** Đã sửa theo góp ý (test viết trước, xem `tests/eval/`):
+1. Validator báo lỗi khi mã của một dòng truth không thuộc `eval_codes` của video (`test_truth_code_outside_eval_codes_rejected`).
+2. `eval_codes=` rỗng trong `notes` là lỗi, không còn ngầm thành tập rỗng (`test_empty_eval_codes_rejected`).
+3. `--reuse` chỉ dùng lại khi `run.json` trùng `config_hash`, chế độ, `model`, `max_fps` (chế độ video) hoặc file observation nguồn (chế độ observations) (`test_reuse_requires_same_model_and_max_fps`).
+4. `--report` không có `.local` → cảnh báo và tự thêm `.local` trước đuôi để file bị gitignore (`test_report_path_gets_local_suffix`).
+5. Giá trị mặc định tolerance của CLI dùng `DEFAULT_TOL_BEFORE_S`, `DEFAULT_TOL_AFTER_S` (`eval/matching.py`).
+
+Sau khi sửa và merge `main` (F03, F35): `postcare eval check` trên dữ liệu thật vẫn hợp lệ (379 video, 211 dòng truth).
 
 **Người sau cần biết:**
 - Script sinh `data/eval/manifest.csv`, `truth.csv` vẫn chưa có trong repo (ngoài phạm vi F16, xem mục 8).

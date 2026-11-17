@@ -115,7 +115,7 @@ uv run postcare eval --split dev --video-id stock_pexels_8090735 --limit 20   # 
 ```
 
 - Mặc định: manifest/truth ở `<data>/eval/` (`POSTCARE_DATA_DIR`), model ở `POSTCARE_MODELS_DIR` hoặc `models/`, `--max-fps 15`, kết quả replay ở `runs/eval-<split>/<video_id>/` (F12: `observations.jsonl`, `events.jsonl`, `frames.jsonl`, `run.json`).
-- Báo cáo: `reports/eval-<split>-<ngày>.local.md` và `.local.json` cùng tên (gitignore; đổi bằng `--report`).
+- Báo cáo: `reports/eval-<split>-<ngày>.local.md` và `.local.json` cùng tên (gitignore; đổi bằng `--report`, tên thiếu `.local` thì lệnh tự thêm và cảnh báo). `--reuse` chỉ dùng lại khi `run.json` cùng `config_hash`, model, `max_fps` (hoặc cùng file observation nguồn). Mã truth phải nằm trong `eval_codes` của video; `eval_codes=` rỗng là lỗi.
 - `--split test` bị chặn: tập test chỉ chạy một lần bằng F29 với `--frozen <hash>`.
 - Video không mở được hoặc thiếu file: ghi ở mục "Video lỗi" của báo cáo, lệnh exit 1 sau khi ghi báo cáo.
 

@@ -104,14 +104,16 @@ def _read_jsonl[T: (EventRecord, FrameRecord)](path: Path, model: type[T]) -> li
         return [model.model_validate_json(line) for line in f if line.strip()]
 
 
-def _reusable(out_dir: Path, config_hash: str) -> bool:
+def _reusable(out_dir: Path, expected: Mapping[str, Any]) -> bool:
+    """Kết quả cũ dùng lại được khi mọi khóa trong `expected` (config_hash, chế độ, model,
+    max_fps hoặc file observation nguồn) trùng với `run.json`."""
     if not all((out_dir / n).is_file() for n in RESULT_FILES):
         return False
     try:
         run = json.loads((out_dir / "run.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return False
-    return isinstance(run, dict) and run.get("config_hash") == config_hash
+    return isinstance(run, dict) and all(run.get(k) == v for k, v in expected.items())
 
 
 def _default_source(path: Path, max_fps: float | None) -> FrameSource:
@@ -137,7 +139,15 @@ def _run_one(
     camera = load_camera_config(cam_path)
     config = camera.engine_config(engine_config)
     out_dir = runs_dir / row.video_id
-    if reuse and _reusable(out_dir, config.config_hash()):
+    expected: dict[str, Any] = {"config_hash": config.config_hash()}
+    if from_observations is not None:
+        expected.update(
+            mode="observations",
+            observations=str(from_observations / row.video_id / "observations.jsonl"),
+        )
+    else:
+        expected.update(mode="video", model=model_info, max_fps=max_fps)
+    if reuse and _reusable(out_dir, expected):
         return load_run(row, out_dir, reused=True)
     meta: dict[str, Any] = {
         "camera_config": str(cam_path),

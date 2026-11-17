@@ -17,6 +17,7 @@ from postcare.db.models import Bed
 from postcare.db.session import make_engine, make_session_factory
 from postcare.db.types import utcnow
 from postcare.domain.seed import SEED_USERS, seed_base, seed_demo, seed_history
+from postcare.eval.matching import DEFAULT_TOL_AFTER_S, DEFAULT_TOL_BEFORE_S
 from postcare.settings import REPO_ROOT, get_settings
 
 # Console Windows (cp1252) không in được tiếng Việt: ép UTF-8 cho stdout/stderr.
@@ -578,8 +579,12 @@ def eval_command(
     split: Annotated[str, typer.Option(help="Chỉ hỗ trợ dev (tập test: F29 với --frozen)")] = "dev",
     manifest: Annotated[Path | None, typer.Option(help="Mặc định <data>/eval/manifest.csv")] = None,
     truth: Annotated[Path | None, typer.Option(help="Mặc định <data>/eval/truth.csv")] = None,
-    tol_before_s: Annotated[float, typer.Option(help="Tolerance trước start_s (A06)")] = 1.0,
-    tol_after_s: Annotated[float, typer.Option(help="Tolerance sau end_s (A06)")] = 3.0,
+    tol_before_s: Annotated[
+        float, typer.Option(help="Tolerance trước start_s (A06)")
+    ] = DEFAULT_TOL_BEFORE_S,
+    tol_after_s: Annotated[
+        float, typer.Option(help="Tolerance sau end_s (A06)")
+    ] = DEFAULT_TOL_AFTER_S,
     runs_dir: Annotated[
         Path | None, typer.Option(help="Thư mục kết quả replay, mặc định runs/eval-<split>/")
     ] = None,
@@ -706,6 +711,11 @@ def eval_command(
         notes=notes,
     )
     out = report or REPO_ROOT / "reports" / f"eval-{split}-{today}.local.md"
+    if not out.stem.endswith(".local"):
+        # Chỉ reports/*.local.md, *.local.json bị gitignore: thêm `.local` để không commit nhầm.
+        fixed = out.with_name(f"{out.stem}.local{out.suffix or '.md'}")
+        typer.echo(f"Cảnh báo: --report {out.name} không có '.local'; ghi vào {fixed.name}.")
+        out = fixed
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8", newline="\n") as f:
         f.write(render_markdown(ev))
