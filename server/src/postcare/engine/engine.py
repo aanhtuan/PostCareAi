@@ -15,7 +15,7 @@ from postcare.engine.target import TargetSelector
 from postcare.schemas.context import EngineContext
 from postcare.schemas.engine_config import EngineConfig
 from postcare.schemas.events import EngineOutput
-from postcare.schemas.observation import FrameObservation
+from postcare.schemas.observation import FrameObservation, PersonPose
 from postcare.schemas.state import (
     ActivityLevel,
     BodyState,
@@ -60,6 +60,15 @@ class Engine:
         if self._last_snapshot is not None:
             return self._last_snapshot
         return _snapshot(self._body_state, ObservationQuality.NO_PERSON)
+
+    def peek_target(self, obs: FrameObservation) -> PersonPose | None:
+        """Người mục tiêu mà `process(obs)` sẽ chọn; chỉ đọc, không đổi trạng thái engine.
+
+        Nhánh face (F25) cần mục tiêu trước khi `obs.face` được gắn vào khung. Sai camera → `None`.
+        """
+        if obs.camera_id != self.context.camera_id:
+            return None
+        return self._target.peek(obs)
 
     def process(self, obs: FrameObservation) -> EngineOutput:
         """Xử lý một khung hình. `ts_ms` phải tăng ngặt; sai camera → `ValueError`."""
