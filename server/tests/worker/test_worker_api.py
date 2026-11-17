@@ -9,9 +9,6 @@ from pathlib import Path
 from typing import Any
 
 from fastapi.testclient import TestClient
-from postcare.worker.client import WorkerApiClient
-from postcare.worker.config import WorkerConfig
-from postcare.worker.loop import Worker, WorkerOptions, default_engine_factory
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
@@ -21,6 +18,9 @@ from postcare.domain.notifications import InMemoryPublisher
 from postcare.settings import REPO_ROOT
 from postcare.vision.camera import FileSource
 from postcare.vision.inference.fake import FakePoseAdapter
+from postcare.worker.client import WorkerApiClient
+from postcare.worker.config import WorkerConfig
+from postcare.worker.loop import Worker, WorkerOptions, default_engine_factory
 from tests.camera.synthetic import write_video
 from tests.conftest import WORKER_TOKEN
 from tests.worker.helpers import ROI, FakeTime

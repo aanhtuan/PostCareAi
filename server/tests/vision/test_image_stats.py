@@ -2,8 +2,8 @@
 
 import cv2
 import numpy as np
-from postcare.vision.image_stats import mean_brightness
 
+from postcare.vision.image_stats import mean_brightness
 from postcare.vision.render import encode_jpeg
 
 
