@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F15 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -37,7 +37,8 @@ Feature này sinh **sự kiện** từ chuỗi trạng thái ổn định của 
 - **R4.** `BED_EDGE` (MEDIUM): `AT_EDGE` được xác lập (đã giữ `min_duration_s.AT_EDGE`) *(PDF §7.2 (tr.9); HS §5.2, §5.4)*. Chỉ sinh khi đi ra mép từ trạng thái trong giường (`LYING`, `RAISING`, `SITTING`). Không sinh khi `AT_EDGE` đến từ `STANDING` hoặc `OUT_OF_BED` (đang quay về giường) *(giả định: cảnh báo mép giường nhằm báo người bệnh sắp rời giường, HS §2.1; tránh cảnh báo sai khi người bệnh trở lại giường)*.
 - **R5.** `BED_EXIT` (HIGH): `OUT_OF_BED` được xác lập (đã giữ `min_duration_s.OUT_OF_BED`) **qua chuỗi hợp lệ** `… → AT_EDGE → (STANDING) → OUT_OF_BED` *(PDF §7.2 (tr.9); HS §5.2; event-engine.md mục 4)*:
   - Chuỗi được xét trên các trạng thái ổn định, **bỏ qua** đoạn `NO_OBSERVATION` xen giữa *(giả định: nếu bị che ở mép giường rồi sau đó được quan sát rõ ở ngoài ROI đủ lâu thì vẫn là "được quan sát ra ngoài vùng giường", HS §5.2)*.
-  - Không có `AT_EDGE` trong chuỗi (ví dụ có `anomaly = "skipped_edge"`) thì không sinh `BED_EXIT`.
+  - Điều kiện trước (event-engine.md mục 4, chốt sau review F14): trạng thái ổn định gần nhất trước `OUT_OF_BED` (bỏ qua `NO_OBSERVATION`) là `AT_EDGE` **hoặc** `STANDING`. Đứng ở mép giường luôn là `STANDING`, nên `SITTING → STANDING → OUT_OF_BED` là lần rời giường thật.
+  - Đi thẳng từ `LYING`/`RAISING`/`SITTING` (state có `anomaly = "skipped_edge"`) hoặc chưa có trạng thái quan sát nào trước đó thì không sinh `BED_EXIT`.
 - **R6.** `RETURN_TO_BED` (INFO, A11): sau `OUT_OF_BED`, người mục tiêu về lại trong ROI ở trạng thái `SITTING` hoặc `LYING` và giữ ≥ `min_duration_s.RETURN_TO_BED` *(HS §5.2: "trạng thái được xác lập đủ chắc chắn"; event-engine.md mục 5)*. Có thể đi qua `STANDING`, `AT_EDGE` hoặc `NO_OBSERVATION` ở giữa *(giả định)*.
 - **R7.** `POSTURE_CHANGE` (LOG): đang `LYING`, `shoulder_line_angle_deg` đổi so với hướng tham chiếu > `posture_change.shoulder_angle_delta_deg`, và hướng mới giữ ổn định ≥ `posture_change.stable_s` *(HS §5.2, §5.4; event-engine.md mục 5)*. Hướng tham chiếu được đặt lại sau mỗi lần sinh sự kiện và mỗi khi vào `LYING` *(giả định)*.
 - **R8.** Debounce *(A01; HS §5.4; event-engine.md mục 7)*:
@@ -120,7 +121,30 @@ Trở mình **không** sinh `ABNORMAL_MOVEMENT` được kiểm ở F23. Các ca
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+**Khảo sát:** `RuleSet.evaluate` (`engine/pipeline.py`) đang trả `[]`. `BodyStateMachine` (F14) ghi `history` (`StateRecord(state, since_ms, explanation)`, `explanation.held_ms` = thời gian giữ ứng viên) và đã đánh dấu `anomaly = "skipped_edge"`. `BodyFeatures.shoulder_line_angle_deg` có sẵn (F13). `EngineEvent` (F10) **chưa có** trường `config_hash`, nhưng R9/AC5 và payload `POST /internal/v1/events` cần nó.
+
+**Thiết kế chốt:**
+- `engine/debounce.py`: `Debouncer(window_s)`, `allow(key, ts_ms) -> bool`: cho phát khi chưa phát `key` hoặc `ts_ms − lần_phát_gần_nhất ≥ window`; chỉ lần được phát mới cập nhật mốc. Khóa là `str` để F23/F26 dùng lại.
+- `engine/rules/body.py`: `BodyRules(config)` với `evaluate(obs, assessment, history, ts_ms) -> list[BodyEventDraft]` (chưa debounce). Phát hiện lần chuyển mới bằng bản ghi cuối của `history` (so định danh).
+  - `SIT_UP`: vào `SITTING`, hai bản ghi ngay trước là `RAISING` rồi `LYING` (liền kề, không bỏ qua `NO_OBSERVATION`).
+  - `STAND_UP`: vào `STANDING`, bản ghi ngay trước là `SITTING` hoặc `AT_EDGE`.
+  - `BED_EDGE`: vào `AT_EDGE`, trạng thái quan sát gần nhất trước đó (bỏ qua `NO_OBSERVATION`) ∈ {`LYING`, `RAISING`, `SITTING`} (R4).
+  - `BED_EXIT`: vào `OUT_OF_BED`, trạng thái quan sát gần nhất trước đó ∈ {`AT_EDGE`, `STANDING`}; `explanation.state_chain` = các trạng thái ổn định đã xét (R5).
+  - `RETURN_TO_BED`: sau khi vào `OUT_OF_BED` thì "chờ quay về"; khi trạng thái ổn định ∈ {`SITTING`, `LYING`} thì tính mốc bắt đầu = đầu khoảng min_duration của trạng thái đó; rời khỏi tập này (kể cả `NO_OBSERVATION`) thì xóa mốc, vẫn chờ. Phát khi `ts − mốc ≥ min_duration_s.RETURN_TO_BED`, rồi thôi chờ (R6).
+  - `POSTURE_CHANGE`: chỉ khi trạng thái `LYING` và frame có đặc trưng. Hướng tham chiếu = `shoulder_line_angle_deg` ở frame đầu tiên có đặc trưng sau khi vào `LYING`. Lệch (gập về [0°, 180°]) > `shoulder_angle_delta_deg` liên tục ≥ `stable_s` → phát, đặt lại tham chiếu = hướng hiện tại. Frame không có đặc trưng hoặc lệch ≤ ngưỡng → xóa ứng viên. Rời `LYING` → xóa tham chiếu (R7).
+  - Trường: `occurred_at_ms = since_ms − held_ms` của bản ghi (state rule) hoặc mốc bắt đầu ứng viên; `detected_at_ms = ts_ms` hiện tại; `confidence` = trung bình visibility của `pose.required_keypoints` của người mục tiêu trên các frame trong [occurred, detected] (bộ đệm theo thời gian, không frame nào → 0.0); `observation_quality` = chất lượng frame hiện tại; `explanation` = `rule_id` (`body.<code_thường>`), `from_state`, `to_state`, `held_ms`, đặc trưng chính lấy từ explanation của state (`trunk_angle_deg`, `dist_to_roi_edge`, `ankles_outside_roi`), thêm `state_chain` cho BED_EXIT, `shoulder_angle_delta_deg`/`reference_angle_deg` cho POSTURE_CHANGE. `priority` = `default_priority(code)` từ catalog.
+- `RuleSet` (pipeline): giữ `BodyRules` + một `Debouncer(debounce.same_code_same_session_s)`, nhận thêm `history`; trả `EngineEvent` sau debounce. Phạm vi debounce = vòng đời instance `Engine`.
+- `schemas/events.py`: thêm `EngineEvent.config_hash: str = ""` *(giả định: mặc định rỗng để không phá F12/simulator đang làm song song; Engine luôn điền `Engine.config_hash`)*. Cập nhật event-engine.md mục 2.
+- Builder: `PoseSequence.turn_over(seconds, degrees=60)` xoay đường vai (half_width) quanh tâm vai, giữ thân nằm.
+
+**Các bước:**
+1. Commit plan (spec).
+2. Test trước: `tests/engine/test_debounce.py` (unit + qua engine), `tests/engine/test_rules_body.py` (AC1–AC5, ca âm tính mục 6, R4, R5, R6). Xác nhận đỏ vì thiếu module/sự kiện. Commit `test(F15): …`.
+3. Cài `debounce.py`, `rules/body.py`, nối `RuleSet`/`Engine`, `config_hash` vào `EngineEvent`. Commit nhỏ.
+4. Doc: event-engine.md mục 2 (`config_hash` trong `EngineEvent`), mục 5/7 nếu khác.
+5. `make check`, `scripts\dev.ps1 check`; bằng chứng ở mục 10; trạng thái "In review".
+
+**Rủi ro:** F12 (worker/replay) đọc `EngineEvent`: thêm trường có mặc định nên tương thích. Nhiễu tư thế ngoài ROI (điều dưỡng) không vào được rule vì rule chỉ đọc trạng thái của người mục tiêu.
 
 ## 10. Ghi chú bàn giao
 
