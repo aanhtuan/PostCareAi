@@ -489,7 +489,7 @@ def _replay_observations(
         read_observations,
         write_fixture,
     )
-    from postcare.replay.runner import replay_observations, summarize
+    from postcare.replay.runner import replay_observations, source_run_info, summarize
 
     try:
         observations = cut_range(read_observations(path), *range_s)
@@ -497,6 +497,7 @@ def _replay_observations(
         _fail(str(exc))
     if not observations:
         _fail(f"Không có observation nào trong {path} ở khoảng đã chọn.")
+    meta.update(source_run_info(path))
     meta.update(observations=str(path), range_s=list(range_s))
     summary = None
     if out is not None:

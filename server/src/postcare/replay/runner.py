@@ -12,6 +12,7 @@ Không gọi API, không cần DB (R9). Module này không import mediapipe: ada
 
 from __future__ import annotations
 
+import json
 import subprocess
 import time
 from collections.abc import Iterable, Sequence
@@ -294,6 +295,22 @@ def replay_observations(
     )
     write_json(out_dir / "run.json", run)
     return ReplaySummary(out_dir, frames, outputs.events.count, run)
+
+
+SOURCE_RUN_KEYS = ("video", "model", "video_duration_s")
+"""Khóa chép từ `run.json` của lần chạy nguồn khi `--from-observations` (truy vết video, model)."""
+
+
+def source_run_info(observations_path: Path) -> dict[str, Any]:
+    """`video`, `model`, `video_duration_s` từ `run.json` cạnh `observations.jsonl`, nếu có."""
+    run_path = observations_path.parent / "run.json"
+    try:
+        data = json.loads(run_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {k: data[k] for k in SOURCE_RUN_KEYS if data.get(k) is not None}
 
 
 def video_duration_s(path: Path) -> float | None:

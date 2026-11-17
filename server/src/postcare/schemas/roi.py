@@ -49,7 +49,7 @@ def validate_roi_polygon(points: Sequence[Sequence[float]]) -> RoiPolygon:
     for i in range(n):
         a1, a2 = pts[i], pts[(i + 1) % n]
         for j in range(i + 1, n):
-            if j == i or (j + 1) % n == i or j == (i + 1) % n:
+            if (j + 1) % n == i or j == (i + 1) % n:
                 continue  # cạnh kề chung một đỉnh
             b1, b2 = pts[j], pts[(j + 1) % n]
             if _segments_intersect(a1, a2, b1, b2):

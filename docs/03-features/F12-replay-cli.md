@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F12 |
-| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | Done <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -134,7 +134,7 @@ Lập ngày 2026-11-18 (builder F12). Xây trên API engine hiện tại `Engine
 6. **Render:** `postcare/vision/render.py` `draw_debug_overlay(image, obs, roi, state, events)` vẽ skeleton mọi người, ROI, `body_state`/`observation_quality`, nhãn sự kiện gần nhất (giữ 2 s theo `ts_ms`, *(giả định)*). Ghi mp4 bằng `cv2.VideoWriter` (`mp4v`).
 7. **CLI:** `postcare replay` trong `cli/main.py` (`--video | --from-observations`, `--camera-config`, `--out`, `--overwrite`, `--preview`, `--engine-config`, `--model`, `--models-dir` (mặc định `POSTCARE_MODELS_DIR` hoặc `models/`), `--max-fps` (mặc định 15, A03), `--start-s`, `--end-s`, `--save-observations`, `--save-expected`). Import adapter MediaPipe chỉ trong nhánh `--video`.
 8. **Cấu hình camera:** `config/cameras/example.yaml` (ROI mẫu) và cấu hình cho vài clip ngoài (Pexels giường, GMDCSA24, CAUCAFall), ROI ước lượng từ một khung *(giả định)*.
-9. **Fixture tổng hợp:** `server/tests/fixtures/synthetic_lying_occluded.jsonl` + `.expected.json` sinh bằng builder qua chính hàm ghi fixture (chỉ toạ độ).
+9. **Fixture tổng hợp:** `server/tests/fixtures/synthetic_sit_occluded.jsonl` + `.expected.json` sinh bằng builder qua chính hàm ghi fixture (chỉ toạ độ).
 10. **Docs:** overview.md (pipeline, replay), dev-setup.md và evaluation.md (cách chạy replay, cắt fixture), testing.md (fixture, regression, test vision F12).
 11. **Kiểm tra:** `make check`, `scripts\dev.ps1 check`, `make test-vision`; replay thủ công 2–3 clip trong `D:\PostCareAi\data\external` (đường dẫn tuyệt đối, model qua `POSTCARE_MODELS_DIR`); ghi kết quả mục 10, trạng thái In review.
 
@@ -171,7 +171,13 @@ Ngày 2026-11-18, nhánh `feat/F12-replay-cli`, Windows 11, i5-10300H, model pos
 
 **Kiểm tra cuối:** `make check` xanh (387 passed trước merge; 446 passed sau khi merge `main` có F14; 10 contract KEPT, web build xong); `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0; `make test-vision` 5 passed. Hai lệnh check chạy với `TEST_DATABASE_URL=.../postcare_f11_test` (DB test riêng của builder).
 
+**Review (2026-11-18): Đạt.** Đã sửa theo góp ý:
+1. Mục 9: tên fixture tổng hợp đúng là `synthetic_sit_occluded`.
+2. `--from-observations` chép `video`, `model`, `video_duration_s` từ `run.json` cạnh file observation nguồn (nếu có) vào `run.json` mới (`source_run_info` trong `replay/runner.py`); test `test_from_observations_copies_video_and_model_from_source_run`.
+3. `schemas/roi.py`: bỏ điều kiện thừa `j == i` khi bỏ qua cạnh kề.
+
 **Người sau cần biết:**
+- **F15 phải** thêm ít nhất một fixture có sự kiện (cắt từ clip thật hoặc builder) và sinh lại các `.expected.json` hiện có (kể cả `synthetic_sit_occluded`) khi rule phát sự kiện; hiện mọi fixture có `events: []`, nên regression chưa bắt lỗi rule.
 - Worker (F17) gọi `postcare.pipeline.process_frame(frame, adapter, engine)`, không tự ghép adapter + engine.
 - Khi F15 thêm rule: cắt fixture từ clip thật bằng lệnh ở dev-setup.md §7, xem lại `.expected.json` so với ground truth rồi commit; `synthetic_sit_occluded.expected.json` có thể cần sinh lại nếu rule phát sự kiện trên chuỗi đó.
 

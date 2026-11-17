@@ -118,3 +118,23 @@ def test_from_observations_does_not_import_mediapipe(tmp_path: Path) -> None:
     assert proc.returncode == 0, proc.stderr
     assert json.loads(proc.stdout.strip().splitlines()[-1]) == {"mediapipe": False}
     assert (tmp_path / "out" / "frames.jsonl").is_file()
+
+
+def test_from_observations_copies_video_and_model_from_source_run(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    obs = write_observations(src / "observations.jsonl", scenario()[:10])
+    source_run = {
+        "video": "data/videos/S06.mp4",
+        "model": {"variant": "full", "file": "pose_landmarker_full.task"},
+        "video_duration_s": 42.0,
+    }
+    (src / "run.json").write_text(json.dumps(source_run), encoding="utf-8")
+    cam = write_camera_yaml(tmp_path / "cam.yaml")
+    _replay(obs, cam, tmp_path / "out")
+    run = json.loads((tmp_path / "out" / "run.json").read_text(encoding="utf-8"))
+    assert run["mode"] == "observations"
+    assert run["video"] == source_run["video"]
+    assert run["model"] == source_run["model"]
+    assert run["video_duration_s"] == 42.0
+    assert run["observations"] == str(obs)
