@@ -91,6 +91,8 @@ def require_roles(*roles: UserRole) -> Callable[..., User]:
 
 
 require_writer = require_roles(*WRITE_ROLES)
+# Quản lý danh mục (F03), ROI, ngưỡng (F08): chỉ ADMIN.
+require_admin = require_roles(UserRole.ADMIN)
 
 
 def require_worker(

@@ -13,7 +13,17 @@ from postcare.api.errors import install_error_handlers
 from postcare.api.internal import cameras as internal_cameras
 from postcare.api.realtime import WsHub
 from postcare.api.realtime import router as ws_router
-from postcare.api.v1 import alerts, auth, catalog, health, monitoring, sessions
+from postcare.api.v1 import (
+    alerts,
+    auth,
+    beds,
+    cameras,
+    catalog,
+    health,
+    monitoring,
+    patients,
+    sessions,
+)
 from postcare.db.session import make_engine, make_session_factory
 from postcare.domain.cameras import mark_offline_cameras
 from postcare.domain.runtime import RuntimeStore
@@ -90,6 +100,9 @@ def create_app(settings: Settings | None = None, *, watch_cameras: bool = True) 
         health.router,
         auth.router,
         catalog.router,
+        beds.router,
+        patients.router,
+        cameras.router,
         sessions.router,
         alerts.router,
         monitoring.router,
