@@ -61,8 +61,7 @@ erDiagram
 |---|---|---|---|
 | id | bigint PK | | |
 | code | text | unique, not null | `A01`, `A02`… (HS Hình 3) |
-| area | text | not null | Khu vực (PDF §10.1). **Bỏ ở F37**, thay bằng `area_id` |
-| area_id | FK → areas | not null (từ F37) | Thêm ở F37; migration chuyển từ `area` |
+| area_id | FK → areas | not null | Khu vực (PDF §10.1). Thay cột chuỗi `area` của F01 từ migration `0005` (F37): mỗi giá trị `btrim(area)` khác nhau thành một dòng `areas`; `downgrade` khôi phục `area` từ `areas.name` |
 | is_active | bool | default true | |
 | created_at | timestamptz | default now() | |
 
@@ -71,9 +70,9 @@ erDiagram
 | Cột | Kiểu | Ràng buộc | Ghi chú |
 |---|---|---|---|
 | id | bigint PK | | |
-| code | text | unique, not null | Ví dụ `HP-1`; migration sinh `KV01`, `KV02`… từ `beds.area` cũ *(giả định)* |
+| code | text | unique, not null | Ví dụ `HP-1`; migration sinh `KV01`, `KV02`… theo thứ tự chữ cái của `name` từ `beds.area` cũ *(giả định)*. Seed: `KV01` "Khu hậu phẫu" |
 | name | text | not null | Tên hiển thị, ví dụ "Hậu phẫu 1" |
-| is_active | bool | default true | Xóa mềm (QA#36) |
+| is_active | bool | default true | Xóa mềm (QA#36). Không xóa được khi còn giường đang dùng (`AREA_IN_USE`); giường không gán hoặc khôi phục vào khu vực đã xóa |
 | created_at | timestamptz | default now() | |
 
 ### cameras (F01)
