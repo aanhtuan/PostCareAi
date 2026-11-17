@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F23 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -116,7 +116,27 @@ Thêm ca âm tính riêng: nằm xuống chậm từ tư thế ngồi không sin
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+**Khảo sát:** `ActivityLevel.UNKNOWN` đã có trong `schemas/enums.py`, event-engine.md mục 2/5 và api-conventions.md (`bed.state`), nên R4 không cần sửa schema. `Engine._snapshot` đang luôn trả `UNKNOWN`. `BodyFeatures` (F13) có `hip_center`, `torso_length`, `trunk_angle_deg` (so với trục giường, [0°, 90°]), `velocity` (torso/s, từ hông đã làm mượt), `image_size`. `TargetSelector` báo `is_new` nhưng `FrameAssessment` chưa mang cờ này. `RuleSet` (F15) chỉ có `BodyRules`; `Debouncer` dùng chung. `BodyRules` có bộ đệm visibility cho `confidence`.
+
+**Thiết kế chốt:**
+- `FrameAssessment.target_is_new: bool = False` (engine điền từ `TargetSelection.is_new`).
+- `engine/activity.py` `ActivityMeter(config)`: tập keypoint *(giả định)* = vai, khuỷu, cổ tay, hông, gối, cổ chân (12 điểm) có visibility ≥ `pose.min_keypoint_visibility`, làm mượt EMA (`smoothing.ema_alpha`, `PointSmoother` của F13). Mỗi frame có đặc trưng: tốc độ frame = trung bình trên các keypoint thấy ở cả frame trước và frame này của `|Δp| / torso_length / Δt`. Chỉ số = trung bình có trọng số thời gian của tốc độ frame trong `activity.window_s` cuối. `activity_level = UNKNOWN` khi cửa sổ chưa phủ đủ `window_s` kể từ mẫu đầu. Reset (về `UNKNOWN`) khi cổng chất lượng đóng (`NO_OBSERVATION`) hoặc nhận mục tiêu mới. Frame kém nhưng cổng còn mở: không thêm mẫu, giữ mức hiện tại.
+- `engine/rules/movement.py` `MovementRules(config)`:
+  - `ACTIVITY_INCREASED`: mức chuyển sang `HIGH` (từ mức khác) và giữ liên tục ≥ `activity.increased_hold_s`; một lần mỗi đoạn HIGH. `ACTIVITY_LOW_PROLONGED`: `LOW` liên tục ≥ `activity.low_prolonged_s`; một lần mỗi đoạn LOW. Mức `UNKNOWN` cắt đoạn. `occurred_at_ms` = đầu đoạn.
+  - `ABNORMAL_MOVEMENT`: bộ đệm mẫu `(ts, hip_center, torso, trunk_angle, vy)` các frame `GOOD` liên tục của cùng mục tiêu; frame không có đặc trưng, `NO_OBSERVATION` hoặc mục tiêu mới → xóa bộ đệm và hủy ứng viên (R8). Ở mỗi frame, cửa sổ `W = [t − window_s, t]`, mẫu tham chiếu = mẫu đầu của `W`: C1 = max `vy` (xuống) trong `W` ≥ ngưỡng; C2 = `|hip(t) − hip(ref)| / torso(ref)` ≥ ngưỡng; C3 = `|trunk(t) − trunk(ref)|` ≥ ngưỡng; C4 = `hip_y(t) / chiều cao ảnh` ≥ ngưỡng. Chỉ xét khi `W` phủ đủ `window_s`. Khi số điều kiện C1–C4 ≥ `min_conditions − 1` → mở / cập nhật ứng viên (mốc `t*` = frame gần nhất có số điều kiện ≥ của ứng viên). `occurred_at_ms` = mẫu đầu tiên trong `W` có tốc độ hông ≥ `hip_drop_speed_torso_per_s`, không có thì mẫu tham chiếu *(giả định)*. Sau `t*` đủ `hold_after_s`: C5 = chỉ số vận động trung bình trên `(t*, t* + hold_after_s]` < `activity.low_threshold`; tổng C1–C5 ≥ `min_conditions` → phát, không thì hủy. `explanation`: `rule_id`, `conditions_met`, giá trị đo và ngưỡng từng điều kiện, `min_conditions`, `window_ms`. Không xét ROI: chuyển động ngoài giường vẫn được xét khi mục tiêu còn được bám.
+  - `confidence` dùng chung cách tính của F15 (tách bộ đệm visibility và `EventDraft` sang `engine/rules/common.py`).
+- `RuleSet` ghép `BodyRules` + `MovementRules`, cùng một `Debouncer`. `Engine` đưa `activity_level` vào `BodyStateSnapshot` (R11), có thuộc tính `activity_index` (float | None) cho test/replay.
+- Builder: `UPRIGHT` (đứng, hông giữa khung), `FLOOR` (nằm sàn cạnh giường, hông thấp trong khung, ngoài ROI), `CHAIR_SEATED`; `fast_drop(seconds, to=FLOOR)`, `limb_motion(seconds, speed_torso_per_s, …)` (dao động gối/cổ chân hoặc cả thân).
+
+**Các bước:**
+1. Commit plan (spec).
+2. Test trước: `tests/engine/test_activity.py` (AC1 + R4), `tests/engine/test_rules_movement.py` (AC2–AC4, ca âm tính mục 6: trở mình, nhiễu 1–3 frame, che khuất, người đi ngang ngoài ROI, hai người trong ROI, debounce; thêm ngồi nhanh xuống ghế, cúi người, nằm xuống chậm, đổi mục tiêu, chưa đủ `min_conditions`). Xác nhận đỏ đúng lý do. Commit `test(F23): …`.
+3. Cài `activity.py`, `rules/common.py`, `rules/movement.py`, nối `RuleSet`/`Engine`. Commit nhỏ.
+4. Kiểm trên clip thật: `postcare replay --video` URFD cam0 (fall + ADL), CAUCAFall Subject 1–2, GMDCSA24 Subject 1 (cấu hình camera `config/cameras/urfd-cam0.yaml`, `caucafall.yaml`, ROI *(giả định)*). Ghi trúng/trượt ở mục 10. Cắt 1–2 fixture toạ độ (ngã + ADL âm tính) vào `server/tests/fixtures/`.
+5. Doc: event-engine.md (công thức chỉ số vận động, cách xét C1–C5, mục 5/6 nếu khác).
+6. `make check`, `scripts\dev.ps1 check`, `make test-vision`; bằng chứng mục 10; trạng thái "In review".
+
+**Rủi ro:** nhiễu keypoint MediaPipe có thể làm chỉ số vận động của người nằm yên vượt `activity.low_threshold` (0,02 torso/s): đo trên clip thật, nếu cần đề xuất chỉnh ngưỡng mặc định (ghi ở mục 10, doc mục 6). AC5 cần F16 (`postcare eval`, đang làm song song) và video dev S02/S15/S16: chưa làm được trong nhánh này; thay bằng replay trên dữ liệu ngoài.
 
 ## 10. Ghi chú bàn giao
 
