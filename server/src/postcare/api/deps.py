@@ -19,7 +19,8 @@ from postcare.settings import Settings
 
 _bearer = HTTPBearer(auto_error=False)
 
-# Ma trận quyền (api-conventions.md; QA#18). DOCTOR chỉ đọc.
+# Ma trận quyền (api-conventions.md; QA#18, QA#31). DOCTOR chỉ đọc; FAMILY không phải nhân viên.
+STAFF_ROLES = (UserRole.NURSE, UserRole.CHARGE_NURSE, UserRole.DOCTOR, UserRole.ADMIN)
 WRITE_ROLES = (UserRole.NURSE, UserRole.CHARGE_NURSE, UserRole.ADMIN)
 
 
@@ -90,7 +91,10 @@ def require_roles(*roles: UserRole) -> Callable[..., User]:
     return _guard
 
 
+# Endpoint đọc của nhân viên dùng `require_staff`, không dùng `get_current_user` (F35 R2).
+require_staff = require_roles(*STAFF_ROLES)
 require_writer = require_roles(*WRITE_ROLES)
+require_admin = require_roles(UserRole.ADMIN)
 
 
 def require_worker(

@@ -8,6 +8,7 @@ class UserRole(StrEnum):
     CHARGE_NURSE = "CHARGE_NURSE"
     DOCTOR = "DOCTOR"
     ADMIN = "ADMIN"
+    FAMILY = "FAMILY"  # QA#31: người nhà; bị chặn mặc định ở API nhân viên (F35), F36 mở phần riêng
 
 
 class BodyState(StrEnum):
