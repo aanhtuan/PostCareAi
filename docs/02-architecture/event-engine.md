@@ -72,6 +72,15 @@ Quy ước của code (F10, file trong `postcare/schemas/`: `observation.py`, `s
 
 `engine/engine.py` có lớp `Engine` ghép các bước trên. Khung các bước (chữ ký sẵn, chưa có logic) nằm ở `engine/pipeline.py` (F10): `TargetSelector`, `QualityAssessor`, `StateMachine`, `RuleSet`; feature sau tách ra module riêng như bảng trên. Method `Engine.process(obs) -> EngineOutput` là API duy nhất mà worker và replay gọi (F10).
 
+Quy ước bước 1–3 (F13; `engine/target.py`, `features.py`, `smoothing.py`, `quality.py`, `geometry.py`):
+- Góc và khoảng cách tính theo **pixel** (toạ độ chuẩn hóa × `image_size`). Trục dài giường = trục chính (PCA) của các đỉnh ROI *(giả định)*.
+- `hip_center` cần đủ hai hông (không xét visibility). Chỉ xét `pose.num_poses` người đầu của frame. "Người trong ROI" = `hip_center` nằm trong polygon.
+- Mục tiêu: đã có thì bám người gần nhất trong `target.max_jump_torso_lengths × torso_length`, kể cả ngoài ROI; chưa có thì chỉ nhận người trong ROI (sâu nhất trong ROI). Frame không khớp ai: vẫn nhớ vị trí cũ và không nhận người mới, cho tới khi cổng chất lượng đóng *(giả định)*.
+- `observation_quality` mỗi frame, điều kiện trước thắng: `CAMERA_ISSUE` (`source_ok = false`) → `MULTIPLE_PEOPLE` (≥ 2 người trong ROI) → `NO_PERSON` (không có mục tiêu) → `LOW_CONFIDENCE` (keypoint trong `pose.required_keypoints` thiếu hoặc visibility < `pose.min_keypoint_visibility`, hoặc `torso_length = 0`) → `GOOD`.
+- Cổng chất lượng (theo `ts_ms`): khác `GOOD` liên tục ≥ `quality.low_quality_to_no_observation_s` → `NO_OBSERVATION`; thoát khi `GOOD` liên tục ≥ `quality.restore_duration_s`; engine khởi động với cổng đóng. Frame kém chưa đủ lâu: giữ trạng thái cũ, `StateMachine` không nhận frame đó.
+- Đặc trưng (`BodyFeatures`) chỉ có ở frame `GOOD`, tính từ keypoint đã làm mượt EMA (`smoothing.ema_alpha`): `hip_center`, `shoulder_center`, `torso_length` (px), `trunk_angle_deg` (gập [0°, 90°]), `inside_roi`, `dist_to_roi_edge` (có dấu, đơn vị torso), `ankles_outside_roi`, `knees`, `ankles`, `shoulder_line_angle_deg`, `velocity` (vx, vy; torso/giây). Bộ làm mượt reset khi nhận mục tiêu mới hoặc khi thoát `NO_OBSERVATION` *(giả định)*.
+- `postcare.engine` không import `time`, `datetime`, `random` (contract import-linter `engine-no-clock` + test AST).
+
 ## 4. Trạng thái cơ thể
 
 | Code | UI | Điều kiện vào (tóm tắt) | Nguồn |

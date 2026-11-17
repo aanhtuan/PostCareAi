@@ -61,7 +61,7 @@ flowchart LR
 | Module | Trách nhiệm (HS §6.1) | Được import | **Không** được import |
 |---|---|---|---|
 | `schemas` | Kiểu dữ liệu và cấu hình dùng chung: `FrameObservation`, `PersonPose`, `FaceObservation` (output adapter), `FaceSignals` (tín hiệu engine suy ra), `EngineOutput`, `EventCode`, `Priority`, `BodyState`, enum (`schemas/enums.py`), `EngineConfig` + đọc YAML (`schemas/engine_config.py`), `EngineContext` (`schemas/context.py`), polygon ROI (`schemas/roi.py`) | stdlib, pydantic, pyyaml | mọi module khác |
-| `engine` | Temporal Processing + Event Engine: chọn người mục tiêu, đặc trưng, làm mượt, state machine, rule, vận động, khuôn mặt | `schemas`, stdlib, pydantic, numpy | cv2, mediapipe, fastapi, sqlalchemy, httpx, `vision`, `api`, `db` |
+| `engine` | Temporal Processing + Event Engine: chọn người mục tiêu, đặc trưng, làm mượt, state machine, rule, vận động, khuôn mặt | `schemas`, stdlib, pydantic, numpy | cv2, mediapipe, fastapi, sqlalchemy, httpx, `time`, `datetime`, `random` (không đọc đồng hồ, xác định), `vision`, `api`, `db` |
 | `vision` | Camera Service (`vision.camera`), AI Inference adapter (`vision.inference`, **nơi duy nhất import mediapipe**), render khung hình (`vision.render`) | `schemas`, cv2, mediapipe, numpy | `api`, `db`, `engine` |
 | `pipeline` | Ghép `vision` + `engine` cho một khung hình (dùng chung bởi worker và replay, để offline phản ánh đúng realtime) | `vision`, `engine`, `schemas` | `api`, `db` |
 | `worker` | Vòng lặp realtime: `pipeline` + HTTP client tới API | `pipeline`, `vision`, `engine`, `schemas`, httpx | `api`, `db` |
