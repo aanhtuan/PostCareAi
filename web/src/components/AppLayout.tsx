@@ -3,23 +3,33 @@ import { useDisclosure } from '@mantine/hooks';
 import { useContext } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 
+import type { UserRole } from '../api/types';
 import { useAuth } from '../auth/useAuth';
 import { vi } from '../i18n/vi';
 import { RealtimeContext } from '../realtime/RealtimeProvider';
 
-const NAV: { to: string; label: string }[] = [
+type NavItem = { to: string; label: string; roles?: readonly UserRole[] };
+
+const NAV: NavItem[] = [
   { to: '/', label: vi.nav.overview },
   { to: '/live', label: vi.nav.live },
   { to: '/alerts', label: vi.nav.alerts },
   { to: '/timeline', label: vi.nav.timeline },
   { to: '/handover', label: vi.nav.handover },
   { to: '/management', label: vi.nav.management },
+  { to: '/management/users', label: vi.users.title, roles: ['ADMIN'] }, // F35
 ];
 
-function isActive(pathname: string, to: string): boolean {
+function matches(pathname: string, to: string): boolean {
   if (to === '/') return pathname === '/';
   if (to === '/live') return pathname === '/live' || pathname.endsWith('/live');
-  return pathname.startsWith(to);
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
+
+/** Chỉ mục khớp dài nhất được tô (ví dụ `/management/users` không tô cả `/management`). */
+function isActive(pathname: string, to: string, items: NavItem[]): boolean {
+  if (!matches(pathname, to)) return false;
+  return !items.some((n) => n.to.length > to.length && matches(pathname, n.to));
 }
 
 function RealtimeStatus() {
@@ -42,6 +52,7 @@ export function AppLayout() {
   const { user, logout } = useAuth();
   const { pathname } = useLocation();
   const [opened, { toggle, close }] = useDisclosure();
+  const nav = NAV.filter((n) => !n.roles || (user !== null && n.roles.includes(user.role)));
 
   return (
     <AppShell
@@ -76,13 +87,13 @@ export function AppLayout() {
       <AppShell.Navbar p="xs" className="no-print">
         <Stack gap={2} justify="space-between" h="100%">
           <div>
-            {NAV.map((n) => (
+            {nav.map((n) => (
               <NavLink
                 key={n.to}
                 component={Link}
                 to={n.to}
                 label={n.label}
-                active={isActive(pathname, n.to)}
+                active={isActive(pathname, n.to, nav)}
                 onClick={close}
               />
             ))}
