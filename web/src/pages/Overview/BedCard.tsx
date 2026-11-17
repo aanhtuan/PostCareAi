@@ -10,6 +10,7 @@ export function BedCard({ bed }: { bed: OverviewBedOut }) {
   const navigate = useNavigate();
   const status = bedCardStatus({
     hasSession: bed.session !== null,
+    paused: bed.session?.paused_at != null,
     pendingCount: bed.pending_alert_count,
     acknowledgedCount: bed.acknowledged_alert_count,
     bodyState: bed.state?.body_state ?? null,
@@ -47,7 +48,7 @@ export function BedCard({ bed }: { bed: OverviewBedOut }) {
           {bed.area}
           {bed.session ? ` · ${fmt(vi.bedCard.patient, { code: bed.session.patient_code })}` : ''}
         </Text>
-        {bed.session && (
+        {bed.session && status !== 'PAUSED' && (
           <>
             <Text size="sm">
               {vi.bedCard.bodyState}:{' '}

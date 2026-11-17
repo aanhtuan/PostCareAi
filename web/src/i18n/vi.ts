@@ -205,6 +205,7 @@ export const vi = {
     NEEDS_CHECK: 'Cần kiểm tra',
     NEW_ALERT: 'Cảnh báo mới',
     NOT_MONITORED: 'Không theo dõi',
+    PAUSED: 'Đang tạm dừng thu hình',
     patient: 'Bệnh nhân {code}',
     bodyState: 'Trạng thái cơ thể',
     quality: 'Chất lượng quan sát',
@@ -239,6 +240,7 @@ export const vi = {
     noRecent: 'Chưa có diễn biến nào',
     status: 'Trạng thái:',
     seeAll: 'Xem tất cả cảnh báo',
+    noBeds: 'Chưa có giường nào đang dùng',
   },
   live: {
     title: 'Theo dõi trực tiếp',

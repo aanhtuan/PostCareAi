@@ -30,8 +30,15 @@ export const qk = {
   handover: (p: object) => ['handover', p] as const,
 };
 
+/** F09 R6: làm mới Tổng quan ≤5 giây, kể cả khi mất WebSocket (F21 thêm realtime). */
+export const OVERVIEW_POLL_MS = 5000;
+
 export function useOverview() {
-  return useQuery({ queryKey: qk.overview, queryFn: () => api<OverviewOut>('/overview') });
+  return useQuery({
+    queryKey: qk.overview,
+    queryFn: () => api<OverviewOut>('/overview'),
+    refetchInterval: OVERVIEW_POLL_MS,
+  });
 }
 
 export type EventFilter = { bed_id?: number; limit?: number; priority?: Priority[] };
