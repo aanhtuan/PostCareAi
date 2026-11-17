@@ -446,7 +446,7 @@ def delete_camera(db: Session, camera_id: int, user: User) -> CameraOut:
         if session is not None:
             raise DomainError(
                 "CAMERA_IN_ACTIVE_SESSION",
-                f"Camera {camera.name} đang dùng cho một phiên theo dõi. "
+                f'Camera "{camera.name}" đang dùng cho một phiên theo dõi. '
                 "Kết thúc phiên trước khi xóa.",
                 409,
                 {"session_id": session.id},

@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F03 |
-| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 3 phiên |
@@ -92,12 +92,12 @@ Cho quản trị viên khai báo giường, bệnh nhân (chỉ mã thử nghi�
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** ADMIN thêm, sửa được giường (mã, khu vực), bệnh nhân (mã thử nghiệm, ghi chú), camera (tên, loại nguồn, địa chỉ nguồn, giường). Mỗi thao tác ghi audit log. Vai trò khác gọi API ghi → 403. *(QA#15, QA#18)* — *Kiểm chứng:* test `test_admin_crud_beds`, `test_admin_crud_patients`, `test_admin_crud_cameras`, `test_write_requires_admin` (tham số hóa NURSE, CHARGE_NURSE, DOCTOR), `test_writes_record_audit`.
-- [ ] **AC2.** Trùng mã giường hoặc mã bệnh nhân → 409 `DUPLICATE_CODE`. Gán camera thứ hai vào cùng giường → 409. Sửa nguồn hoặc giường của camera làm tăng `config_version`. *(QA#13)* — *Kiểm chứng:* test `test_duplicate_bed_code_409`, `test_duplicate_patient_code_409`, `test_second_camera_same_bed_409`, `test_camera_update_bumps_config_version`.
-- [ ] **AC3.** Màn hình "Quản lý giường" liệt kê giường kèm camera và bệnh nhân hiện tại (từ phiên đang mở). *(PDF §9.1)* — *Kiểm chứng:* test API `test_beds_list_includes_camera_and_current_patient` (chèn phiên mở trực tiếp vào DB); component test `ManagementPage lists beds with camera and current patient`, `non-admin sees no edit buttons`.
-- [ ] **AC4.** Bệnh nhân không có trường họ tên hay ảnh: gửi `full_name` hoặc `photo` → 400 `VALIDATION_ERROR`; response không có các trường này. *(PDF §10.1; HS §6.3)* — *Kiểm chứng:* test `test_patient_rejects_name_and_photo_fields`, `test_patient_out_has_no_name_field`.
-- [ ] **AC5.** ADMIN "Xóa" (mềm) và "Khôi phục" được giường, bệnh nhân, camera; mỗi thao tác ghi audit `*.delete` / `*.restore`; bản ghi đã xóa ẩn khỏi danh sách mặc định nhưng vẫn xem được chi tiết, phiên và timeline cũ; không có đường xóa cứng. Vai trò khác → 403. *(QA#36)* — *Kiểm chứng:* test `test_soft_delete_and_restore` (tham số hóa 3 tài nguyên), `test_delete_restore_audited`, `test_deleted_hidden_from_default_list`, `test_deleted_bed_history_still_accessible` (timeline của phiên cũ vẫn trả sự kiện), `test_delete_requires_admin`, `test_patch_rejects_is_active`; component test `ManagementPage delete asks for confirmation`, `ManagementPage shows restore for deleted items`.
-- [ ] **AC6.** Không xóa được giường hoặc bệnh nhân đang có phiên mở (409 `BED_HAS_OPEN_SESSION` / `PATIENT_HAS_OPEN_SESSION`) và camera của phiên đang mở (409 `CAMERA_IN_ACTIVE_SESSION`); sau khi kết thúc phiên thì xóa được. Xóa camera giải phóng giường để gắn camera khác. *(QA#36; giả định)* — *Kiểm chứng:* test `test_delete_bed_with_open_session_409`, `test_delete_patient_with_open_session_409`, `test_delete_camera_in_active_session_409`, `test_delete_allowed_after_session_end`, `test_delete_camera_frees_bed`, `test_deleted_bed_cannot_start_session`.
+- [x] **AC1.** ADMIN thêm, sửa được giường (mã, khu vực), bệnh nhân (mã thử nghiệm, ghi chú), camera (tên, loại nguồn, địa chỉ nguồn, giường). Mỗi thao tác ghi audit log. Vai trò khác gọi API ghi → 403. *(QA#15, QA#18)* — *Kiểm chứng:* test `test_admin_crud_beds`, `test_admin_crud_patients`, `test_admin_crud_cameras`, `test_write_requires_admin` (tham số hóa NURSE, CHARGE_NURSE, DOCTOR), `test_writes_record_audit`.
+- [x] **AC2.** Trùng mã giường hoặc mã bệnh nhân → 409 `DUPLICATE_CODE`. Gán camera thứ hai vào cùng giường → 409. Sửa nguồn hoặc giường của camera làm tăng `config_version`. *(QA#13)* — *Kiểm chứng:* test `test_duplicate_bed_code_409`, `test_duplicate_patient_code_409`, `test_second_camera_same_bed_409`, `test_camera_update_bumps_config_version`.
+- [x] **AC3.** Màn hình "Quản lý giường" liệt kê giường kèm camera và bệnh nhân hiện tại (từ phiên đang mở). *(PDF §9.1)* — *Kiểm chứng:* test API `test_beds_list_includes_camera_and_current_patient` (chèn phiên mở trực tiếp vào DB); component test `ManagementPage lists beds with camera and current patient`, `non-admin sees no edit buttons`.
+- [x] **AC4.** Bệnh nhân không có trường họ tên hay ảnh: gửi `full_name` hoặc `photo` → 400 `VALIDATION_ERROR`; response không có các trường này. *(PDF §10.1; HS §6.3)* — *Kiểm chứng:* test `test_patient_rejects_name_and_photo_fields`, `test_patient_out_has_no_name_field`.
+- [x] **AC5.** ADMIN "Xóa" (mềm) và "Khôi phục" được giường, bệnh nhân, camera; mỗi thao tác ghi audit `*.delete` / `*.restore`; bản ghi đã xóa ẩn khỏi danh sách mặc định nhưng vẫn xem được chi tiết, phiên và timeline cũ; không có đường xóa cứng. Vai trò khác → 403. *(QA#36)* — *Kiểm chứng:* test `test_soft_delete_and_restore` (tham số hóa 3 tài nguyên), `test_delete_restore_audited`, `test_deleted_hidden_from_default_list`, `test_deleted_bed_history_still_accessible` (timeline của phiên cũ vẫn trả sự kiện), `test_delete_requires_admin`, `test_patch_rejects_is_active`; component test `ManagementPage delete asks for confirmation`, `ManagementPage shows restore for deleted items`.
+- [x] **AC6.** Không xóa được giường hoặc bệnh nhân đang có phiên mở (409 `BED_HAS_OPEN_SESSION` / `PATIENT_HAS_OPEN_SESSION`) và camera của phiên đang mở (409 `CAMERA_IN_ACTIVE_SESSION`); sau khi kết thúc phiên thì xóa được. Xóa camera giải phóng giường để gắn camera khác. *(QA#36; giả định)* — *Kiểm chứng:* test `test_delete_bed_with_open_session_409`, `test_delete_patient_with_open_session_409`, `test_delete_camera_in_active_session_409`, `test_delete_allowed_after_session_end`, `test_delete_camera_frees_bed`, `test_deleted_bed_cannot_start_session`.
 
 ## 6. Kế hoạch test
 
@@ -155,10 +155,54 @@ Cho quản trị viên khai báo giường, bệnh nhân (chỉ mã thử nghi�
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
 
+**2026-11-18 (builder F03):** chuyển sang In review. Nhánh `feat/F03-catalog-management`. Không có migration mới.
+
+Bằng chứng theo AC (test viết trước, commit `e7d9d89`):
+
+- **AC1:** `server/tests/api/test_beds.py::test_admin_crud_beds`, `test_patients.py::test_admin_crud_patients`, `test_cameras.py::test_admin_crud_cameras` (kèm audit `before`/`after`), `test_beds.py::test_write_requires_admin` (NURSE, CHARGE_NURSE, DOCTOR × 6 endpoint ghi), `test_staff_can_read_catalog`, `test_catalog_requires_login`, `test_bed_list_is_paginated`, `test_bed_create_validation`, `test_cameras.py::test_camera_source_validated_by_type` / `test_camera_source_valid_values` (R5).
+- **AC2:** `test_duplicate_bed_code_409` (mã có khoảng trắng vẫn trùng), `test_duplicate_patient_code_409`, `test_second_camera_same_bed_409`, `test_camera_update_bumps_config_version` (đổi `name` hoặc giữ nguyên giá trị → không tăng), `test_camera_move_to_free_bed`.
+- **AC3:** `test_beds_list_includes_camera_and_current_patient`; `web/src/pages/Management/ManagementPage.test.tsx` (`lists beds with camera and current patient`, `non-admin sees no edit buttons` cho NURSE và DOCTOR).
+- **AC4:** `test_patient_rejects_name_and_photo_fields` (POST và PATCH), `test_patient_out_has_no_name_field`.
+- **AC5:** `server/tests/api/test_catalog_delete.py::test_soft_delete_and_restore`, `test_delete_restore_audited` (lặp lại không thêm audit), `test_deleted_hidden_from_default_list` (`include_inactive`), `test_delete_requires_admin`, `test_patch_rejects_is_active`, `test_no_hard_delete_and_unknown_404`, `test_create_with_code_of_deleted_record_409`, `test_deleted_bed_history_still_accessible`; component test `delete asks for confirmation`, `delete conflict shows the API message`, `shows restore for deleted items`, `add bed form ...`, `edit bed sends form values via PATCH`.
+- **AC6:** `test_delete_bed_with_open_session_409`, `test_delete_patient_with_open_session_409`, `test_delete_camera_in_active_session_409` (camera gắn giường không có phiên → xóa được), `test_delete_allowed_after_session_end`, `test_delete_camera_frees_bed`, `test_delete_bed_keeps_camera_link`, `test_deleted_bed_cannot_start_session`.
+- **§8 seed:** `server/tests/db/test_seed.py::test_seed_skips_camera_soft_deleted_by_f03`, `test_seed_demo_skips_existing_camera_names`. `seed_base`/`seed_demo` không tạo camera mẫu khi giường đã có camera hoặc đã có camera cùng tên (kể cả đã xóa).
+
+Kiểm tra: `make check` và `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0 (415 test server, 56 test web) với `TEST_DATABASE_URL=.../postcare_w3_test`.
+
+Kiểm chứng thủ công (API cổng 8013, DB `postcare_f03` mới migrate + `postcare seed`, curl):
+
+| Thao tác | Kết quả |
+|---|---|
+| nurse `POST /beds` | 403 `FORBIDDEN` |
+| admin `POST /beds` `" B01 "` / lặp lại `B01` | 201 (mã đã bỏ khoảng trắng) / 409 `DUPLICATE_CODE` "Mã giường B01 đã tồn tại" |
+| admin `PATCH /beds/4` khu vực | 200 |
+| `POST /patients` có `full_name` | 422 `VALIDATION_ERROR` |
+| camera `URL` nguồn `ftp://x` | 400 `VALIDATION_ERROR`, `details.field = source` |
+| camera thứ hai cho A01 | 409 `BED_ALREADY_HAS_CAMERA` |
+| `PATCH` nguồn camera | 200, `config_version` 1 → 2 |
+| mở phiên A01 rồi xóa giường / bệnh nhân / camera của phiên | 409 `BED_HAS_OPEN_SESSION` / `PATIENT_HAS_OPEN_SESSION` / `CAMERA_IN_ACTIVE_SESSION`, `details.session_id = 1` |
+| xóa / khôi phục giường B01 | 200 `is_active` false / true, giữ camera |
+| xóa camera B01 rồi khôi phục | `bed_id` → null, `config_version` 2 → 3; khôi phục không gắn lại giường |
+| `PATCH` có `is_active` | 422 `VALIDATION_ERROR` |
+| kết thúc phiên rồi xóa camera, giường A01; xem timeline phiên cũ | 200 cả ba |
+| chạy lại `postcare seed` sau khi xóa camera A01 | không thêm "Camera A01" |
+
+(Text tiếng Việt gửi qua curl của Git Bash trên Windows bị đổi dấu thành `?` do mã hóa dòng lệnh; dữ liệu seed và test API lưu đúng UTF-8.)
+
+Ghi chú cho reviewer và người sau:
+
+- **Lệch nhỏ so với spec:** lỗi schema (trường thừa như `full_name`, `photo`, `is_active`; mã rỗng; sai kiểu) trả HTTP **422** `VALIDATION_ERROR` theo quy ước hiện có (`api-conventions.md`: "422 … bọc lại thành VALIDATION_ERROR"), không phải 400. Lỗi nghiệp vụ (nguồn sai theo loại) trả 400. Đã ghi vào `api-conventions.md`.
+- Gom logic vào một module `postcare/domain/catalog.py` (spec §4 dự kiến 3 file); router tách 3 file `api/v1/beds.py`, `patients.py`, `cameras.py`. `api/v1/catalog.py` chỉ còn `/shifts`.
+- Danh sách đổi từ mảng sang `{items, total}` (R1). Hook web `useBeds/usePatients/useCameras(includeInactive)` gọi `limit=200` và trả `items`, nên Cảnh báo, Lịch sử theo dõi không phải sửa. `CameraOut` thêm `is_active`.
+- Guard mới `require_admin` trong `api/deps.py` (F35 có thể cũng thêm; khi gộp giữ một bản).
+- Text mới trong khối `catalog` riêng của `vi.ts`; key khác tên spec §4 (`catalog.add`… thay cho `management.add`…) để tránh xung đột với F35.
+- `FAMILY` chưa có trong enum: ca âm tính `FAMILY` đọc danh mục → 403 để F35 thêm (spec §7). Khi F35 có `require_staff`, đổi `get_current_user` ở các route đọc danh mục sang `require_staff`.
+- Chưa làm (không thuộc AC): F04 `start_session` chưa khóa hàng giường, nên tranh chấp "mở phiên" và "xóa giường" cùng lúc chỉ được chặn phía xóa (`FOR UPDATE`). Chuyển camera đang dùng trong phiên mở sang giường khác hiện không bị chặn; F04/F06 nên quyết định.
+
 ## 11. Definition of Done
 
-- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
-- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
-- [ ] Doc liên quan đã cập nhật cùng PR.
+- [x] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [x] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [x] Doc liên quan đã cập nhật cùng PR.
 - [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).
