@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F15 |
-| Trạng thái | In progress |
+| Trạng thái | In review |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -71,11 +71,11 @@ Feature này sinh **sự kiện** từ chuỗi trạng thái ổn định của 
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** `SIT_UP` sinh theo chuỗi `LYING → RAISING → SITTING`. Ngồi dậy rồi nằm lại **không** sinh `BED_EXIT` hay `BED_EDGE` *(PDF §7.1 (tr.8–9), §7.2 (tr.9))*. — *Kiểm chứng:* `server/tests/engine/test_rules_body.py` (`test_sit_up_sequence_emits_sit_up`, `test_sit_up_then_lie_back_no_bed_exit`).
-- [ ] **AC2.** `STAND_UP`, `BED_EDGE`, `BED_EXIT`, `RETURN_TO_BED` sinh theo chuỗi trạng thái. Chuỗi nằm → ngồi → mép → đứng → ra ngoài cho đúng `["SIT_UP", "BED_EDGE", "STAND_UP", "BED_EXIT"]` ([testing.md](../04-guides/testing.md) mục 2). Mất landmark hoặc bị che **không** sinh `BED_EXIT` *(HS §5.1, §5.2; PDF §7.2 (tr.9))*. — *Kiểm chứng:* `test_full_exit_sequence_codes`, `test_return_to_bed_after_exit`, `test_landmark_loss_at_edge_no_bed_exit`, `test_lying_straight_out_no_bed_exit`.
-- [ ] **AC3.** Trở mình khi nằm sinh `POSTURE_CHANGE` mức LOG, không sinh `SIT_UP` hay `BED_EDGE` *(HS §5.2, §5.4)*. — *Kiểm chứng:* `test_turn_over_emits_posture_change_log`.
-- [ ] **AC4.** Debounce: cùng code không lặp trong `debounce.same_code_same_session_s` *(A01)*. — *Kiểm chứng:* `test_debounce.py::test_same_code_within_window_emitted_once`, `test_same_code_after_window_and_reentry_emitted_again`.
-- [ ] **AC5.** Mỗi sự kiện có `priority` đúng catalog, `confidence` ∈ [0,1], `observation_quality`, `explanation.rule_id`, `config_hash`, và `occurred_at_ms ≤ detected_at_ms` *(HS §5.4, §6.2; PDF §10.1 (tr.12))*. — *Kiểm chứng:* `test_every_body_event_has_required_fields` (duyệt mọi sự kiện của các chuỗi trong file test).
+- [x] **AC1.** `SIT_UP` sinh theo chuỗi `LYING → RAISING → SITTING`. Ngồi dậy rồi nằm lại **không** sinh `BED_EXIT` hay `BED_EDGE` *(PDF §7.1 (tr.8–9), §7.2 (tr.9))*. — *Kiểm chứng:* `server/tests/engine/test_rules_body.py` (`test_sit_up_sequence_emits_sit_up`, `test_sit_up_then_lie_back_no_bed_exit`).
+- [x] **AC2.** `STAND_UP`, `BED_EDGE`, `BED_EXIT`, `RETURN_TO_BED` sinh theo chuỗi trạng thái. Chuỗi nằm → ngồi → mép → đứng → ra ngoài cho đúng `["SIT_UP", "BED_EDGE", "STAND_UP", "BED_EXIT"]` ([testing.md](../04-guides/testing.md) mục 2). Mất landmark hoặc bị che **không** sinh `BED_EXIT` *(HS §5.1, §5.2; PDF §7.2 (tr.9))*. — *Kiểm chứng:* `test_full_exit_sequence_codes`, `test_return_to_bed_after_exit`, `test_landmark_loss_at_edge_no_bed_exit`, `test_lying_straight_out_no_bed_exit`.
+- [x] **AC3.** Trở mình khi nằm sinh `POSTURE_CHANGE` mức LOG, không sinh `SIT_UP` hay `BED_EDGE` *(HS §5.2, §5.4)*. — *Kiểm chứng:* `test_turn_over_emits_posture_change_log`.
+- [x] **AC4.** Debounce: cùng code không lặp trong `debounce.same_code_same_session_s` *(A01)*. — *Kiểm chứng:* `test_debounce.py::test_same_code_within_window_emitted_once`, `test_same_code_after_window_and_reentry_emitted_again`.
+- [x] **AC5.** Mỗi sự kiện có `priority` đúng catalog, `confidence` ∈ [0,1], `observation_quality`, `explanation.rule_id`, `config_hash`, và `occurred_at_ms ≤ detected_at_ms` *(HS §5.4, §6.2; PDF §10.1 (tr.12))*. — *Kiểm chứng:* `test_every_body_event_has_required_fields` (duyệt mọi sự kiện của các chuỗi trong file test).
 
 ## 6. Kế hoạch test
 
@@ -148,7 +148,23 @@ Trở mình **không** sinh `ABNORMAL_MOVEMENT` được kiểm ở F23. Các ca
 
 ## 10. Ghi chú bàn giao
 
-> Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+**Bằng chứng (2026-11-18, nhánh `feat/F15-body-events`):**
+- AC1: `test_rules_body.py::test_sit_up_sequence_emits_sit_up`, `test_sit_up_then_lie_back_no_bed_exit`, `test_noise_1_to_3_frames_no_sit_up[1-3]`, `test_sit_up_requires_raising_after_lying`.
+- AC2: `test_full_exit_sequence_codes` (ví dụ testing.md mục 2 → `["SIT_UP", "BED_EDGE", "STAND_UP", "BED_EXIT"]`, có `state_chain`), `test_bed_edge_emitted_on_entering_at_edge`, `test_brief_edge_below_min_duration_no_bed_edge`, `test_sitting_standing_out_of_bed_emits_bed_exit`, `test_lying_straight_out_no_bed_exit` (chỉ anomaly), `test_landmark_loss_at_edge_no_bed_exit[low_visibility/missing]`, `test_occluded_at_edge_then_observed_outside_emits_bed_exit` (R5), `test_return_to_bed_after_exit`, `test_return_to_bed_needs_hold`, `test_return_to_bed_only_after_out_of_bed`, `test_return_via_edge_no_bed_edge` (R4, debounce rút ngắn để kiểm riêng rule).
+- AC3: `test_turn_over_emits_posture_change_log`, `test_small_shoulder_rotation_no_posture_change`, `test_brief_turn_shorter_than_stable_no_posture_change`, `test_posture_change_reference_resets_after_event`.
+- AC4: `test_debounce.py::test_same_code_within_window_emitted_once`, `test_same_code_after_window_and_reentry_emitted_again`, `test_staying_in_state_does_not_repeat_event`, unit `Debouncer` (4 test).
+- AC5: `test_every_body_event_has_required_fields` (đủ 6 mã; priority = catalog, confidence ∈ [0,1], `observation_quality`, `rule_id = body.<mã>`, `config_hash = Engine.config_hash`, `detected_at_ms` = `ts_ms` frame phát, `occurred_at_ms ≤ detected_at_ms`, `held_ms`), `test_body_events_deterministic`.
+- Ca âm tính mục 6: `test_nurse_outside_roi_no_events`, `test_two_people_in_roi_no_body_events` cùng các test trên.
+- Test viết trước, đỏ vì thiếu `postcare.engine.debounce` và engine chưa phát sự kiện (commit `test(F15)`).
+- `make check` exit 0 (429 passed, 4 deselected; web 47 passed); `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0.
+
+**Cho người sau:**
+- `EngineEvent.config_hash: str = ""` là trường mới (mặc định rỗng để code F12/simulator đang có không vỡ); `Engine` luôn điền. Worker (F12/F17) gửi `event.config_hash` trong payload `POST /internal/v1/events`.
+- `RuleSet` chuyển từ `engine/pipeline.py` sang `engine/rules/__init__.py` (tránh vòng import với `state_machine.py`); chữ ký mới `RuleSet(config, config_hash).evaluate(ts_ms, assessment, body_state, history)`.
+- `Debouncer(window_s).allow(key, ts_ms)` dùng chung cho F23/F26 (khóa là chuỗi).
+- Builder: `PoseSequence.turn_over(seconds, degrees=60)` (sau đó dùng `hold()`, vì `lying()` đặt lại tư thế nằm gốc), `codes(outs)`, `events(outs)`.
+- R5 sửa theo event-engine.md mục 4 (điều kiện trước BED_EXIT là `AT_EDGE` **hoặc** `STANDING`, chốt sau review F14).
+- Câu hỏi mở (không chặn): bắt đầu theo dõi khi người bệnh đã ngồi ở mép (không có trạng thái trong giường trước đó) thì không có `BED_EDGE` theo R4; cần người dùng xác nhận.
 
 ## 11. Definition of Done
 
