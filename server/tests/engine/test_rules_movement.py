@@ -388,3 +388,44 @@ def test_target_switch_no_abnormal_movement() -> None:
     """Mục tiêu biến mất rồi người khác được nhận ở chỗ thấp: bước nhảy không phải chuyển động."""
     seq = upright().drop_landmarks(seconds=LOST + 1, mode="missing").pose(LYING, seconds=AFTER_S)
     assert ABNORMAL not in codes(run_engine(seq.build()))
+
+
+# ---- Bắt buộc một điều kiện hạ thấp: C1 hoặc C4 (giả định, chốt 18/11/2026) ----
+
+
+def test_quick_get_up_from_floor_then_standing_no_abnormal_movement() -> None:
+    """Đứng dậy nhanh từ sàn rồi đứng yên: C2 + C3 + C5 (đủ 3) nhưng không hạ thấp → không phát.
+    Debounce rút ngắn để lần ngã trước không che lần đứng dậy."""
+    config = cfg({"debounce": {"same_code_same_session_s": 1.0}})
+    seq = fall().move_to(UPRIGHT, seconds=1.5).hold(seconds=AFTER_S + 2)
+    outs = run_engine(seq.build(), config=config)
+    assert codes(outs).count(ABNORMAL) == 1  # chỉ lần ngã
+
+
+def test_walk_then_stop_no_abnormal_movement() -> None:
+    """Đi nhanh ngang khung rồi đứng yên (hông giữa khung): C2 + C5, không hạ thấp. Hạ
+    `min_conditions` xuống 2 để ca này chỉ còn bị chặn bởi điều kiện hạ thấp."""
+    config = cfg({"abnormal_movement": {"min_conditions": 2}})
+    seq = upright().move_to(UPRIGHT.moved_to((300, 400)), seconds=2.0).hold(seconds=AFTER_S + 2)
+    assert ABNORMAL not in codes(run_engine(seq.build(), config=config))
+
+
+def test_no_lowering_condition_no_event_even_if_min_conditions_met() -> None:
+    """Ngã nhưng tắt cả C1 và C4: còn C2 + C3 + C5 = 3 ≥ min_conditions, vẫn không phát."""
+    config = cfg(
+        {
+            "abnormal_movement": {
+                "hip_drop_speed_torso_per_s": 1000.0,
+                "final_low_position_ratio": 1.0,
+            }
+        }
+    )
+    assert ABNORMAL not in codes(run_engine(fall().build(), config=config))
+
+
+def test_lowering_by_final_position_alone_is_enough() -> None:
+    """Chỉ C4 trong nhóm hạ thấp (C1 tắt) vẫn đủ điều kiện bắt buộc."""
+    config = cfg({"abnormal_movement": {"hip_drop_speed_torso_per_s": 1000.0}})
+    ev = only(run_engine(fall().build(), config=config), ABNORMAL)
+    assert "hip_drop_speed" not in ev.explanation["conditions_met"]  # type: ignore[operator]
+    assert ev.explanation["lowering_required"] is True
