@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F04 |
-| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | Done <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 3 phiên |
@@ -65,7 +65,7 @@ Gắn một bệnh nhân (mã thử nghiệm) với một giường và camera t
   - giường đích trùng giường hiện tại → 400 `VALIDATION_ERROR`;
   - giường đích không tồn tại → 404 `NOT_FOUND`; đã xóa (`is_active = false`) → 400 `VALIDATION_ERROR` (như R5);
   - giường đích đã có phiên mở → 409 `SESSION_ALREADY_OPEN` (`details.bed_id`), kể cả khi hai yêu cầu chuyển đồng thời vào cùng giường (bắt `IntegrityError` như R4).
-- **R15.** Audit một bản ghi `session.transfer` cho phiên mới (`entity_type = "session"`, `entity_id` = phiên mới), `before` `{session_id, bed_id}` của phiên cũ, `after` `{session_id, bed_id, reason}` của phiên mới, cùng transaction *(Yêu cầu người dùng 2026-11-17; giả định: không ghi thêm `session.end`/`session.start` riêng để timeline không lặp)*.
+- **R15.** Audit một bản ghi `session.transfer` cho phiên mới (`entity_type = "session"`, `entity_id` = phiên mới), `before` `{session_id, bed_id, paused_at}` của phiên cũ (`paused_at` ISO hoặc null, ghi trước khi bị xóa theo R20), `after` `{session_id, bed_id, reason}` của phiên mới, cùng transaction *(Yêu cầu người dùng 2026-11-17; giả định: không ghi thêm `session.end`/`session.start` riêng để timeline không lặp)*.
 - **R16.** Liên kết và timeline liền mạch theo bệnh nhân *(Yêu cầu người dùng 2026-11-17; PRD US12)*:
   - `monitoring_sessions.previous_session_id` (FK, unique, null) — mỗi phiên có tối đa một phiên trước và một phiên sau;
   - `SessionOut` có `previous_session_id` và `next_session_id`;
@@ -128,6 +128,7 @@ Gắn một bệnh nhân (mã thử nghiệm) với một giường và camera t
 - *(giả định)* Chuyển giường: `reason` bắt buộc; phiên mới bắt đầu đúng thời điểm phiên cũ kết thúc; một bản ghi audit `session.transfer` (không thêm `session.end`/`session.start`).
 - *(giả định)* `previous_session_id` unique: chuỗi chuyển giường là tuyến tính; endpoint `GET /sessions/{id}/chain` cho F22.
 - *(giả định)* Phiên mới không kế thừa quyền xem của người nhà và không kế thừa trạng thái tạm dừng thu hình (F36).
+- *(giả định; cho F36)* Sự kiện engine thuộc khoảng đã tạm dừng nhưng tới muộn, sau khi đã tiếp tục hoặc kết thúc phiên (lúc đó `paused_at` đã bị xóa), vẫn được nhận: F04 chỉ chặn theo `paused_at` hiện tại, không lưu lịch sử khoảng tạm dừng trong cột. F36 quyết định có cần chặn theo lịch sử audit `session.pause`/`session.resume` không.
 
 ## 8. Câu hỏi mở
 
@@ -140,7 +141,7 @@ Gắn một bệnh nhân (mã thử nghiệm) với một giường và camera t
 Khảo sát (2026-11-18): đã có `domain/sessions.py` (`start_session` khóa hàng giường/bệnh nhân, bắt `IntegrityError`; `end_session`; `list_sessions`; `session_at`), `api/v1/sessions.py` (start/end/list/get/timeline với `require_writer`/`require_staff`), `tests/test_sessions.py`, test partial unique ở `tests/db/test_migrations.py`, UI mở/kết thúc phiên viết liền trong `ManagementPage.tsx`, `utils/time.ts`. Thiếu: chuyển giường, chuỗi phiên, tạm dừng, khóa hàng phiên khi kết thúc, test theo tên AC, component test, `details.bed_id`/`patient_id` trong 409.
 
 1. **Test trước (server):** `server/tests/api/test_sessions.py` (AC1–AC4, chuyển từ `tests/test_sessions.py`), `server/tests/api/test_session_transfer.py` (AC5, AC6), `server/tests/api/test_session_pause.py` (AC7), `server/tests/domain/test_sessions_constraints.py` (partial unique, `previous_session_id` unique, đồng thời bằng `real_commit` + 2 luồng), test "phát sau commit" (`real_commit`, publisher đọc lại bằng kết nối khác). Thêm endpoint mới vào danh sách FAMILY bị chặn. Xác nhận đỏ đúng lý do, commit `test(F04): …`.
-2. **Migration `0005_f04`** (`0005_f04_session_transfer_pause.py`, `down_revision = "0004"`): `previous_session_id` (FK `monitoring_sessions.id`, unique `uq_monitoring_sessions_previous_session_id`), `transfer_reason` text, `paused_at` timestamptz, `paused_by` (FK `users.id`). Cập nhật `db/models.py` (quan hệ `previous_session`/`next_session`), `tests/db/test_migrations.py`. Nếu F37 vào `main` trước: đổi `down_revision` sang revision của F37 khi merge.
+2. **Migration `0005_f04`** (`0005_f04_session_transfer_pause.py`, `down_revision = "0004"`): `previous_session_id` (FK `monitoring_sessions.id`, unique `uq_monitoring_sessions_previous_session_id`), `transfer_reason` text, `paused_at` timestamptz, `paused_by` (FK `users.id`). Cập nhật `db/models.py` (quan hệ `previous_session`/`next_session`), `tests/db/test_migrations.py`. F04 merge trước F37 nên giữ nguyên.
 3. **Domain** `domain/sessions.py`: khóa hàng phiên `FOR UPDATE` ở end/transfer/pause/resume; `transfer_session` (khóa phiên cũ → kiểm tra R14 → khóa giường đích → kết thúc + flush → chèn phiên mới → audit `session.transfer` → commit → phát `session.updated` phiên cũ rồi phiên mới; `IntegrityError` → rollback, 409); `session_chain`; `pause_session`/`resume_session`; xóa `paused_*` khi kết thúc. `domain/dto.py`: `SessionTransfer`, `SessionPause`, `SessionChainItem`, trường mới của `SessionOut`. `domain/cameras.py` `capture_paused`; `domain/events.py` `CAPTURE_PAUSED`.
 4. **API** `api/v1/sessions.py`: `/transfer` (201), `/chain`, `/pause`, `/resume`. `make gen-api-types`.
 5. **Web:** tách `pages/Management/StartSessionDialog.tsx`, `EndSessionButton.tsx`; thêm `TransferSessionDialog.tsx`, `PauseCaptureButton.tsx`; hook `useTransferSession`, `usePauseCapture`, `useResumeCapture` trong `api/hooks.ts`; text trong `i18n/vi.ts` (`session.*`, `capture.*`); giờ bắt đầu `HH:mm:ss` (`formatTime`). Component test `StartSessionDialog.test.tsx`, `TransferSessionDialog.test.tsx`, `PauseCaptureButton` trong `ManagementPage.test.tsx`.
@@ -172,16 +173,16 @@ Chạy tay (DB `postcare_f04`, `postcare seed --reset --no-history`, uvicorn c�
 Kiểm tra (2026-11-18): `make check` exit 0 (server 692 passed, web 77 passed, build OK); `powershell -ExecutionPolicy Bypass -File scripts/dev.ps1 check` exit 0.
 
 Điều người sau cần biết:
-- Migration `0005_f04` (`down_revision = "0004"`). Nếu F37 vào `main` trước với revision khác nối sau `0004`, đổi `down_revision` của `0005_f04` sang revision của F37 khi merge (hoặc ngược lại), để Alembic chỉ có một head.
+- Migration `0005_f04` (`down_revision = "0004"`). F04 merge trước F37: giữ `down_revision = "0004"`; migration của F37 nối sau `0005_f04`.
 - Phần tạm dừng mức phiên làm ở F04 theo yêu cầu người giao việc (R19–R22). F36 còn: `family.state`, worker dừng đọc khung, API bỏ `state`/`frame` khi tạm dừng, mục tạm dừng trên timeline.
 - Lệch nhỏ so với spec *(giả định, ghi ở §9)*: `reason` rỗng → 422 (không phải 400); `SessionChainItem` dùng `bed_id`/`bed_code`; thêm `SessionOut.previous_bed_code` để UI hiện "Chuyển từ giường …" mà không cần gọi thêm API.
 - R17 phần người nhà: F04 chỉ phát `session.updated` cho phiên cũ rồi phiên mới sau commit; ngắt quyền người nhà làm ở F36.
-- Review: chưa.
+- Review (2026-11-18): **Cần sửa (nhỏ)** → đã sửa: (1) audit `session.transfer` ghi `paused_at` của phiên cũ trong `before` (R15, R20), test `test_transfer_audited_once`, `test_transfer_while_paused_new_session_not_paused`; (2) thêm giả định cho F36 về sự kiện tới muộn của khoảng tạm dừng (§7). Thêm: `test_engine_event_rejected_while_paused` không còn chập chờn do đồng hồ Windows thô. Merge `main` vào nhánh; F04 merge trước F37, giữ `0005_f04` `down_revision = "0004"`. Kết luận: **Đạt**.
 
 ## 11. Definition of Done
 
-- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
-- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
-- [ ] Doc liên quan đã cập nhật cùng PR.
-- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [x] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [x] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [x] Doc liên quan đã cập nhật cùng PR.
+- [x] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).
