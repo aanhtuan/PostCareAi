@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F04 |
-| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 3 phiên |
@@ -97,13 +97,13 @@ Gắn một bệnh nhân (mã thử nghiệm) với một giường và camera t
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** Bắt đầu phiên bằng cách chọn giường và bệnh nhân; camera lấy theo giường; ghi `started_by` và `started_at`. DOCTOR → 403. *(HS §6.2)* — *Kiểm chứng:* test `test_start_session_uses_bed_camera`, `test_start_session_records_actor_and_time`, `test_doctor_cannot_start_session`.
-- [ ] **AC2.** Mỗi giường và mỗi bệnh nhân chỉ có 1 phiên mở; vi phạm → 409 `SESSION_ALREADY_OPEN`. Có test cả ở mức DB constraint. *(data-model.md)* — *Kiểm chứng:* test `test_second_open_session_same_bed_409`, `test_second_open_session_same_patient_409`, `test_db_partial_unique_blocks_duplicate_open_session` (chèn thẳng bằng SQLAlchemy → `IntegrityError`).
-- [ ] **AC3.** Kết thúc phiên ghi `ended_at` và `ended_by`; phiên đã đóng chỉ đọc (kết thúc lần nữa → 409). Sau khi đóng, giường và bệnh nhân mở được phiên mới. *(PDF §10.1 (tr.12); data-model.md)* — *Kiểm chứng:* test `test_end_session_records_actor_and_time`, `test_end_closed_session_409`, `test_can_reopen_after_end`.
-- [ ] **AC4.** Bắt đầu và kết thúc đều ghi audit log (`session.start`, `session.end`). UI có nút "Bắt đầu theo dõi" / "Kết thúc theo dõi". *(PRD NFR08)* — *Kiểm chứng:* test `test_session_start_end_audited`; component test `StartSessionDialog starts session`, `EndSessionButton asks for confirmation`, `doctor sees no session buttons`.
-- [ ] **AC5.** "Chuyển giường" trong một thao tác: phiên cũ có `ended_at`/`ended_by`, phiên mới cùng bệnh nhân ở giường đích có `previous_session_id` = phiên cũ, `transfer_reason`, camera của giường đích; một bản ghi audit `session.transfer`; `GET /sessions/{id}/chain` trả cả hai phiên theo thứ tự. *(QA#36; PRD US12)* — *Kiểm chứng:* test `test_transfer_ends_old_and_opens_new`, `test_transfer_links_sessions`, `test_transfer_uses_target_bed_camera`, `test_transfer_audited_once`, `test_session_chain_ordered`; component test `TransferSessionDialog transfers patient`, `doctor sees no transfer button`.
-- [ ] **AC6.** Chuyển giường không để lại trạng thái dở dang: giường đích có phiên mở → 409 `SESSION_ALREADY_OPEN` và phiên cũ **vẫn mở**, không có audit; giường đích trùng giường hiện tại hoặc đã xóa → 400; phiên đã kết thúc → 409 `SESSION_ALREADY_ENDED`; hai yêu cầu chuyển đồng thời vào cùng giường chỉ một thành công; sự kiện của phiên cũ không đổi `session_id`. *(QA#36; data-model.md)* — *Kiểm chứng:* test `test_transfer_target_busy_409_keeps_old_open`, `test_transfer_same_bed_400`, `test_transfer_to_deleted_bed_400`, `test_transfer_closed_session_409`, `test_concurrent_transfer_same_target_one_wins`, `test_transfer_keeps_old_events_on_old_session`, `test_transfer_requires_reason`.
-- [ ] **AC7.** Tạm dừng / tiếp tục thu hình theo phiên: audit `session.pause`/`session.resume`; tạm dừng hai lần → 409 `SESSION_ALREADY_PAUSED`; tiếp tục khi không tạm dừng → 409 `SESSION_NOT_PAUSED`; phiên đã kết thúc → 409 `SESSION_ALREADY_ENDED`; config nội bộ có `capture_paused`; sự kiện engine khi tạm dừng → 409 `CAPTURE_PAUSED`; `DOCTOR`/`FAMILY` → 403. *(R19–R22; F36 AC6 phần phiên)* — *Kiểm chứng:* `server/tests/api/test_session_pause.py`; component test `PauseCaptureButton pauses and resumes`.
+- [x] **AC1.** Bắt đầu phiên bằng cách chọn giường và bệnh nhân; camera lấy theo giường; ghi `started_by` và `started_at`. DOCTOR → 403. *(HS §6.2)* — *Kiểm chứng:* test `test_start_session_uses_bed_camera`, `test_start_session_records_actor_and_time`, `test_doctor_cannot_start_session`.
+- [x] **AC2.** Mỗi giường và mỗi bệnh nhân chỉ có 1 phiên mở; vi phạm → 409 `SESSION_ALREADY_OPEN`. Có test cả ở mức DB constraint. *(data-model.md)* — *Kiểm chứng:* test `test_second_open_session_same_bed_409`, `test_second_open_session_same_patient_409`, `test_db_partial_unique_blocks_duplicate_open_session` (chèn thẳng bằng SQLAlchemy → `IntegrityError`).
+- [x] **AC3.** Kết thúc phiên ghi `ended_at` và `ended_by`; phiên đã đóng chỉ đọc (kết thúc lần nữa → 409). Sau khi đóng, giường và bệnh nhân mở được phiên mới. *(PDF §10.1 (tr.12); data-model.md)* — *Kiểm chứng:* test `test_end_session_records_actor_and_time`, `test_end_closed_session_409`, `test_can_reopen_after_end`.
+- [x] **AC4.** Bắt đầu và kết thúc đều ghi audit log (`session.start`, `session.end`). UI có nút "Bắt đầu theo dõi" / "Kết thúc theo dõi". *(PRD NFR08)* — *Kiểm chứng:* test `test_session_start_end_audited`; component test `StartSessionDialog starts session`, `EndSessionButton asks for confirmation`, `doctor sees no session buttons`.
+- [x] **AC5.** "Chuyển giường" trong một thao tác: phiên cũ có `ended_at`/`ended_by`, phiên mới cùng bệnh nhân ở giường đích có `previous_session_id` = phiên cũ, `transfer_reason`, camera của giường đích; một bản ghi audit `session.transfer`; `GET /sessions/{id}/chain` trả cả hai phiên theo thứ tự. *(QA#36; PRD US12)* — *Kiểm chứng:* test `test_transfer_ends_old_and_opens_new`, `test_transfer_links_sessions`, `test_transfer_uses_target_bed_camera`, `test_transfer_audited_once`, `test_session_chain_ordered`; component test `TransferSessionDialog transfers patient`, `doctor sees no transfer button`.
+- [x] **AC6.** Chuyển giường không để lại trạng thái dở dang: giường đích có phiên mở → 409 `SESSION_ALREADY_OPEN` và phiên cũ **vẫn mở**, không có audit; giường đích trùng giường hiện tại hoặc đã xóa → 400; phiên đã kết thúc → 409 `SESSION_ALREADY_ENDED`; hai yêu cầu chuyển đồng thời vào cùng giường chỉ một thành công; sự kiện của phiên cũ không đổi `session_id`. *(QA#36; data-model.md)* — *Kiểm chứng:* test `test_transfer_target_busy_409_keeps_old_open`, `test_transfer_same_bed_400`, `test_transfer_to_deleted_bed_400`, `test_transfer_closed_session_409`, `test_concurrent_transfer_same_target_one_wins`, `test_transfer_keeps_old_events_on_old_session`, `test_transfer_requires_reason`.
+- [x] **AC7.** Tạm dừng / tiếp tục thu hình theo phiên: audit `session.pause`/`session.resume`; tạm dừng hai lần → 409 `SESSION_ALREADY_PAUSED`; tiếp tục khi không tạm dừng → 409 `SESSION_NOT_PAUSED`; phiên đã kết thúc → 409 `SESSION_ALREADY_ENDED`; config nội bộ có `capture_paused`; sự kiện engine khi tạm dừng → 409 `CAPTURE_PAUSED`; `DOCTOR`/`FAMILY` → 403. *(R19–R22; F36 AC6 phần phiên)* — *Kiểm chứng:* `server/tests/api/test_session_pause.py`; component test `PauseCaptureButton pauses and resumes`.
 
 ## 6. Kế hoạch test
 
@@ -152,6 +152,31 @@ Quyết định nhỏ *(giả định)*: `reason` thiếu/rỗng (sau khi bỏ k
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+**2026-11-18 – triển khai (nhánh `feat/F04-monitoring-sessions`), trạng thái In review.**
+
+Bằng chứng theo AC (test tự động):
+
+| AC | Test |
+|---|---|
+| AC1 | `server/tests/api/test_sessions.py`: `test_start_session_uses_bed_camera`, `test_start_session_records_actor_and_time`, `test_start_session_bed_without_camera`, `test_doctor_cannot_start_session`, `test_start_session_unknown_bed_or_patient_404`, `test_start_session_inactive_bed_or_patient_400` |
+| AC2 | `test_second_open_session_same_bed_409`, `test_second_open_session_same_patient_409` (`details` có `conflict` + `bed_id`/`patient_id`); `server/tests/domain/test_sessions_constraints.py`: `test_db_partial_unique_blocks_duplicate_open_session`, `test_db_closed_session_does_not_block`, `test_concurrent_start_same_bed_one_wins` (`real_commit`, 2 luồng) |
+| AC3 | `test_end_session_records_actor_and_time`, `test_end_closed_session_409`, `test_can_reopen_after_end`, `test_doctor_cannot_end_session` |
+| AC4 | `test_session_start_end_audited` (409 không ghi audit); `test_session_updates_published_after_commit` (`real_commit`: publisher đọc lại được dữ liệu từ kết nối khác); `test_family_forbidden_on_session_endpoints`; web `StartSessionDialog.test.tsx`: `StartSessionDialog starts session`, `EndSessionButton asks for confirmation`, `doctor sees no session buttons`, giờ `HH:mm:ss` giờ VN |
+| AC5 | `server/tests/api/test_session_transfer.py`: `test_transfer_ends_old_and_opens_new`, `test_transfer_links_sessions`, `test_transfer_uses_target_bed_camera`, `test_transfer_to_bed_without_camera`, `test_transfer_audited_once`, `test_session_chain_ordered`; web `TransferSessionDialog.test.tsx`: `TransferSessionDialog transfers patient`, `doctor sees no transfer button`, "Chuyển từ giường A01" |
+| AC6 | `test_transfer_target_busy_409_keeps_old_open`, `test_transfer_same_bed_400`, `test_transfer_to_deleted_bed_400`, `test_transfer_to_unknown_bed_404`, `test_transfer_closed_session_409`, `test_transfer_twice_from_same_session_409`, `test_transfer_requires_reason`, `test_transfer_keeps_old_events_on_old_session`; `test_concurrent_transfer_same_target_one_wins` (`real_commit`); `test_db_previous_session_id_unique` |
+| AC7 | `server/tests/api/test_session_pause.py` (pause/resume + audit, hai lần → 409, resume khi không tạm dừng → 409, phiên đã kết thúc → 409, DOCTOR 403, config `capture_paused`, sự kiện engine → `CAPTURE_PAUSED`, kết thúc/chuyển khi đang tạm dừng); web `PauseCaptureButton pauses and resumes`, `paused session shows label and resume button` |
+
+Chạy tay (DB `postcare_f04`, `postcare seed --reset --no-history`, uvicorn cổng 8014, script urllib): mở phiên A01/BN-001 → 201, camera 1; trùng giường → 409 `SESSION_ALREADY_OPEN` `{conflict: bed, bed_id: 1}`; trùng bệnh nhân → 409; DOCTOR mở/chuyển → 403; tạm dừng → 200, lần hai → 409 `SESSION_ALREADY_PAUSED`; config nội bộ camera 1 `capture_paused: true`; lý do rỗng → 422 `VALIDATION_ERROR`; chuyển cùng giường → 400; chuyển sang A02 → 201, `previous_session_id = 1`, `previous_bed_code = A01`, `paused_at = null`, phiên cũ `ended_at` = `started_at` phiên mới; chuyển lại phiên cũ → 409 `SESSION_ALREADY_ENDED`; chuyển sang giường đang có phiên → 409 và phiên nguồn vẫn mở; `/sessions/1/chain` → `[(1, A01, null), (2, A02, "Đổi phòng")]`; resume khi không tạm dừng → 409 `SESSION_NOT_PAUSED`; kết thúc → 200, lần hai → 409.
+
+Kiểm tra (2026-11-18): `make check` exit 0 (server 692 passed, web 77 passed, build OK); `powershell -ExecutionPolicy Bypass -File scriptsdev.ps1 check` exit 0.
+
+Điều người sau cần biết:
+- Migration `0005_f04` (`down_revision = "0004"`). Nếu F37 vào `main` trước với revision khác nối sau `0004`, đổi `down_revision` của `0005_f04` sang revision của F37 khi merge (hoặc ngược lại), để Alembic chỉ có một head.
+- Phần tạm dừng mức phiên làm ở F04 theo yêu cầu người giao việc (R19–R22). F36 còn: `family.state`, worker dừng đọc khung, API bỏ `state`/`frame` khi tạm dừng, mục tạm dừng trên timeline.
+- Lệch nhỏ so với spec *(giả định, ghi ở §9)*: `reason` rỗng → 422 (không phải 400); `SessionChainItem` dùng `bed_id`/`bed_code`; thêm `SessionOut.previous_bed_code` để UI hiện "Chuyển từ giường …" mà không cần gọi thêm API.
+- R17 phần người nhà: F04 chỉ phát `session.updated` cho phiên cũ rồi phiên mới sau commit; ngắt quyền người nhà làm ở F36.
+- Review: chưa.
 
 ## 11. Definition of Done
 
