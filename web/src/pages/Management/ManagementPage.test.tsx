@@ -244,7 +244,7 @@ describe('ManagementPage', () => {
     });
   });
 
-  it('edit bed sends only changed fields via PATCH', async () => {
+  it('edit bed sends form values via PATCH', async () => {
     const calls = setup(admin);
     const user = userEvent.setup();
     await user.click(within(await bedRow('A02')).getByRole('button', { name: 'Sửa' }));
