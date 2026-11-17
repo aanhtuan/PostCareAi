@@ -15,6 +15,8 @@
 
 Feature này đẩy thay đổi lên dashboard ngay khi có, để điều dưỡng không phải tải lại trang hay nhìn camera liên tục (HS §2.2, §4.2). Theo HS §6.1, đây là module **Realtime Gateway**, dùng WebSocket (PDF §10 (tr.12), bảng tr.10; QA#11). Quy tắc cốt lõi là **chỉ phát sau khi đã lưu DB** (HS §4.2; ADR-0002). Phía web có client tự kết nối lại và làm mới dữ liệu, để F20 và F21 bỏ được polling.
 
+> **Liên quan F36/F04 (bổ sung 17/11/2026):** F18 giữ phạm vi cho nhân viên. Lọc theo quyền người nhà (grant), đóng kết nối mã 4403 khi quyền hết hiệu lực, và trạng thái tạm dừng thu hình được đặc tả ở [F36](F36-family-access.md) và [F04](F04-monitoring-sessions.md). Khi làm F18, thiết kế hub sao cho thêm bộ lọc theo từng kết nối mà không phải viết lại (QA#31).
+
 ## 2. Phạm vi
 
 **Trong phạm vi**

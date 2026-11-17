@@ -24,9 +24,12 @@ Repo đã có một **code base chạy được** để trình bày các phần 
 |---|---|
 | API FastAPI: đăng nhập JWT, phân quyền 4 vai trò, giường/camera/bệnh nhân, phiên theo dõi, sự kiện → cảnh báo, vòng đời cảnh báo + audit, timeline, bàn giao ca, WebSocket realtime | **Phần AI và camera:** MediaPipe, Event Detection Engine, worker đọc camera, MJPEG. Thay bằng lệnh giả lập `postcare simulate` gửi dữ liệu qua đúng API nội bộ mà worker thật sẽ dùng |
 | Web React tiếng Việt: Tổng quan, Theo dõi trực tiếp (skeleton mô phỏng), Cảnh báo, Lịch sử theo dõi, Bàn giao ca, Quản lý giường | Màn hình Cấu hình camera / vẽ ROI, chế độ hiển thị, thêm/sửa danh mục trên UI |
-| SQLite mặc định (chạy ngay), hỗ trợ PostgreSQL qua `DATABASE_URL` | Alembic migration (đang dùng `create_all`), import-linter, mypy, pre-commit, E2E |
+| SQLite mặc định (chạy ngay), hỗ trợ PostgreSQL qua `DATABASE_URL` | Alembic migration (đang dùng `create_all`), import-linter, mypy, pre-commit, CI, msw, E2E |
+| Bộ giả lập CLI: rời giường, mất quan sát, chuyển động bất thường, tín hiệu khuôn mặt, đổi tư thế | Quyền xem của người nhà (F36), quản lý tài khoản (F35), khu vực/ca trực (F37), chuyển giường (F04) |
 
-Prototype **chưa** đạt đủ acceptance criteria của các spec; các feature F00–F24 vẫn là Todo trong [ROADMAP](docs/progress/ROADMAP.md).
+- Sự kiện do `postcare simulate` sinh ra **không** phải kết quả nhận diện AI và không phải bằng chứng chạy camera thật.
+- Prototype **chưa** đạt đủ acceptance criteria của các spec. Mọi feature vẫn là Todo trong [ROADMAP](docs/progress/ROADMAP.md): có code không đồng nghĩa feature đã Done. Kết quả kiểm tra từng phiên ghi trong [session-log](docs/progress/session-log.md).
+- Kế hoạch từ prototype tới demo bằng dữ liệu thật: [DEMO-PLAN](docs/progress/DEMO-PLAN.md). Nội dung trình bày và bằng chứng cần có: [pitch-and-evidence](docs/01-product/pitch-and-evidence.md). Nguồn video dùng cho phát triển: [datasets](docs/04-guides/datasets.md).
 
 ## 1. Yêu cầu cài đặt
 

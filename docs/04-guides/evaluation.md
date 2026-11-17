@@ -102,3 +102,32 @@ Validator của F16 kiểm tra các quy tắc này.
 - **Phân rã** theo `camera_condition` và kịch bản.
 - **Danh sách FP/FN** (video, thời điểm) để xem lại.
 - **Giới hạn:** điều kiện mô phỏng, số người tham gia.
+
+## 8. Dữ liệu ngoài
+
+Danh sách nguồn, giấy phép, cách tải và giới hạn: [datasets.md](datasets.md). Dữ liệu ngoài dùng để **thử replay/eval trên nhiều tình huống** khi chưa có tập quay của nhóm. Nó **không thay** tập dev/test chính thức ở §6 và không dùng để train *(giả định)*.
+
+**Cột bổ sung** (chỉ có ở dòng dữ liệu ngoài; tập quay của nhóm để trống hoặc ghi `team`):
+
+| File | Cột | Ý nghĩa |
+|---|---|---|
+| `manifest.csv` | `source` | Tên nguồn: `URFD`, `GMDCSA24`, `CAUCAFall`, `Pexels`, `Mixkit` |
+| `manifest.csv` | `license` | Giấy phép của file (ví dụ `CC BY 4.0`) |
+| `manifest.csv` | `display` | Được trình chiếu công khai hay không: `yes`, `with attribution`, `NO` |
+| `truth.csv` | `label_source` | `dataset` (lấy hoặc suy từ nhãn gốc của dataset) hoặc `manual` (nhóm gán tay) |
+
+Trong `notes` của manifest, dữ liệu ngoài ghi thêm `scenario=<mã S..>` và `eval_codes=<danh sách mã>`. Truth của video đó chỉ đầy đủ với các mã trong `eval_codes`. Khi chấm, dự đoán thuộc mã khác trên video đó **không tính FP** *(giả định, F16 cần hỗ trợ lọc này)*.
+
+**Ánh xạ sang S01–S16:**
+
+- Ngã xuống sàn (URFD, GMDCSA24, CAUCAFall) → gần với S15, mã `ABNORMAL_MOVEMENT`, `label_source=dataset`. Khác S15 ở chỗ ngã xuống sàn chứ không phải xuống nệm.
+- ADL của các dataset ngã → ca âm tính cho `ABNORMAL_MOVEMENT`. Riêng ADL "sleeping → sitting on the bed" của GMDCSA24 có thêm `SIT_UP` suy từ nhãn lớp (S03).
+- Clip stock → S01, S03, S04, S06, S08, S09, S10, S11, S13 theo bảng ở datasets.md §3.4, nhãn `SIT_UP`/`BED_EDGE`/`STAND_UP`/`BED_EXIT` gán tay (`label_source=manual`).
+
+**Quy tắc chia tập cho dữ liệu ngoài:** chia theo **nguồn và người**, không bao giờ theo frame.
+
+- `dev`: toàn bộ URFD; GMDCSA24 Subject 1–2; clip stock của PNW Production, Ba Tik, Katrin Bolovtsova, cottonbro studio, RDNE Stock project.
+- `test`: CAUCAFall; GMDCSA24 Subject 3–4; clip stock của Martina Tomšič, Tima Miroshnichenko, Ron Lach, Yaroslav Shuraev, Mixkit.
+- Mỗi tác giả/nhà sản xuất stock chỉ thuộc một split, vì cùng tác giả thường dùng chung diễn viên và bối cảnh. `participant_id` của dữ liệu ngoài có tiền tố nguồn (`gmd-S3`, `cauca-S7`, `stock-ron-lach`…) và không trùng giữa hai split.
+
+**Báo cáo:** kết quả trên dữ liệu ngoài là báo cáo riêng (`reports/eval-external-<date>.md`). Mỗi bảng phải ghi **tên dataset và nguồn nhãn** (`dataset`/`manual`), tách khỏi kết quả trên tập quay của nhóm. Metric BED_EXIT trên dữ liệu ngoài chỉ để tham khảo (datasets.md §5).

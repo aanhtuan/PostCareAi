@@ -3,7 +3,7 @@
 Nguyên tắc chọn công nghệ:
 - Phổ biến, nhiều tài liệu, AI viết đúng nhiều.
 - Chạy được trên Windows và Linux.
-- Không cần GPU.
+- Không cần GPU. GPU chỉ là phương án tăng tốc khi benchmark CPU không đạt (QA#35).
 
 Phiên bản chính xác được **khóa ở F00** bằng `server/uv.lock` và `web/package-lock.json`. Khi khóa xong, cập nhật cột "Phiên bản đã khóa".
 
@@ -13,14 +13,15 @@ Phiên bản chính xác được **khóa ở F00** bằng `server/uv.lock` và 
 |---|---|---|---|---|---|
 | Ngôn ngữ | Python | 3.12.x | — | MediaPipe có wheel cho Windows/Linux. Máy dev có sẵn 3.15 nhưng *(giả định)* MediaPipe chưa hỗ trợ, nên dùng uv cài riêng 3.12 | 3.11, 3.13 |
 | Môi trường và phụ thuộc | uv | bản ổn định mới nhất | — | Nhanh, có lockfile, tự cài Python đúng phiên bản | pip+venv, Poetry |
-| Pose / Face | mediapipe (Tasks API) | 0.10.x | — | Nguồn bắt buộc (PDF §6, HS §5.5). Chế độ VIDEO, `num_poses`, blendshapes | MMPose/RTMPose, Py-Feat (dự phòng, sau MVP) |
+| Pose / Face | mediapipe (Tasks API) | 0.10.x | — | Nguồn bắt buộc (PDF §6, HS §5.5). Chế độ VIDEO, `num_poses`, blendshapes. Biến thể pose (`lite` / `full` / `heavy`) chọn bằng benchmark trên máy dev (QA#35). MediaPipe Python trên Windows chỉ chạy CPU; GPU delegate chỉ có trên Linux/macOS (thử qua WSL2) | MMPose/RTMPose, Py-Feat (dự phòng, sau MVP) |
+| Pose dự phòng (chỉ khi MediaPipe không đạt) | rtmlib + onnxruntime-gpu (CUDA) | — | — | RTMPose chạy được trên GPU NVIDIA dưới Windows; giấy phép Apache-2.0; chỉ viết adapter khi benchmark MediaPipe không đạt (QA#35, ADR-0003) | MoveNet (cần TensorFlow, không dùng), YOLO-pose (AGPL-3.0) |
 | Video | OpenCV qua `opencv-contrib-python` (kéo theo mediapipe) | 4.x | — | Đọc webcam, URL HTTP/RTSP, file (PDF bảng tr.10). **Không** cài thêm `opencv-python` (xung đột) | PyAV |
 | Web framework | FastAPI + Uvicorn | FastAPI ≥ 0.115 | — | WebSocket và OpenAPI có sẵn; tích hợp Pydantic | Django + DRF, Flask |
 | Validation | Pydantic v2 + pydantic-settings | 2.x | — | Dùng chung cho schema engine và API | dataclasses + marshmallow |
 | ORM | SQLAlchemy | 2.0.x | — | Ổn định, phổ biến | SQLModel |
 | Migration | Alembic | 1.x | — | Chuẩn đi cùng SQLAlchemy | — |
 | Driver DB | psycopg | 3.x | — | Driver PostgreSQL chính thức thế hệ mới | psycopg2 |
-| Database | PostgreSQL | 16 | — | Nguồn chọn (PDF §10, HS §6.1); JSONB, partial unique index, `timestamptz` | SQLite |
+| Database | PostgreSQL | 16 | — | Nguồn chọn (PDF §10, HS §6.1); JSONB, partial unique index, `timestamptz`. Trên máy dev chạy bằng Docker image `postgres:16` (QA#34) | SQLite (chỉ cho test nhanh và prototype, ADR-0010) |
 | Auth | PyJWT + pwdlib[bcrypt] | 2.x / 0.x | — | Giống hướng dẫn bảo mật của FastAPI | fastapi-users, session cookie |
 | CLI | Typer | 0.x | — | Đơn giản, có type hint | click, argparse |
 | HTTP client (worker) | httpx | 0.x | — | Sync + async, keep-alive | requests |
@@ -55,7 +56,9 @@ Phiên bản chính xác được **khóa ở F00** bằng `server/uv.lock` và 
 
 | Thành phần | Chọn | Lý do | Đã cân nhắc |
 |---|---|---|---|
-| Task runner | GNU Make | Người dùng yêu cầu `make check`. Recipe chỉ gọi `uv run …` và `npm --prefix web …`, chạy được dưới cả cmd và sh | npm scripts, just |
+| Task runner | GNU Make | Người dùng yêu cầu `make check`. Recipe chỉ gọi `uv run …` và `npm --prefix web …`, chạy được dưới cả cmd và sh. `scripts/dev.ps1` giữ các lệnh tương đương cho máy Windows chưa có make | npm scripts, just |
+| Container cho PostgreSQL | Docker (Docker Desktop trên Windows) | Chạy PostgreSQL 16 giống nhau trên mọi máy dev, không cần cài server (QA#34) | cài PostgreSQL native |
+| GitHub CLI | gh | Tạo PR, xem CI từ dòng lệnh | giao diện web |
 | Git hook | pre-commit | Độc lập với AI tool. Hook pre-commit chạy format/lint; hook pre-push chạy `make check` | husky, lefthook |
 | CI | GitHub Actions | Phổ biến; có service Postgres | GitLab CI |
 | Nguồn camera điện thoại | DroidCam hoặc IP Webcam | HS §4.2 [7] | camera IP |

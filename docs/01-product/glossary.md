@@ -27,6 +27,14 @@ Dùng thống nhất các thuật ngữ dưới đây trong tài liệu, code v�
 | Không đủ dữ liệu quan sát | No observation | `NO_OBSERVATION` | Chất lượng quan sát không đủ để kết luận |
 | Chế độ hiển thị | Display mode | `RAW` / `BLUR` / `SKELETON` | Video gốc / Làm mờ khuôn mặt / Chỉ skeleton + ROI |
 | Đang nghỉ - dữ liệu tham khảo / Đang hoạt động | Resting / Active (reference) | `RESTING` / `ACTIVE` | Trạng thái hiển thị dựa trên mức vận động và mắt; **không** phải phân loại giấc ngủ |
+| Người nhà | Family member | `FAMILY` | Người dùng chỉ được xem đúng phiên của người thân đã cấp quyền (QA#31, F36) |
+| Quyền xem của người nhà | Family access grant | `family_access_grants` | Quyền gắn với **một phiên**, có mức chia sẻ, thời hạn, người cấp; hết khi phiên kết thúc, chuyển giường hoặc bị thu hồi |
+| Chỉ thông tin / Khung xương | Info only / Skeleton | `INFO` / `SKELETON` | Mức chia sẻ cho người nhà: chỉ trạng thái và diễn biến, hoặc thêm khung xương vẽ từ keypoint (không có ảnh gốc) |
+| Thu hồi quyền | Revoke | `revoked_at` | Ngừng chia sẻ ngay, kể cả khi người nhà đang mở màn hình |
+| Khu vực | Area | `areas` | Nhóm giường, ví dụ "Khu hậu phẫu" (F37) |
+| Xóa / Khôi phục | Delete / Restore | `is_active` | Xóa mềm: ẩn khỏi danh sách, vẫn giữ lịch sử; khôi phục được (QA#36) |
+| Chuyển giường | Bed transfer | `session.transfer` | Kết thúc phiên ở giường cũ và mở phiên mới ở giường mới trong một thao tác (F04) |
+| Phát lại clip | Clip replay | `FILE` + `--realtime` | Video quay sẵn chạy qua đúng pipeline với tốc độ thời gian thực; trên UI và khi trình bày phải ghi rõ là phát lại |
 
 ## Trạng thái cơ thể (state machine)
 
