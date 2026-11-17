@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F03 |
-| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | Done <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 3 phiên |
@@ -199,10 +199,21 @@ Ghi chú cho reviewer và người sau:
 - `FAMILY` chưa có trong enum: ca âm tính `FAMILY` đọc danh mục → 403 để F35 thêm (spec §7). Khi F35 có `require_staff`, đổi `get_current_user` ở các route đọc danh mục sang `require_staff`.
 - Chưa làm (không thuộc AC): F04 `start_session` chưa khóa hàng giường, nên tranh chấp "mở phiên" và "xóa giường" cùng lúc chỉ được chặn phía xóa (`FOR UPDATE`). Chuyển camera đang dùng trong phiên mở sang giường khác hiện không bị chặn; F04/F06 nên quyết định.
 
+**2026-11-18, review: Đạt (kèm việc cần sửa).** Đã sửa, test viết trước (commit `bf2da6c` test, `0be5e1f` sửa, `9eddcd2` doc, `a2c3d4e` gộp `main` có test FAMILY):
+
+1. **Gộp F35:** gộp `main` (F35, commit `9d86897`); `api/deps.py` chỉ còn một `require_admin`; route đọc `beds.py`, `patients.py`, `cameras.py` dùng `require_staff`. Test `server/tests/api/test_beds.py::test_family_cannot_read_or_write_catalog` (FAMILY đọc danh sách, `include_inactive`, chi tiết, xóa, khôi phục → 403). Đã chạy `make gen-api-types`.
+2. **Mở phiên khóa hàng:** `domain/sessions.py::start_session` lấy giường và bệnh nhân bằng `with_for_update=True`, nên không tranh chấp với xóa mềm. Test `test_catalog_delete.py::test_start_session_locks_bed_and_patient_rows` (bắt câu SQL `... FOR UPDATE` trên `beds` và `patients`).
+3. **Lịch sử giường đã xóa (R17):** bộ chọn giường ở Cảnh báo và Lịch sử theo dõi dùng `useBeds(true)`, giường đã xóa có nhãn "Giường {mã} (Đã xóa)" (`vi.catalog.deletedBed`, `web/src/utils/bedLabel.ts`); Lịch sử theo dõi mặc định chọn giường đang dùng đầu tiên. Test `web/src/pages/Timeline/deletedBeds.test.tsx`.
+4. **Camera của phiên mở:** `PATCH` đổi `bed_id`, `source` hoặc `source_type` của camera là `camera_id` của phiên đang mở → 409 `CAMERA_IN_ACTIVE_SESSION` (`details.session_id`), không đổi gì; đổi `name` hoặc gửi lại giá trị cũ vẫn được. Test `test_update_camera_in_active_session_409` (4 ca), `test_update_camera_in_active_session_allows_name_and_same_values`. Ghi vào `api-conventions.md`.
+
+Các mục "Chưa làm" ở ghi chú trước (khóa hàng khi mở phiên, chuyển camera đang dùng) đã xử lý ở mục 2 và 4. Ca âm tính `FAMILY` đã thêm (mục 1).
+
+`make check` và `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0 sau khi gộp (634 test server, 66 test web), với `TEST_DATABASE_URL=.../postcare_w3_test`.
+
 ## 11. Definition of Done
 
 - [x] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
 - [x] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
 - [x] Doc liên quan đã cập nhật cùng PR.
-- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [x] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).
