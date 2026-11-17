@@ -102,6 +102,8 @@ class EngineEvent(BaseModel):
     observation_quality: ObservationQuality
     explanation: dict[str, JsonValue]
     """Căn cứ ngắn gọn: luôn có `rule_id` và giá trị đặc trưng chính (PDF §7; HS §6.2)."""
+    config_hash: str = ""
+    """Hash cấu hình ngưỡng engine đã dùng (event-engine.md mục 6); `Engine` luôn điền (F15)."""
 
     @model_validator(mode="after")
     def _check(self) -> Self:

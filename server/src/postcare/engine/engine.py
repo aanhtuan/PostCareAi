@@ -5,8 +5,9 @@ chỉ lấy từ `obs.ts_ms` (AGENTS.md quy tắc 5; event-engine.md mục 1).
 """
 
 from postcare.engine.features import FeatureExtractor
-from postcare.engine.pipeline import FrameAssessment, RuleSet
+from postcare.engine.pipeline import FrameAssessment
 from postcare.engine.quality import QualityGate, assess_quality
+from postcare.engine.rules import RuleSet
 from postcare.engine.state_machine import BodyStateMachine as StateMachine
 from postcare.engine.state_machine import Explanation, StateRecord
 from postcare.engine.target import TargetSelector
@@ -36,7 +37,7 @@ class Engine:
         self._features = FeatureExtractor(config, context.roi_polygon)
         self._gate = QualityGate(config)
         self._state_machine = StateMachine(config)
-        self._rules = RuleSet(config)
+        self._rules = RuleSet(config, self.config_hash)
         self._last_ts_ms: int | None = None
         self._last_snapshot: BodyStateSnapshot | None = None
         self._body_state = BodyState.NO_OBSERVATION
@@ -68,7 +69,10 @@ class Engine:
             body_state = self._state_machine.update(assessment, obs.ts_ms)
         self._body_state = body_state
         snapshot = _snapshot(body_state, assessment.quality, self._state_machine.explanation)
-        events = self._rules.evaluate(obs, assessment, self._last_snapshot, snapshot)
+        # Bước 6–9: sự kiện từ chuỗi trạng thái ổn định + debounce (F15)
+        events = self._rules.evaluate(
+            obs.ts_ms, assessment, body_state, self._state_machine.history
+        )
         # Output đầu tiên luôn là "đổi" để worker gửi trạng thái ban đầu (giả định F10).
         changed = snapshot != self._last_snapshot
         self._last_ts_ms = obs.ts_ms
