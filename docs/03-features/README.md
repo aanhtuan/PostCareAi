@@ -8,16 +8,16 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | Mã | Tên | Milestone | Ưu tiên | Nhánh | Phụ thuộc | Nguồn chính | Trạng thái |
 |---|---|---|---|---|---|---|---|
 | [F00](F00-project-skeleton.md) | Khung xương dự án | M0 | MVP | A+B+C | — | Yêu cầu người dùng; HS §6.1 | Done |
-| [F01](F01-database-foundation.md) | CSDL và migration nền | M0 | MVP | B | F00 | PDF §10, §10.1; HS §6.2 | Todo |
+| [F01](F01-database-foundation.md) | CSDL và migration nền | M0 | MVP | B | F00 | PDF §10, §10.1; HS §6.2 | In review |
 | [F02](F02-auth-roles.md) | Đăng nhập và phân quyền | M0 | MVP | B+C | F01 | PDF §3; HS §2.2; QA#18 | Todo |
 | [F03](F03-bed-patient-camera-management.md) | Quản lý giường, bệnh nhân, camera | M0 | MVP | B+C | F02 | PDF §4.2, §9.1, §10.1 | Todo |
 | [F04](F04-monitoring-sessions.md) | Phiên theo dõi | M0 | MVP | B+C | F03 | PDF §4.2, §10.1; HS §6.2 | Todo |
-| [F05](F05-camera-service.md) | Nguồn video (Camera Service) | M0 | MVP | A | F00 | PDF §10, tr.10; HS §4.2 | Todo |
+| [F05](F05-camera-service.md) | Nguồn video (Camera Service) | M0 | MVP | A | F00 | PDF §10, tr.10; HS §4.2 | Done |
 | [F06](F06-worker-backend-link.md) | Kết nối worker với backend | M0 | MVP | B | F04, F05 | PDF §10; HS §4.2, §6.1 | Todo |
 | [F07](F07-live-view.md) | Theo dõi trực tiếp cơ bản | M0 | MVP | C | F06 | PDF §9.1; HS §4.3 | Todo |
 | [F08](F08-camera-config-roi.md) | Cấu hình camera và Bed ROI | M0 | MVP | B+C | F07 | PDF §7.2, §9.1; HS §4.1 | Todo |
 | [F09](F09-overview-dashboard-skeleton.md) | Dashboard khung (Tổng quan) | M0 | MVP | B+C | F04, F06 | PDF §9.1; HS §4.3 Hình 3 | Todo |
-| [F10](F10-observation-schema-engine-core.md) | Schema quan sát chung và khung Event Engine | M1 | MVP | A | F00 | PDF §10; HS §6.1 | Todo |
+| [F10](F10-observation-schema-engine-core.md) | Schema quan sát chung và khung Event Engine | M1 | MVP | A | F00 | PDF §10; HS §6.1 | Done |
 | [F11](F11-pose-adapter.md) | Pose adapter MediaPipe | M1 | MVP | A | F05, F10 | PDF §6.1; HS §5.2, §5.5 | Todo |
 | [F12](F12-replay-cli.md) | Replay CLI và fixture | M1 | MVP | A | F11 | PDF §12, §13; HS §8.1 | Todo |
 | [F13](F13-body-features-target-quality.md) | Đặc trưng cơ thể, người mục tiêu, chất lượng quan sát | M1 | MVP | A | F10 | PDF §6.1, §13.4; HS §5.2 | Todo |

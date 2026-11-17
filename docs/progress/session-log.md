@@ -2,6 +2,16 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-17 – Claude Code (Opus) – Đợt 1 (F01, F05, F10), tạm dừng
+
+- **Mục tiêu phiên:** Làm tiếp roadmap theo vòng đời subagent (builder trong worktree → code-reviewer → merge).
+- **Đã làm:** Khởi động Docker Desktop, tạo container `postcare-db` (PostgreSQL 16, volume `postcare-pgdata`, DB `postcare` và `postcare_test`). F10 (schema + khung engine, review Đạt), F05 (FrameSource webcam/URL/file, `postcare probe`, review Đạt; đã sửa race khi `close()`, backoff khi đọc lỗi, FPS lệch), F01 (Alembic, PostgreSQL thay SQLite, seed idempotent, CI có Postgres; review Cần sửa → đã sửa) merge vào `main` và push. Sửa test timeline chập chờn do độ phân giải đồng hồ Windows. Thêm `.claude/worktrees/` vào `.gitignore`. Ghim credential GitHub `quocvien0123` trong cấu hình git global.
+- **Kết quả kiểm tra:** `make check` trên `main` sau merge: exit 0 (pytest 189 passed, vitest 30 passed). Hook pre-push Passed. URL source kiểm bằng server MJPEG cục bộ (mất kết nối → nối lại đúng). CI run 44118900094 đang chạy lúc dừng.
+- **Đang dở:** F01 AC3 (chờ CI). F11 dừng giữa chừng (worktree `agent-ade276c7bc986db7b`, chưa commit). F13 dừng trước khi có thay đổi.
+- **Bước tiếp theo:** `curl -s "https://api.github.com/repos/aanhtuan/PostCareAi/actions/runs/44118900094/jobs"` xem kết quả; nếu xanh: tick F01 AC3, Done. Sau đó F02, F11, F13.
+- **Blocker / câu hỏi cho người dùng:** Không. Điện thoại thật (DroidCam/IP Webcam) cho F05 chưa thử. `test_handover_counts` từng fail ngẫu nhiên trước F01, chưa tái hiện được sau khi chuyển test sang PostgreSQL.
+- **Giả định mới:** xem spec F01, F05, F10 mục 7.
+
 ## 2026-11-17 – Claude Code (Opus) – F00 hoàn tất
 
 - **Mục tiêu phiên:** Hoàn thành F00 theo vòng đời subagent (planner → test-writer → implementer → code-reviewer) và các kiểm chứng tay còn thiếu.

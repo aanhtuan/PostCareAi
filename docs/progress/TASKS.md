@@ -10,7 +10,12 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 
 ## Đang làm
 
-- **Tiếp theo trong lúc này:** F01 (B), F05 và F10 (A) theo vòng đời planner → test-writer → implementer → code-reviewer → merge.
+- **Tạm dừng theo yêu cầu người dùng (17/11/2026).** Trạng thái lúc dừng:
+  - F05, F10: Done, đã merge vào `main` và push.
+  - F01: code đã merge vào `main` (`5b9fa90`), review đã sửa xong. Còn AC3: chờ CI run 44118900094 (job Windows cài PostgreSQL 16 qua choco lần đầu). CI xanh thì tick AC3 trong spec F01 và chuyển Done.
+  - F11 (pose adapter): đang dở ở worktree `.claude/worktrees/agent-ade276c7bc986db7b`, nhánh `feat/F11-pose-adapter`, chưa có commit (2 file đang sửa). Có thể làm lại từ đầu.
+  - F13 (đặc trưng cơ thể): đã dừng trước khi có thay đổi.
+  - Bước tiếp khi tiếp tục: kiểm tra CI F01 → F02 (B); F11 và F13 (A) song song.
 - **Lưu ý cho F16:** nhãn trên dữ liệu ngoài chỉ phủ một số mã sự kiện mỗi video (cột notes); F16 phải bỏ qua mã không được gán nhãn khi tính FP *(giả định, datasets.md)*. Script dựng manifest/truth chưa nằm trong repo; quy tắc dựng ghi ở datasets.md §3.5, cần đưa thành lệnh trong F16.
 
 ## Tiếp theo
