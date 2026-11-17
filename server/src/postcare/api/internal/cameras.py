@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
-from postcare.api.deps import get_db, get_publisher, get_store, require_worker
+from postcare.api.deps import get_publisher, get_session, get_store, require_worker
 from postcare.domain import cameras as svc
 from postcare.domain.dto import (
     BedStateIn,
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/internal/v1", tags=["internal"], dependencies=[Depen
 
 
 @router.get("/cameras/{camera_id}/config", response_model=CameraConfigOut)
-def config(camera_id: int, db: Session = Depends(get_db)) -> CameraConfigOut:
+def config(camera_id: int, db: Session = Depends(get_session)) -> CameraConfigOut:
     return svc.camera_config(db, camera_id)
 
 
@@ -30,7 +30,7 @@ def config(camera_id: int, db: Session = Depends(get_db)) -> CameraConfigOut:
 def heartbeat(
     camera_id: int,
     body: HeartbeatIn,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_session),
     store: RuntimeStore = Depends(get_store),
     publisher: Publisher = Depends(get_publisher),
 ) -> HeartbeatOut:
@@ -41,7 +41,7 @@ def heartbeat(
 def state(
     camera_id: int,
     body: BedStateIn,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_session),
     store: RuntimeStore = Depends(get_store),
     publisher: Publisher = Depends(get_publisher),
 ) -> BedStateOut:
@@ -52,7 +52,7 @@ def state(
 def events(
     body: EventIn,
     response: Response,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_session),
     publisher: Publisher = Depends(get_publisher),
 ) -> EventIngestOut:
     out, created = ingest_event(db, body, publisher)

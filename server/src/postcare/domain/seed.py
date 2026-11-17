@@ -1,12 +1,18 @@
-"""Dữ liệu mẫu cho dev/demo: tài khoản, ca trực, giường A01–A03, camera, bệnh nhân mã thử nghiệm.
+"""Dữ liệu mẫu.
 
-`seed_history` thêm vài sự kiện quá khứ cho A02/A03 để dashboard giống HS Hình 3
-(A01 Đang theo dõi, A02 Cần kiểm tra, A03 Cảnh báo mới).
+- `seed_base` (F01 R7–R9, `make db-seed`): tài khoản 4 vai trò, 3 ca trực, giường A01–A03,
+  1 camera gắn A01. Idempotent theo khóa tự nhiên: chỉ thêm bản ghi còn thiếu, không sửa
+  bản ghi có sẵn (R8).
+- `seed_demo` + `seed_history` (prototype ADR-0010, chỉ `postcare seed --reset` / `make seed`):
+  camera A02/A03, ROI mẫu, bệnh nhân mã thử nghiệm BN-001…BN-005, phiên mở và sự kiện quá khứ
+  cho A02/A03 để dashboard giống HS Hình 3 (A01 Đang theo dõi, A02 Cần kiểm tra, A03 Cảnh báo
+  mới). F30 sẽ thay bằng `make demo-seed`.
 """
 
 import uuid
 from datetime import datetime, time, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from postcare.db.models import (
@@ -30,7 +36,9 @@ from postcare.schemas.enums import (
 )
 from postcare.schemas.events import ALERT_PRIORITIES, EventCode, default_priority
 
-AREA = "Khu hậu phẫu"
+AREA = "Khu hậu phẫu"  # giả định F01
+BED_CODES = ("A01", "A02", "A03")  # HS Hình 3
+DEMO_ROI = [[0.2, 0.25], [0.8, 0.25], [0.8, 0.85], [0.2, 0.85]]
 
 SEED_USERS: list[tuple[str, str, UserRole]] = [
     ("nurse", "Nguyễn Thị Hoa", UserRole.NURSE),
@@ -46,29 +54,56 @@ SEED_SHIFTS: list[tuple[str, time, time]] = [
 ]
 
 
-def seed_base(db: Session, password: str) -> None:
-    """Tạo danh mục cơ bản. Gọi trên DB trống."""
-    pw = hash_password(password)
+def _webcam(name: str, bed: Bed) -> Camera:
+    return Camera(name=name, bed_id=bed.id, source_type=CameraSourceType.WEBCAM, source="0")
+
+
+def seed_base(db: Session, password: str) -> dict[str, int]:
+    """Tạo danh mục nền còn thiếu rồi commit. Trả số bản ghi mới theo bảng."""
+    created = {"users": 0, "shift_definitions": 0, "beds": 0, "cameras": 0}
+    existing_users = set(db.scalars(select(User.username)))
+    pw: str | None = None
     for username, full_name, role in SEED_USERS:
+        if username in existing_users:
+            continue
+        pw = pw or hash_password(password)
         db.add(User(username=username, full_name=full_name, password_hash=pw, role=role))
+        created["users"] += 1
+    existing_shifts = set(db.scalars(select(ShiftDefinition.name)))
     for name, start, end in SEED_SHIFTS:
-        db.add(ShiftDefinition(name=name, start_time=start, end_time=end))
-    for code in ("A01", "A02", "A03"):
-        bed = Bed(code=code, area=AREA)
-        db.add(bed)
-        db.flush()
-        db.add(
-            Camera(
-                name=f"Camera {code}" + (" (giả lập)" if code == "A01" else ""),
-                bed_id=bed.id,
-                source_type=CameraSourceType.WEBCAM,
-                source="0",
-                roi_polygon=[[0.2, 0.25], [0.8, 0.25], [0.8, 0.85], [0.2, 0.85]],
-                thresholds={},
-            )
-        )
+        if name not in existing_shifts:
+            db.add(ShiftDefinition(name=name, start_time=start, end_time=end))
+            created["shift_definitions"] += 1
+    beds = {b.code: b for b in db.scalars(select(Bed).where(Bed.code.in_(BED_CODES)))}
+    for code in BED_CODES:
+        if code not in beds:
+            beds[code] = Bed(code=code, area=AREA)
+            db.add(beds[code])
+            created["beds"] += 1
+    db.flush()
+    a01 = beds["A01"]
+    if db.scalar(select(Camera.id).where(Camera.bed_id == a01.id)) is None:
+        db.add(_webcam("Camera A01", a01))
+        created["cameras"] += 1
+    db.commit()
+    return created
+
+
+def seed_demo(db: Session) -> None:
+    """Prototype: camera cho A02/A03, ROI mẫu, bệnh nhân BN-001…BN-005 (chỉ thêm, rồi commit)."""
+    beds = {b.code: b for b in db.scalars(select(Bed).where(Bed.code.in_(BED_CODES)))}
+    for code in BED_CODES[1:]:
+        bed = beds[code]
+        if db.scalar(select(Camera.id).where(Camera.bed_id == bed.id)) is None:
+            db.add(_webcam(f"Camera {code}", bed))
+    db.flush()
+    for cam in db.scalars(select(Camera).where(Camera.roi_polygon.is_(None))):
+        cam.roi_polygon = DEMO_ROI
+    existing = set(db.scalars(select(Patient.code)))
     for i in range(1, 6):
-        db.add(Patient(code=f"BN-{i:03d}", note=None))
+        code = f"BN-{i:03d}"
+        if code not in existing:
+            db.add(Patient(code=code, note=None))
     db.commit()
 
 
