@@ -44,6 +44,7 @@ class FakeCapture:
         self._size = size
         self.reads = 0
         self._frames = 0
+        self.released = False
 
     @staticmethod
     def make_image(number: int, size: tuple[int, int] = (64, 48)) -> Image:
@@ -79,6 +80,7 @@ class FakeCapture:
 
     def release(self) -> None:
         self._opened = False
+        self.released = True
 
 
 class FakeFrameSource(BaseSource):

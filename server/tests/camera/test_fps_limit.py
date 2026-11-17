@@ -101,3 +101,32 @@ def test_live_fps_limit_uses_injected_clock() -> None:
     ts = [f.ts_ms for f in frames if f is not None]
     assert len(ts) == 4
     assert all(b - a >= 100 for a, b in pairwise(ts))
+
+
+class _OvershootClock(FakeClock):
+    """Hàm chờ ngủ quá 5 ms mỗi lần (giống độ phân giải timer trên Windows)."""
+
+    def sleep(self, seconds: float) -> None:
+        super().sleep(seconds + 0.005)
+
+
+def test_live_fps_limit_does_not_drift() -> None:
+    clock = _OvershootClock()
+    src = WebcamSource(
+        0,
+        capture_factory=FakeCapture,
+        max_fps=10,
+        clock_ns=clock,
+        sleep=clock.sleep,
+        threaded=False,
+    )
+    with src:
+        frames = [src.read() for _ in range(11)]
+        ts = [f.ts_ms for f in frames if f is not None]
+        assert len(ts) == 11
+        # Hạn cố định: 10 khoảng ≈ 1000 ms (lệch tối đa một lần ngủ quá), không cộng dồn 10 × 5 ms.
+        assert ts[-1] - ts[0] <= 1010
+        clock.advance_ms(1000)  # người dùng dừng lâu → đồng bộ lại, không đọc dồn
+        a, b = src.read(), src.read()
+    assert a is not None and b is not None
+    assert b.ts_ms - a.ts_ms >= 100
