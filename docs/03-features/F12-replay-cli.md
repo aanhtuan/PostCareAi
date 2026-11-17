@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F12 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -105,9 +105,33 @@ Cung cấp lệnh `postcare replay` chạy **cùng pipeline** với worker (Came
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+Lập ngày 2026-11-18 (builder F12). Xây trên API engine hiện tại `Engine(config, EngineContext).process(obs)`; không sửa `engine/` (F14 đang sửa state machine).
 
-1. …
+1. **Docs plan** (commit `docs(F12): plan`): mục này, trạng thái In progress.
+2. **Test trước** (commit `test(F12): ...`), chạy và xác nhận đỏ vì thiếu module. Không có media trong test: `FakeFrameSource` (F05) + `FakePoseAdapter` (F11) + builder `PoseSequence` (F13).
+   - `server/tests/replay/test_replay_outputs.py` (AC1): `test_replay_writes_all_outputs` (4 file, mỗi dòng parse bằng `FrameObservation` / `EventRecord` / `FrameRecord`, `run.json` đủ khóa); `--out` có dữ liệu mà không `--overwrite` → lỗi; `--overwrite` → ghi lại; pipeline dùng chung `process_frame`.
+   - `server/tests/replay/test_camera_config.py` (R3): đọc YAML hợp lệ; ROI sai (ít điểm, ngoài [0, 1], tự cắt, diện tích 0), khóa lạ, ngưỡng override sai → `CameraConfigError` có đường dẫn khóa; CLI exit ≠ 0; mọi `config/cameras/*.yaml` trong repo hợp lệ.
+   - `server/tests/schemas/test_roi_validate.py`: `validate_roi_polygon` (polygon lồi, lõm hợp lệ; tự cắt, trùng điểm, thẳng hàng → lỗi).
+   - `server/tests/replay/test_from_observations_deterministic.py` (AC2): `test_from_observations_deterministic` (2 lần chạy, so byte `events.jsonl`, `frames.jsonl`; LF, UTF-8); `test_from_observations_does_not_import_mediapipe` (subprocess, kiểm `sys.modules`); dòng JSONL hỏng → lỗi nêu số dòng; writer giữ thứ tự trường cố định.
+   - `server/tests/replay/test_preview.py` (AC3): `test_preview_writes_mp4` (đọc lại bằng OpenCV: số khung, kích thước); không `--preview` → không có mp4; `--preview` cùng `--from-observations` → lỗi (không có ảnh); `draw_debug_overlay` không sửa ảnh gốc.
+   - `server/tests/replay/test_fixture_cut.py` (AC4): `test_fixture_cut_range` (chỉ giữ `start_s ≤ ts ≤ end_s`), `test_fixture_contains_only_observation_fields` (chỉ khóa của `FrameObservation`, không đường dẫn video), `.expected.json` đúng định dạng; `--start-s > --end-s` → lỗi; fixture không có `.expected.json` → bị bỏ qua có lý do.
+   - `server/tests/engine/test_fixtures_regression.py` (R8): mỗi `server/tests/fixtures/*.jsonl` có `.expected.json` → chạy engine, so danh sách `(code, occurred_at_ms)`; thiếu expected → skip có lý do; không có fixture → 0 ca.
+   - `server/tests/vision/test_replay_video.py` (marker `vision`): `test_replay_real_video` trên clip trong `data/` với model thật; thiếu model/video → skip.
+3. **ROI:** `validate_roi_polygon` trong `postcare/schemas/roi.py` *(giả định của spec: feature nào làm trước thì tạo; F08 dùng lại)*.
+4. **Pipeline dùng chung:** `postcare/pipeline/__init__.py` (gói đã có sẵn từ F00) với `process_frame(frame, adapter, engine) -> (FrameObservation, EngineOutput)`; `camera_id` lấy từ `engine.context`. Chỉ phụ thuộc interface `PoseAdapter`, không import mediapipe.
+5. **Replay:** `postcare/replay/`:
+   - `camera_config.py`: `CameraConfig` (`version: 1`, `camera_id` mặc định 0, `roi_polygon`, `thresholds`, `notes`), `load_camera_config()`, `engine_config()` hợp nhất bằng `EngineConfig.load(default, overrides)`.
+   - `writers.py`: JSONL thứ tự trường cố định, UTF-8, LF; `EventRecord` (= `EngineEvent` + `config_hash`), `FrameRecord`; `run.json` (số liệu phụ thuộc máy chỉ ở đây).
+   - `runner.py`: `replay_video(source, adapter, …)` và `replay_observations(path, …)`; đo FPS xử lý, CPU %, RAM MB bằng psutil (đã có từ F11); `--out` có dữ liệu → `OutputExistsError` trừ khi `overwrite`.
+   - `fixtures.py`: đọc observation JSONL (lỗi nêu số dòng), cắt khoảng, ghi fixture + `.expected.json` (`camera` gồm `camera_id`, `roi_polygon`, `thresholds`; `events` gồm `code`, `occurred_at_ms`; không ghi đường dẫn video), khám phá fixture cho test regression.
+6. **Render:** `postcare/vision/render.py` `draw_debug_overlay(image, obs, roi, state, events)` vẽ skeleton mọi người, ROI, `body_state`/`observation_quality`, nhãn sự kiện gần nhất (giữ 2 s theo `ts_ms`, *(giả định)*). Ghi mp4 bằng `cv2.VideoWriter` (`mp4v`).
+7. **CLI:** `postcare replay` trong `cli/main.py` (`--video | --from-observations`, `--camera-config`, `--out`, `--overwrite`, `--preview`, `--engine-config`, `--model`, `--models-dir` (mặc định `POSTCARE_MODELS_DIR` hoặc `models/`), `--max-fps` (mặc định 15, A03), `--start-s`, `--end-s`, `--save-observations`, `--save-expected`). Import adapter MediaPipe chỉ trong nhánh `--video`.
+8. **Cấu hình camera:** `config/cameras/example.yaml` (ROI mẫu) và cấu hình cho vài clip ngoài (Pexels giường, GMDCSA24, CAUCAFall), ROI ước lượng từ một khung *(giả định)*.
+9. **Fixture tổng hợp:** `server/tests/fixtures/synthetic_lying_occluded.jsonl` + `.expected.json` sinh bằng builder qua chính hàm ghi fixture (chỉ toạ độ).
+10. **Docs:** overview.md (pipeline, replay), dev-setup.md và evaluation.md (cách chạy replay, cắt fixture), testing.md (fixture, regression, test vision F12).
+11. **Kiểm tra:** `make check`, `scripts\dev.ps1 check`, `make test-vision`; replay thủ công 2–3 clip trong `D:\PostCareAi\data\external` (đường dẫn tuyệt đối, model qua `POSTCARE_MODELS_DIR`); ghi kết quả mục 10, trạng thái In review.
+
+Rủi ro: codec `mp4v` có thể thiếu trên Linux → test preview kiểm tra file đọc lại được; engine chưa có rule (F15) nên `events.jsonl` trên video thật hiện rỗng, kiểm chứng sự kiện để F15.
 
 ## 10. Ghi chú bàn giao
 
