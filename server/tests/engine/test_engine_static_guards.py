@@ -1,7 +1,7 @@
 """Chặn tĩnh: `postcare.engine` không đọc đồng hồ hệ thống (AGENTS.md quy tắc 5; review F10).
 
-Import-linter đã chặn cv2/mediapipe/fastapi/sqlalchemy/httpx. Test này quét AST để chặn thêm các
-module stdlib cho phép đọc thời gian hoặc sinh ngẫu nhiên (phá tính xác định).
+Import-linter (contract `engine-no-clock`) chặn import trực tiếp; test này quét AST để bắt cả
+`__import__` động. Các module này cho phép đọc thời gian hoặc sinh ngẫu nhiên (phá tính xác định).
 """
 
 import ast
