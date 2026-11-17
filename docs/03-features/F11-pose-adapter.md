@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F11 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -109,9 +109,24 @@ Tích hợp MediaPipe Pose Landmarker đã huấn luyện sẵn (không train, k
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+Lập ngày 2026-11-17 (builder F11). Bổ sung so với mục 3: QA#35 yêu cầu so cả `heavy`, và chọn biến thể mặc định bằng benchmark (thay giả định "mặc định `full`" của R2 nếu số đo khác).
 
-1. …
+1. **Docs plan** (commit `docs(F11): plan`): mục này, trạng thái In progress.
+2. **Test trước** (commit `test(F11): ...`), chạy và xác nhận đỏ vì thiếu module:
+   - `server/tests/inference/test_mapping.py`: đủ 21 `KeypointName` lấy đúng chỉ số MediaPipe (0 mũi, 2/5 mắt, 7/8 tai, 11–16 vai/khuỷu/cổ tay, 23–28 hông/gối/cổ chân, 29/30 gót, 31/32 mũi bàn chân); kẹp x, y, visibility ngoài [0, 1]; thiếu landmark (≠ 33) → `ValueError` rõ; output chỉ là kiểu `postcare.schemas`.
+   - `server/tests/inference/test_fake_adapter.py`: `FakePoseAdapter` trả quan sát dựng sẵn theo `frame_index`, khung không có → `persons = []`.
+   - `server/tests/inference/test_adapter_unit.py`: `MediaPipePoseAdapter` với landmarker giả (inject) — BGR→RGB, `detect_for_video` nhận đúng `ts_ms`, `num_poses` từ `EngineConfig`, `ts_ms` không tăng → `ValueError` trước khi gọi model; thiếu file model → lỗi gợi ý `make models`.
+   - `server/tests/inference/test_models_download.py`: manifest giả + URL `file://` trong `tmp_path` (không cần mạng): `test_models_skip_when_checksum_ok`, `test_models_checksum_mismatch_fails` (xóa file, exit ≠ 0), tải mới khi thiếu; manifest thật `config/models.yaml` hợp lệ (URL có số phiên bản, không `latest`, sha256 64 hex, `default` là một biến thể có trong danh sách).
+   - `server/tests/vision/test_pose_adapter.py` (marker `vision`, thay `test_placeholder.py`): model thật trên clip trong `data/` → có `PersonPose`; khung đen → `persons = []`; `test_adapter_returns_schema_types_only`; `test_adapter_rejects_non_increasing_ts`. Thiếu model/dữ liệu → `pytest.skip`.
+   - `test_tooling.py`: bỏ `models` khỏi target giữ chỗ; `models` gọi `postcare models` (Makefile và dev.ps1); contract import-linter mới.
+3. **Phụ thuộc:** `uv add mediapipe psutil` (khóa trong `uv.lock`; ghi lý do vào tech-stack.md, quy tắc 12). mediapipe kéo `opencv-contrib-python` đã có (F05).
+4. **Tải model:** `config/models.yaml` (manifest: `pose.default`, danh sách `lite`/`full`/`heavy` với URL `storage.googleapis.com/mediapipe-models/pose_landmarker/<tên>/float16/1/<tên>.task`, file, sha256). `postcare/vision/models.py`: đọc manifest (Pydantic), tải bằng `urllib` (thư viện chuẩn, đa nền tảng), ghi file tạm rồi đổi tên, kiểm sha256. Lệnh `postcare models [--variant ...]`; target `make models` và `dev.ps1 models` gọi lệnh này.
+5. **Adapter:** `postcare/vision/inference/{__init__,base,mapping,fake,pose_mediapipe}.py` như mục 4. `MediaPipePoseAdapter.from_config(...)` lấy `num_poses` từ `EngineConfig.pose.num_poses`; landmarker tạo qua factory để test inject được; `mediapipe` chỉ import trong `pose_mediapipe.py`.
+6. **Import-linter:** contract `forbidden` mới: `postcare` không import trực tiếp `mediapipe`, trừ `postcare.vision.inference.**` (`allow_indirect_imports = True`, vì `cli` gọi adapter).
+7. **Probe:** `postcare probe --pose [--model lite|full|heavy] [--no-max-fps]`: chạy adapter trên từng khung, in FPS xử lý (khung đã chạy pose / giây đồng hồ), CPU % và RAM MB của tiến trình (psutil), tỉ lệ khung có người và có đủ 4 keypoint thân (`pose.required_keypoints`, visibility ≥ `pose.min_keypoint_visibility`). Không lưu khung (R11).
+8. **Benchmark (QA#35, AC4):** chạy `lite`/`full`/`heavy` trên ≥ 3 clip ~720p trong `data/external` (Pexels giường, GMDCSA24, CAUCAFall; đọc theo đường dẫn tuyệt đối, không chép vào repo), ghi bảng "Kết quả đo hiệu năng". Chọn biến thể chính xác nhất đạt ≥ 10 FPS ở 720p làm `pose.default` trong `config/models.yaml`. Không biến thể nào đạt → ghi nhận, báo người dùng (không dựng WSL/CUDA).
+9. **Docs:** tech-stack.md (khóa mediapipe, psutil, kết quả đo), dev-setup.md (`make models`), overview.md §3 (contract mediapipe), testing.md (test vision của F11), spec mục 10.
+10. **Kiểm tra:** `make check`, `scripts\dev.ps1 check`, `make test-vision`; ghi bằng chứng mục 10, tick AC, trạng thái In review.
 
 ## 10. Ghi chú bàn giao
 
