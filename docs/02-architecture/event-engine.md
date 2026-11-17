@@ -39,7 +39,7 @@ EngineContext                     # truyền khi tạo Engine(config, context), 
   roi_polygon: RoiPolygon         # points: list[(x, y)] chuẩn hóa 0–1, ≥3 điểm; đổi ROI → worker tạo Engine mới
 
 EngineOutput
-  state: BodyStateSnapshot        # body_state, observation_quality, activity_level, rest_status, face_status, face_signals
+  state: BodyStateSnapshot        # body_state, observation_quality, activity_level, rest_status, face_status, face_signals, explanation (lần chuyển body_state gần nhất; F14)
   state_changed: bool
   events: list[EngineEvent]       # code, priority, occurred_at_ms, detected_at_ms, confidence, observation_quality, explanation
 ```
@@ -100,6 +100,16 @@ Quy ước bước 1–3 (F13; `engine/target.py`, `features.py`, `smoothing.py`
 - **Mất landmark hoặc bị che không bao giờ dẫn tới `OUT_OF_BED`**. Trường hợp này luôn dẫn tới `NO_OBSERVATION` (HS §5.2).
 - Chuỗi hợp lệ để có BED_EXIT: `… → AT_EDGE → (STANDING) → OUT_OF_BED` (PDF §7.2). Đoạn `NO_OBSERVATION` xen giữa chuỗi được bỏ qua khi xét chuỗi. Đi thẳng từ `LYING` sang `OUT_OF_BED` không sinh BED_EXIT; engine chỉ ghi `explanation.anomaly = "skipped_edge"` vào state *(giả định)*.
 - **Ưu tiên khi chồng lấn:** tư thế đứng → `STANDING`, kể cả khi ở gần biên ROI. `AT_EDGE` chỉ dành cho **ngồi** gần biên hoặc ngồi có cổ chân ra ngoài ROI *(giả định; khớp ví dụ trong testing.md)*.
+
+**Cách phân loại cụ thể (F14, `engine/posture.py`, `engine/state_machine.py`)** *(giả định; hiệu chỉnh ở F16)*:
+- Thứ tự ứng viên: cổng chất lượng đóng → `NO_OBSERVATION`; vị trí `OUT` → `OUT_OF_BED`; tư thế đứng → `STANDING`; ngồi/nâng thân + vị trí `EDGE` → `AT_EDGE`; còn lại theo tư thế (`LYING`/`RAISING`/`SITTING`). Tư thế không xác định khi chất lượng tốt → giữ trạng thái.
+- Thân "thẳng": góc > `sitting_enter_deg`; đang ở trạng thái thân thẳng (`SITTING`, `AT_EDGE`, `STANDING`, `OUT_OF_BED`) thì chỉ cần ≥ `sitting_exit_deg`. Vùng nằm: < `lying_enter_deg`; đang `LYING` thì ≤ `lying_exit_deg`. Thân thẳng mà vai không cao hơn hông → không xác định.
+- Rời `LYING` luôn qua `RAISING` (mọi góc ngoài vùng nằm khi đang `LYING` là `RAISING`). Góc ở vùng giữa chỉ là `RAISING` khi đang `LYING`/`RAISING`/`NO_OBSERVATION`; từ `SITTING` ngả lưng thì giữ `SITTING` cho tới khi vào vùng nằm (`SITTING → LYING`).
+- Tỷ lệ `torso_length` chỉ dùng khi góc báo vùng nằm (góc 2D không phân biệt được); tham chiếu là `torso_length` lúc `LYING` ổn định, xóa khi vào `NO_OBSERVATION`.
+- Đứng: thân thẳng, thấy gối và cổ chân, gối thấp hơn hông, cổ chân thấp hơn gối, `(knee_y − hip_y) ≥ standing_hip_above_knee_ratio × (ankle_y − knee_y)`, **và** vector hông → cổ chân cũng thẳng theo cùng ngưỡng góc của thân (loại ca chân nằm ngang trên giường).
+- Vị trí: `OUT` khi `dist_to_roi_edge < −out_of_roi_margin_torso` (đang `OUT_OF_BED` thì `OUT` tới khi hông vào trong ROI); `EDGE` khi `dist_to_roi_edge < edge_distance_torso` hoặc có cổ chân ra ngoài ROI; còn lại `IN_BED`.
+- Ứng viên phải giữ liên tục (không bị ứng viên khác, tư thế không xác định hay frame kém xen vào) ≥ `min_duration_s.<đích>`. Sau `NO_OBSERVATION`: cổng phục hồi `restore_duration_s` rồi mới bắt đầu đếm min_duration.
+- `explanation` của mỗi lần chuyển: `rule_id` (`state.<đích>`), `from_state`, `to_state`, `held_ms`, `observation_quality`, và với trạng thái quan sát được: `posture`, `location`, `trunk_angle_deg`, `dist_to_roi_edge`, `ankles_outside_roi`, `torso_length_ratio`. `anomaly = "skipped_edge"` khi vào `OUT_OF_BED` mà trạng thái gần nhất trước đó (bỏ qua `NO_OBSERVATION`, `STANDING`) là `LYING`/`RAISING`/`SITTING`. `Engine.state_history` giữ tối đa 32 trạng thái ổn định gần nhất cho F15.
 
 ## 5. Catalog sự kiện
 

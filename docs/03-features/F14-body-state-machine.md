@@ -111,6 +111,12 @@ Các ca trở mình, debounce, khuôn mặt được kiểm ở F15, F23, F26, F
 - *(giả định)* Tư thế `UNKNOWN` khi chất lượng tốt thì giữ trạng thái hiện tại (R5).
 - *(giả định)* Từ `NO_OBSERVATION` phải qua cả cổng phục hồi lẫn min duration của trạng thái đích (R7).
 - *(giả định)* State machine lưu lịch sử trạng thái ổn định cho F15 (R11).
+- *(giả định)* Rời `LYING` luôn qua `RAISING`; góc vùng giữa chỉ là `RAISING` khi đi lên từ nằm (hoặc từ `NO_OBSERVATION`).
+- *(giả định)* Hysteresis góc "thân thẳng" áp dụng cho mọi trạng thái thân thẳng (`SITTING`, `AT_EDGE`, `STANDING`, `OUT_OF_BED`), không chỉ `SITTING`.
+- *(giả định)* Đứng cần thêm vector hông → cổ chân thẳng theo cùng ngưỡng góc của thân.
+- *(giả định)* Tỷ lệ `torso_length` chỉ dùng khi góc báo vùng nằm.
+- *(giả định)* Frame kém (cổng chưa đóng) xen giữa làm ứng viên đếm lại từ đầu.
+- *(giả định)* `skipped_edge` đánh dấu mọi lần ra ngoài từ `LYING`/`RAISING`/`SITTING` không qua `AT_EDGE` (bỏ qua `NO_OBSERVATION`, `STANDING`).
 
 ## 8. Câu hỏi mở
 
@@ -127,6 +133,7 @@ Các ca trở mình, debounce, khuôn mặt được kiểm ở F15, F23, F26, F
   - Tỷ lệ `torso_length` chỉ dùng khi góc nằm trong vùng nằm (góc 2D không phân biệt được): `|torso/ref − 1| ≥ 1 − torso_length_ratio_sitting` → coi là thân thẳng. `ref` cập nhật khi trạng thái ổn định `LYING` và tư thế nằm; xóa khi vào `NO_OBSERVATION` *(giả định)*.
   - Thân thẳng nhưng vai không cao hơn hông → `UNKNOWN`.
   - Vùng giữa: `RAISING` nếu trạng thái hiện tại là `LYING`, `RAISING` hoặc `NO_OBSERVATION` ("đi lên từ nằm"); ngược lại `UNKNOWN` (giữ trạng thái) *(giả định)*. Vì vậy nằm lại từ `SITTING` đi thẳng `SITTING → LYING`.
+  - Đang `LYING` thì mọi góc ngoài vùng nằm (kể cả đã thẳng) là `RAISING`: rời nằm luôn qua `RAISING` (`LYING → RAISING → SITTING`, PDF §7.1) *(giả định; bổ sung khi cài đặt: với góc tăng đều, vùng 35°–55° quá ngắn so với `min_duration_s.RAISING`)*.
   - `STANDING`: thân thẳng + có gối và cổ chân nhìn thấy, gối thấp hơn hông, cổ chân thấp hơn gối, `(knee_y − hip_y) ≥ standing_hip_above_knee_ratio × (ankle_y − knee_y)` **và** vector hông → cổ chân cũng thẳng theo cùng ngưỡng góc của thân (chân duỗi, không nằm ngang) *(giả định: chặn ca suy biến khi chân nằm ngang trên giường, knee_y ≈ hip_y ≈ ankle_y)*. Thêm trường `BodyFeatures.leg_angle_deg`.
 - `engine/state_machine.py`: `BodyStateMachine` với `update(assessment, ts_ms)` (frame GOOD), `interrupt(ts_ms)` (frame kém khi cổng còn mở: xóa ứng viên, giữ trạng thái), `lose_observation(quality, ts_ms)` (cổng đóng → `NO_OBSERVATION`). Ứng viên + mốc bắt đầu; xác lập khi `ts − start ≥ min_duration_s.<đích>`. `explanation` (dict JSON) và `history` (tối đa 32 bản ghi `StateRecord(state, since_ms, explanation)`, hằng số không phải ngưỡng).
   - `skipped_edge`: khi vào `OUT_OF_BED`, duyệt lùi lịch sử bỏ qua `NO_OBSERVATION`, `STANDING`; nếu gặp `LYING/RAISING/SITTING` trước `AT_EDGE` → `anomaly = "skipped_edge"` *(giả định: mở rộng R9 cho mọi đường ra từ trong giường không qua mép)*.
