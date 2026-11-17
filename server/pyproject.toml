@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# PostgreSQL thay cho SQLite máº·c Ä‘á»‹nh: `uv sync --extra postgres`
+# PostgreSQL thay cho SQLite mặc định: `uv sync --extra postgres`
 postgres = ["psycopg[binary]>=3.2"]
 
 [project.scripts]
@@ -27,6 +27,12 @@ postcare = "postcare.cli.main:app"
 dev = [
     "pytest>=8.2",
     "ruff>=0.6",
+    "mypy>=1.11",
+    "import-linter>=2.1",
+    "pre-commit>=4.0",
+    "honcho>=2.0",
+    # test_tooling.py đọc .pre-commit-config.yaml, ci.yml, config/engine.default.yaml
+    "pyyaml>=6.0",
 ]
 
 [build-system]
@@ -50,5 +56,13 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "typer.Option"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q --strict-markers"
+markers = ["vision: cần model MediaPipe và video thật (make test-vision)"]
 filterwarnings = ["ignore::DeprecationWarning", "ignore:Using `httpx` with:Warning"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+mypy_path = "src"
+packages = ["postcare.schemas", "postcare.engine"]
+plugins = ["pydantic.mypy"]
