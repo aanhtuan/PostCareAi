@@ -165,10 +165,11 @@ Ngày 2026-11-18, nhánh `feat/F12-replay-cli`, Windows 11, i5-10300H, model pos
 | `gmdcsa24/…/Subject 1/ADL/04.mp4` | `gmdcsa24-subject1.yaml` | 5,8 s | 87 / 83 | GOOD 87 | 0 | 17,5 | 122 % | 286 MB |
 | `mixkit/mixkit-29966.mp4` | `mixkit-29966.yaml` | 25,1 s | 377 / 225 | GOOD 354, NO_PERSON 20, MULTIPLE_PEOPLE 2, LOW_CONFIDENCE 1 | 0 | 13,0 | 107 % | 290 MB |
 
-- `body_state` luôn `NO_OBSERVATION` và không có sự kiện: đúng với engine hiện tại (state machine F14 chưa merge, rule F15 chưa có). Sau khi F14/F15 vào `main`, chạy lại các lệnh trên để kiểm chứng trạng thái và sự kiện.
+- Lần chạy video (trước khi merge F14): `body_state` luôn `NO_OBSERVATION`, đúng với engine lúc đó.
+- Sau khi merge `main` có F14, chạy lại `--from-observations` trên cùng `observations.jsonl` (không cần MediaPipe): `pexels-8090735` NO_OBSERVATION 50 / AT_EDGE 65; `gmdcsa24` ADL/04 NO_OBSERVATION 35 / RAISING 29 / AT_EDGE 23; `mixkit-29966` NO_OBSERVATION 45 / LYING 87 / AT_EDGE 245 khung. Vẫn 0 sự kiện vì rule F15 chưa có. ROI của các clip này là ước lượng, nên trạng thái chưa dùng để kết luận độ chính xác (để F15/F16).
 - `--from-observations` trên `observations.jsonl` của `pexels-8090735`: `frames.jsonl`, `events.jsonl` giống hệt từng byte bản chạy video (`cmp`).
 
-**Kiểm tra cuối:** `make check` xanh (387 passed, 10 contract KEPT, web build xong); `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0; `make test-vision` 5 passed. Hai lệnh check chạy với `TEST_DATABASE_URL=.../postcare_f11_test` (DB test riêng của builder).
+**Kiểm tra cuối:** `make check` xanh (387 passed trước merge; 446 passed sau khi merge `main` có F14; 10 contract KEPT, web build xong); `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0; `make test-vision` 5 passed. Hai lệnh check chạy với `TEST_DATABASE_URL=.../postcare_f11_test` (DB test riêng của builder).
 
 **Người sau cần biết:**
 - Worker (F17) gọi `postcare.pipeline.process_frame(frame, adapter, engine)`, không tự ghép adapter + engine.
