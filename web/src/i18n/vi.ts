@@ -355,6 +355,25 @@ export const vi = {
     confirmEnd: 'Kết thúc phiên theo dõi của giường này?',
     started: 'Đã bắt đầu theo dõi',
     ended: 'Đã kết thúc theo dõi',
+    // Chuyển giường (F04 R18; glossary.md)
+    transfer: 'Chuyển giường',
+    transferTitle: 'Chuyển giường - {bed}',
+    transferTarget: 'Giường chuyển đến',
+    transferReason: 'Lý do chuyển',
+    noFreeBed: 'Không còn giường nào đang dùng mà chưa có phiên',
+    confirmTransfer: 'Kết thúc theo dõi ở giường {from} và bắt đầu ở giường {to}?',
+    transferredFrom: 'Chuyển từ giường {bed}',
+    transferred: 'Đã chuyển sang giường {bed}',
+  },
+  // Tạm dừng thu hình theo phiên (F04 R19–R22; F36 R18, R21)
+  capture: {
+    pause: 'Tạm dừng thu hình',
+    resume: 'Tiếp tục thu hình',
+    paused: 'Đang tạm dừng thu hình – hệ thống không quan sát trong lúc này',
+    pausedShort: 'Đang tạm dừng thu hình',
+    pauseReason: 'Lý do tạm dừng (không bắt buộc)',
+    pausedDone: 'Đã tạm dừng thu hình',
+    resumedDone: 'Đã tiếp tục thu hình',
   },
   // Quản lý người dùng (F35). Tách khối riêng để dễ gộp với F03.
   users: {
