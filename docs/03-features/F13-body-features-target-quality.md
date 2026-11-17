@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F13 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -127,7 +127,33 @@ Các ca còn lại của bảng (ngồi dậy rồi nằm lại, dao động qua
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+Code hiện có dùng lại: `postcare/engine/pipeline.py` (khung F10: `TargetSelector`, `QualityAssessor`, `StateMachine`, `FrameAssessment`), `postcare/engine/engine.py`, `postcare/schemas/{observation,roi,engine_config,enums}.py`. Không thêm thư viện, không migration, không API, không sinh lại type.
+
+1. **Kế hoạch** (commit `docs(F13): plan`).
+2. **Test trước** (commit `test(F13): …`), chạy để thấy fail vì thiếu module/hành vi:
+   - `server/tests/engine/builders.py`: `PoseSequence` (R10) dựng `FrameObservation` từ mô hình thân tổng hợp (tâm hông, góc thân, chiều dài thân theo pixel; chân), không có ảnh. Kèm `run_engine`, `default_config`.
+   - `test_geometry.py` (điểm trong polygon, khoảng cách có dấu, trục PCA).
+   - `test_features.py` (AC1), `test_target.py` (AC2), `test_quality.py` (AC3), `test_engine_quality_gate.py` (AC4, AC5 và 4 ca âm tính của mục 6), `test_engine_static_guards.py` (AST: `postcare.engine` không import `time`/`datetime`).
+3. **`engine/geometry.py`**: `BedGeometry` (đỉnh ROI theo pixel, góc trục dài PCA), `point_in_polygon`, `signed_distance_to_edge`, `angle_to_axis_deg`.
+4. **`engine/features.py` + `engine/smoothing.py`**: `BodyFeatures` (frozen dataclass), `FeatureExtractor.update(person, obs)`, `reset()`. EMA từng keypoint dùng tới (vai, hông, gối, cổ chân; theo pixel), đặc trưng suy ra từ điểm đã làm mượt; `velocity` = (vx, vy) của `hip_center` đã làm mượt, đơn vị torso_length/giây, 0 ở frame đầu sau reset.
+5. **`engine/target.py`**: `TargetSelector.select(obs) -> TargetSelection(target, persons_in_roi, changed)`, `forget()`.
+6. **`engine/quality.py`**: `assess_frame_quality` (R6) và `QualityGate` (R7, hysteresis theo `obs.ts_ms`).
+7. **`engine/engine.py`**: ghép bước 1–3 + cổng chất lượng; xóa phần tương ứng khỏi `pipeline.py`. `FrameAssessment` thêm `features` (chỉ có khi frame `GOOD`) và `observable`.
+8. **Static guard**: test AST trong `test_engine_static_guards.py` (import-linter không chặn được module stdlib một cách tin cậy; nếu chặn được thì thêm contract).
+9. **Doc**: `event-engine.md` mục 2–3 (cổng chất lượng, giữ mục tiêu); không đổi khóa cấu hình. `make check`, `scripts\dev.ps1 check`, ghi mục 10.
+
+**Quyết định thiết kế** *(giả định, ghi thêm ở mục 7)*:
+- Người có đủ hai hông (bất kể visibility) mới có `hip_center`; dùng cho chọn mục tiêu và đếm người trong ROI. Chỉ xét `obs.persons[:pose.num_poses]`.
+- Keypoint bắt buộc bị thiếu coi như visibility = 0 → `LOW_CONFIDENCE`.
+- Ngưỡng nhảy = `max_jump_torso_lengths × torso_length` của mục tiêu ở frame trước (nếu chưa biết thì dùng của ứng viên).
+- Nhớ vị trí mục tiêu qua frame không khớp ai, cho tới khi cổng chất lượng đóng (`NO_OBSERVATION`). Trong lúc còn nhớ, người không khớp **không** được nhận làm mục tiêu mới, kể cả khi ở trong ROI: nhiễu nhảy keypoint 1–3 frame chỉ cho `NO_PERSON` ngắn, đặc trưng không nhảy; người khác thật sự thay chỗ thì đi qua `NO_OBSERVATION`.
+- Nhiều người trong ROI lúc nhận mục tiêu mới: chọn người nằm sâu nhất trong ROI (khoảng cách tới biên lớn nhất), hòa thì người đứng trước trong danh sách.
+- Bộ làm mượt chỉ cập nhật ở frame `GOOD`.
+- Chưa có F14: khi cổng mở, trạng thái do `StateMachine` (khung F10, luôn `NO_OBSERVATION`) quyết định. Test AC4 ở mức `Engine` thay `StateMachine` bằng bản giả (trả `LYING`) để kiểm cổng chất lượng.
+
+**Test theo AC:** như cột "Kiểm chứng" ở mục 5 và bảng ca âm tính ở mục 6.
+
+**Rủi ro:** PCA với ROI gần vuông (mục 8); chưa có video thật nên ngưỡng chưa hiệu chỉnh (F16).
 
 ## 10. Ghi chú bàn giao
 
