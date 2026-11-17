@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.orm import Session
 
-from postcare.db.models import Bed
+from postcare.db.models import Area, Bed
 from postcare.settings import Settings
 from tests.dbutil import DatabaseSetupError, ensure_reachable, ensure_safe_test_url
 
@@ -17,7 +17,7 @@ def test_uses_separate_test_database(test_engine: Engine) -> None:
 
 
 def test_rollback_isolation_a(db_session: Session) -> None:
-    db_session.add(Bed(code=MARK, area="Khu thử"))
+    db_session.add(Bed(code=MARK, area=Area(code=MARK, name="Khu thử")))
     db_session.commit()  # commit trong code chỉ nhả savepoint, transaction ngoài vẫn rollback
     assert db_session.scalar(select(Bed).where(Bed.code == MARK)) is not None
 

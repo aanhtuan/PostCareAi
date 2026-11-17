@@ -64,7 +64,7 @@ Mã 409 thêm ngày 17/11/2026 (đều *(giả định)*):
 | `BED_HAS_OPEN_SESSION` | F03 | Xóa giường đang có phiên mở |
 | `PATIENT_HAS_OPEN_SESSION` | F03 | Xóa bệnh nhân đang có phiên mở |
 | `CAMERA_IN_ACTIVE_SESSION` | F03 | Xóa camera là `camera_id` của phiên đang mở |
-| `AREA_IN_USE` | F37 | Xóa khu vực còn giường đang dùng |
+| `AREA_IN_USE` | F37 | Xóa khu vực còn giường đang dùng; `details.bed_ids` |
 | `SHIFT_OVERLAP` | F37 | Tạo/sửa/khôi phục ca làm chồng giờ ca đang dùng |
 | `CANNOT_MODIFY_SELF` | F35 | ADMIN tự khóa hoặc tự hạ vai trò |
 | `LAST_ADMIN` | F35 | Khóa hoặc hạ vai trò ADMIN cuối cùng đang hoạt động |
@@ -84,8 +84,8 @@ Trùng `username` (F35) dùng lại `DUPLICATE_CODE` với `details.field = "use
 | `GET /api/v1/health` | F00 | `{"status":"ok"}` |
 | `POST /api/v1/auth/login`, `GET /api/v1/auth/me` | F02 | Đăng nhập, thông tin người dùng hiện tại |
 | `GET/POST /api/v1/beds`, `GET/PATCH/DELETE /api/v1/beds/{id}`, `POST /api/v1/beds/{id}/restore`; tương tự `/patients`, `/cameras` | F03 | CRUD; `DELETE` là xóa mềm (`is_active = false`), `restore` khôi phục (QA#36). `PATCH` không nhận `is_active`. Danh sách có `?include_inactive=true` |
-| `GET/POST /api/v1/areas`, `PATCH/DELETE /api/v1/areas/{id}`, `POST /api/v1/areas/{id}/restore` | F37 | Khu vực; xóa mềm, khôi phục |
-| `POST /api/v1/shifts`, `PATCH/DELETE /api/v1/shifts/{id}`, `POST /api/v1/shifts/{id}/restore` | F37 | Ca trực; không chồng giờ |
+| `GET/POST /api/v1/areas`, `GET/PATCH/DELETE /api/v1/areas/{id}`, `POST /api/v1/areas/{id}/restore` | F37 | Khu vực `{id, code, name, is_active, created_at, bed_count}`; xóa mềm, khôi phục; danh sách `{items,total}`, `?include_inactive&limit&offset`. Giường: `BedCreate`/`BedUpdate` nhận `area_id`, `BedOut.area = {id, code, name}`; khu vực đã xóa hoặc không tồn tại → 400 `VALIDATION_ERROR` (`details.field = "area_id"`). `OverviewBedOut.area` vẫn là tên khu vực (chuỗi) |
+| `POST /api/v1/shifts` `{name, start_time, end_time}`, `PATCH/DELETE /api/v1/shifts/{id}`, `POST /api/v1/shifts/{id}/restore` | F37 | Ca trực; giờ `HH:mm` (giây ≠ 0 hoặc `start_time = end_time` → 400 `VALIDATION_ERROR`); chồng giờ ca đang dùng theo `[start, end)` trên vòng 24 giờ → 409 `SHIFT_OVERLAP` `details.conflicting_shift_ids`; trùng tên ca đang dùng → 409 `DUPLICATE_CODE` `details.field = "name"`. `ShiftOut` có `is_active` |
 | `GET/POST /api/v1/users`, `GET/PATCH /api/v1/users/{id}`, `POST /api/v1/users/{id}/lock`, `.../unlock`, `.../reset-password` | F35 | Quản lý người dùng (chỉ ADMIN) |
 | `GET /api/v1/cameras/{id}` | F03, F06 | Có khối `runtime: {fps, brightness, dropped_frames, source_status, updated_at}` từ heartbeat gần nhất (chỉ trong RAM; `null` khi chưa có heartbeat từ lúc API khởi động); `status`, `last_seen_at` ở cấp camera. Danh sách `GET /cameras` không có `runtime` |
 | `PUT /api/v1/cameras/{id}/roi`, `GET/PUT /api/v1/cameras/{id}/thresholds` (GET trả cả mặc định và override), `PUT /api/v1/cameras/{id}/display-mode` | F08, F28 | Cấu hình camera |
@@ -100,7 +100,7 @@ Trùng `username` (F35) dùng lại `DUPLICATE_CODE` với `details.field = "use
 | `GET /api/v1/alerts`, `GET /api/v1/alerts/{id}` | F19, F20 | Danh sách / chi tiết |
 | `POST /api/v1/alerts/{id}/acknowledge`, `.../outcome` `{outcome, note}`, `.../resolve` `{note?}` | F19 | Vòng đời cảnh báo |
 | `GET /api/v1/sessions/{id}/timeline`, `GET /api/v1/timeline?bed_id&from&to` | F22 | Timeline |
-| `GET /api/v1/shifts?include_inactive`, `GET /api/v1/handover?shift_id&date` hoặc `?from&to` | F24, F37 | Bàn giao ca (ca đã xóa vẫn tra cứu được) |
+| `GET /api/v1/shifts?include_inactive`, `GET /api/v1/handover?shift_id&date` hoặc `?from&to` | F24, F37 | `GET /shifts` trả mảng (không phân trang), mặc định chỉ ca đang dùng, sắp theo `start_time`. Bàn giao ca (ca đã xóa vẫn tra cứu được); "ca hiện tại" của tổng quan chỉ xét ca đang dùng |
 | `GET /api/v1/ws?token=` | F18 | WebSocket |
 
 ## WebSocket

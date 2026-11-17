@@ -22,7 +22,7 @@ const nurse: UserOut = {
 const bed = (id: number, code: string, is_active: boolean): BedOut => ({
   id,
   code,
-  area: 'Khu hậu phẫu',
+  area: { id: 1, code: 'KV01', name: 'Khu hậu phẫu' },
   is_active,
   camera: null,
   active_session: null,
