@@ -45,7 +45,9 @@ def test_session_timeline_order(
         headers=nurse,
     )
     client.post(f"/api/v1/alerts/{exit_alert}/resolve", headers=nurse)
-    post_event("RETURN_TO_BED", "INFO")
+    # Mốc rõ ràng sau thao tác resolve: đồng hồ Windows có độ phân giải ~15 ms nên
+    # "now" của sự kiện có thể trùng hoặc sớm hơn thời điểm ghi audit.
+    post_event("RETURN_TO_BED", "INFO", occurred_at=datetime.now(UTC) + timedelta(seconds=1))
 
     r = client.get(f"/api/v1/sessions/{old_session['id']}/timeline", headers=login("doctor"))
     assert r.status_code == 200
