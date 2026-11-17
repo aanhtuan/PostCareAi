@@ -1,0 +1,15 @@
+# Clip stock Pexels 8090730 "A person getting out of bed" (PNW Production; datasets.md §3.4).
+# Video ở data/external/pexels/pexels-8090730.mp4 (không commit), 1280×720, 24 fps, 15,3 s.
+# (giả định) ROI ước lượng bằng mắt (hiệu chỉnh dev 2026-11-18, calibration-2026-11-18.md):
+# Camera thấp sát sàn, chỉ thấy chân. Nệm (ga cam) và thành giường ở y ≈ 0–0,45 từ x ≈ 0,2
+# tới mép phải (khung 1, 6, 10, 13 s). Thân trên ngoài khung → NO_OBSERVATION là chấp nhận được.
+
+version: 1
+camera_id: 0
+roi_polygon:
+  - [0.2, 0.0]
+  - [1.0, 0.0]
+  - [1.0, 0.45]
+  - [0.2, 0.45]
+thresholds: {}
+notes: "Stock footage - diễn viên. ROI ước lượng (giả định)."

@@ -1,0 +1,15 @@
+# Clip stock Pexels 6130226 "A female patient lying in a hospital bed" (RDNE Stock project; datasets.md §3.4).
+# Video ở data/external/pexels/pexels-6130226.mp4 (không commit), 720×1280 (khung dọc), 30 fps, 7,0 s.
+# (giả định) ROI ước lượng bằng mắt (hiệu chỉnh dev 2026-11-18, calibration-2026-11-18.md):
+# Cận cảnh cầm tay; chỉ thấy đầu và ngực trên giường ở y ≈ 0,55–1,0 (khung 1, 5 s); hông ngoài
+# khung → NO_OBSERVATION là chấp nhận được.
+
+version: 1
+camera_id: 0
+roi_polygon:
+  - [0.0, 0.55]
+  - [1.0, 0.55]
+  - [1.0, 1.0]
+  - [0.0, 1.0]
+thresholds: {}
+notes: "Stock footage - diễn viên. ROI ước lượng (giả định)."

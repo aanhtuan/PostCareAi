@@ -226,9 +226,15 @@ ALL_CONDITIONS = list(DISABLE)
 @pytest.mark.parametrize("missing", ALL_CONDITIONS)
 def test_each_condition_counted(missing: str) -> None:
     """Tắt từng điều kiện C1–C5: còn 4 điều kiện → vẫn phát khi `min_conditions = 4`, và
-    `conditions_met` không còn điều kiện đã tắt; `min_conditions = 5` → không phát."""
+    `conditions_met` không còn điều kiện đã tắt; `min_conditions = 5` → không phát.
+
+    `hold_after_s` cố định bằng 2 × `activity.sample_interval_s`: tốc độ mẫu vận động đo trên bước
+    `sample_interval_s` về trước, nên với khoảng giữ ngắn (mặc định 1,0 s sau hiệu chỉnh dev
+    18/11/2026) C5 còn thấy đuôi chuyển động khi C1 tắt làm chuyển động kết thúc sớm hơn."""
     overrides: dict[str, Any] = {k: dict(v) for k, v in DISABLE[missing].items()}
-    overrides.setdefault("abnormal_movement", {})["min_conditions"] = 4
+    am_overrides = overrides.setdefault("abnormal_movement", {})
+    am_overrides["min_conditions"] = 4
+    am_overrides["hold_after_s"] = 2 * ACT.sample_interval_s
     ev = only(run_engine(fall().build(), config=cfg(overrides)), ABNORMAL)
     assert ev.explanation["conditions_met"] == [c for c in ALL_CONDITIONS if c != missing]
 
