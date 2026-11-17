@@ -1,0 +1,39 @@
+# Git hook (ADR-0006; F00 R6). Cai bang `make setup`.
+# Chi dung hook local: ruff lay tu server/.venv (uv.lock), prettier/eslint lay tu web/node_modules
+# (package-lock.json), nen hook va `make check` dung cung phien ban. Hook chi kiem tra, khong tu sua file.
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: ruff format --check (server)
+        entry: uv run --project server ruff format --check
+        language: system
+        types: [python]
+        files: ^server/
+      - id: ruff-check
+        name: ruff check (server)
+        entry: uv run --project server ruff check
+        language: system
+        types: [python]
+        files: ^server/
+      - id: prettier
+        name: prettier --check (web)
+        entry: node web/node_modules/prettier/bin/prettier.cjs --check --ignore-unknown --ignore-path web/.prettierignore
+        language: system
+        types: [text]
+        files: ^web/
+      - id: eslint
+        name: eslint (web)
+        entry: node web/node_modules/eslint/bin/eslint.js --config web/eslint.config.js --no-warn-ignored
+        language: system
+        files: ^web/.*\.(ts|tsx|js|jsx|mjs|cjs)$
+      - id: make-check
+        name: make check (pre-push)
+        entry: make check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
