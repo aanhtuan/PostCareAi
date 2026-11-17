@@ -23,6 +23,8 @@ LOST_EVENT_S = CONFIG.quality.observation_lost_event_s
 TO_NO_OBS_S = CONFIG.quality.low_quality_to_no_observation_s
 RESTORE_S = CONFIG.quality.restore_duration_s
 DEBOUNCE_S = CONFIG.debounce.same_code_same_session_s
+# Quan sát lại: cổng mở sau `restore_duration_s`, rồi LYING cần giữ `min_duration_s.LYING`.
+BACK_S = RESTORE_S + CONFIG.min_duration_s.LYING + 2
 FPS = 15
 OBS_CODES = {EventCode.OBSERVATION_LOST, EventCode.OBSERVATION_RESTORED}
 
@@ -70,7 +72,7 @@ def test_restored_only_after_lost() -> None:
     seq = (
         lying_observed()
         .drop_landmarks(seconds=TO_NO_OBS_S + LOST_EVENT_S + 1)
-        .lying(seconds=RESTORE_S + 2)
+        .lying(seconds=BACK_S)
         .build()
     )
     outs = run_engine(seq)
@@ -118,13 +120,13 @@ def test_missing_person_prolonged_never_bed_exit() -> None:
 def test_observation_lost_debounced() -> None:
     """Hai lần mất quan sát dài trong cửa sổ debounce: một LOST; RESTORED chỉ sau LOST đã phát."""
     gap = TO_NO_OBS_S + LOST_EVENT_S + 1
-    assert 2 * (gap + RESTORE_S + 2) < DEBOUNCE_S  # cả hai lần nằm trong cửa sổ debounce
+    assert 2 * (gap + BACK_S) < DEBOUNCE_S  # cả hai lần nằm trong cửa sổ debounce
     seq = (
         lying_observed()
         .drop_landmarks(seconds=gap)
-        .lying(seconds=RESTORE_S + 2)
+        .lying(seconds=BACK_S)
         .drop_landmarks(seconds=gap)
-        .lying(seconds=RESTORE_S + 2)
+        .lying(seconds=BACK_S)
         .build()
     )
     assert obs_codes(run_engine(seq)) == ["OBSERVATION_LOST", "OBSERVATION_RESTORED"]
