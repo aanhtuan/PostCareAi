@@ -5,10 +5,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from postcare.replay.writers import EventRecord, dump_line
 from typer.testing import CliRunner
 
 from postcare.cli.main import app
+from postcare.replay.writers import EventRecord, dump_line
 from postcare.schemas.enums import ObservationQuality, Priority
 from postcare.schemas.events import EngineEvent, EventCode
 from postcare.settings import SERVER_DIR

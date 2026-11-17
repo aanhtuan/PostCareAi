@@ -10,10 +10,10 @@ import os
 from pathlib import Path
 
 import pytest
-from postcare.replay.writers import EventRecord, FrameRecord
 from typer.testing import CliRunner
 
 from postcare.cli.main import app
+from postcare.replay.writers import EventRecord, FrameRecord
 from postcare.schemas.observation import FrameObservation
 from postcare.settings import REPO_ROOT
 from postcare.vision.models import load_manifest

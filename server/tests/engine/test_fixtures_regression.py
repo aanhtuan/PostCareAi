@@ -9,8 +9,8 @@ xem lại so với ground truth rồi commit.
 from pathlib import Path
 
 import pytest
-from postcare.replay.fixtures import FixtureCase, discover_fixtures, run_fixture
 
+from postcare.replay.fixtures import FixtureCase, discover_fixtures, run_fixture
 from postcare.settings import REPO_ROOT
 
 FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures"

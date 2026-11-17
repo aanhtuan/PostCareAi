@@ -3,10 +3,10 @@
 import json
 from pathlib import Path
 
-from postcare.replay.fixtures import discover_fixtures, run_fixture
 from typer.testing import CliRunner
 
 from postcare.cli.main import app
+from postcare.replay.fixtures import discover_fixtures, run_fixture
 from postcare.schemas.observation import FrameObservation
 from tests.replay.helpers import DEFAULT_ENGINE, scenario, write_camera_yaml, write_observations
 

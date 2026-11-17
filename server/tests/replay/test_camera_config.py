@@ -3,8 +3,8 @@
 from pathlib import Path
 
 import pytest
-from postcare.replay.camera_config import CameraConfigError, load_camera_config
 
+from postcare.replay.camera_config import CameraConfigError, load_camera_config
 from postcare.schemas.engine_config import EngineConfig
 from postcare.settings import REPO_ROOT
 from tests.replay.helpers import DEFAULT_ENGINE, write_camera_yaml

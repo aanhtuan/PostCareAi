@@ -4,14 +4,14 @@ import json
 from pathlib import Path
 
 import pytest
-from postcare.replay.camera_config import load_camera_config
-from postcare.replay.runner import OUTPUT_FILES, OutputExistsError, replay_video
-from postcare.replay.writers import EventRecord, FrameRecord
 from typer.testing import CliRunner
 
 from postcare.cli.main import app
 from postcare.engine import Engine
 from postcare.pipeline import process_frame
+from postcare.replay.camera_config import load_camera_config
+from postcare.replay.runner import OUTPUT_FILES, OutputExistsError, replay_video
+from postcare.replay.writers import EventRecord, FrameRecord
 from postcare.schemas.observation import FrameObservation
 from tests.replay.helpers import (
     DEFAULT_ENGINE,

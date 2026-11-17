@@ -4,12 +4,11 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from postcare.replay.camera_config import load_camera_config
-from postcare.replay.runner import replay_video
-from postcare.vision.render import draw_debug_overlay
 from typer.testing import CliRunner
 
 from postcare.cli.main import app
+from postcare.replay.camera_config import load_camera_config
+from postcare.replay.runner import replay_video
 from postcare.schemas.enums import ObservationQuality, Priority
 from postcare.schemas.events import EngineEvent, EventCode
 from postcare.schemas.state import (
@@ -20,6 +19,7 @@ from postcare.schemas.state import (
     FaceStatus,
     RestStatus,
 )
+from postcare.vision.render import draw_debug_overlay
 from tests.engine.builders import BED_ROI
 from tests.replay.helpers import (
     DEFAULT_ENGINE,
