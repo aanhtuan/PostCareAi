@@ -34,6 +34,7 @@ BACKOFF_INITIAL_S = 1.0  # (giả định) 1 s, 2 s, 4 s… tối đa 10 s
 BACKOFF_MAX_S = 10.0
 DEFAULT_MAX_READ_FAILURES = 5  # (giả định) số lần đọc lỗi liên tiếp coi là mất nguồn
 URL_TIMEOUT_MS = 5000  # (giả định) timeout mở/đọc của backend FFMPEG
+JOIN_TIMEOUT_S = 5.0  # chờ luồng đọc nền dừng khi close()
 _FPS_WINDOW = 30  # số khung cho FPS trung bình trượt
 _URL_PREFIXES = ("http://", "https://", "rtsp://")
 
@@ -124,6 +125,7 @@ class BaseSource:
         self.max_fps = max_fps
         self._on_status_change = on_status_change
         self._status = CameraStatus.UNKNOWN
+        self._status_lock = threading.RLock()
         self._ended = False
         self._next_index = 0
         self._last_ts: int | None = None
@@ -159,14 +161,19 @@ class BaseSource:
         return self._dropped
 
     def _set_status(self, status: CameraStatus, *, lost: bool = True) -> None:
-        """Đổi trạng thái và gọi callback; `lost=False` khi đóng chủ động (không đếm mất nguồn)."""
-        if status is self._status:
-            return
-        if lost and self._status is CameraStatus.ONLINE and status is CameraStatus.OFFLINE:
-            self._disconnects += 1
-        self._status = status
-        if self._on_status_change is not None:
-            self._on_status_change(status)
+        """Đổi trạng thái và gọi callback; `lost=False` khi đóng chủ động (không đếm mất nguồn).
+
+        Có khóa vì luồng đọc nền và luồng gọi `close()` cùng đổi trạng thái; callback được gọi
+        trong khóa để thứ tự callback khớp thứ tự đổi trạng thái.
+        """
+        with self._status_lock:
+            if status is self._status:
+                return
+            if lost and self._status is CameraStatus.ONLINE and status is CameraStatus.OFFLINE:
+                self._disconnects += 1
+            self._status = status
+            if self._on_status_change is not None:
+                self._on_status_change(status)
 
     def _emit(self, image: Image, ts_ms: int) -> Frame:
         # R3: ts_ms tăng ngặt; trùng hoặc lùi thì lấy ts trước + 1 ms (giả định).
@@ -325,8 +332,9 @@ class LiveSource(BaseSource):
         self._cap: Capture | None = None
         self._failures = 0
         self._backoff = BACKOFF_INITIAL_S
+        self._got_frame = False  # đã đọc được khung nào từ kết nối hiện tại chưa
         self._opened_ns = 0
-        self._last_return_ns: int | None = None
+        self._next_due_ns: int | None = None
         self._thread: threading.Thread | None = None
 
     def _dropped_count(self) -> int:
@@ -356,16 +364,27 @@ class LiveSource(BaseSource):
             item = self._buffer.take(0)
         if item is None:
             return None
-        self._last_return_ns = self._clock_ns()
+        self._advance_fps_deadline()
         return self._emit(*item)
 
     def _wait_for_fps_slot(self) -> None:
-        if not self.max_fps or self._last_return_ns is None:
+        if not self.max_fps or self._next_due_ns is None:
             return
-        due_ns = self._last_return_ns + int(1e9 / self.max_fps)
-        remaining_ns = due_ns - self._clock_ns()
+        remaining_ns = self._next_due_ns - self._clock_ns()
         if remaining_ns > 0:
             self._sleep(remaining_ns / 1e9)
+
+    def _advance_fps_deadline(self) -> None:
+        # Hạn cố định (due += chu kỳ): ngủ quá vài ms không cộng dồn làm FPS tụt dưới max_fps.
+        # Trễ quá một chu kỳ (người dùng dừng lâu) thì đồng bộ lại, không trả khung dồn dập.
+        if not self.max_fps:
+            return
+        period_ns = int(1e9 / self.max_fps)
+        now_ns = self._clock_ns()
+        if self._next_due_ns is None or now_ns - self._next_due_ns > period_ns:
+            self._next_due_ns = now_ns + period_ns
+        else:
+            self._next_due_ns += period_ns
 
     def step(self) -> None:
         """Một bước của luồng đọc: kết nối lại (có backoff) hoặc đọc một khung vào buffer."""
@@ -383,13 +402,23 @@ class LiveSource(BaseSource):
             ok, image = False, None
         if ok and image is not None:
             self._failures = 0
+            if not self._got_frame:
+                # Chỉ đặt lại backoff khi đã đọc được khung: mở được mà không đọc được
+                # (webcam bị app khác giữ) vẫn phải chờ tăng dần, không nháy ONLINE/OFFLINE.
+                self._got_frame = True
+                self._backoff = BACKOFF_INITIAL_S
             self._buffer.put(image, (self._clock_ns() - self._opened_ns) // 1_000_000)
             return
         self._failures += 1
         if self._failures >= self._max_read_failures:
             logger.warning("Mất nguồn %s, sẽ kết nối lại", self.describe())
-            self._release()
-            self._set_status(CameraStatus.OFFLINE)
+            with self._status_lock:
+                self._release()
+                if not self._stop.is_set():
+                    self._set_status(CameraStatus.OFFLINE)
+            if not self._got_frame:
+                self._sleep(self._backoff)
+                self._backoff = min(self._backoff * 2, BACKOFF_MAX_S)
 
     def _connect(self) -> bool:
         try:
@@ -397,31 +426,40 @@ class LiveSource(BaseSource):
         except cv2.error:
             logger.warning("Lỗi OpenCV khi mở %s", self.describe(), exc_info=True)
             return False
-        if not cap.isOpened():
-            cap.release()
-            return False
-        self._cap = cap
-        self._failures = 0
-        self._backoff = BACKOFF_INITIAL_S
-        self._set_status(CameraStatus.ONLINE)
-        return True
+        with self._status_lock:
+            # close() có thể đã chạy (join hết hạn) trong lúc mở bị treo: giải phóng, không ONLINE.
+            if self._stop.is_set() or not cap.isOpened():
+                cap.release()
+                return False
+            self._cap = cap
+            self._failures = 0
+            self._got_frame = False
+            self._set_status(CameraStatus.ONLINE)
+            return True
 
     def _release(self) -> None:
-        if self._cap is not None:
-            self._cap.release()
-            self._cap = None
+        with self._status_lock:
+            if self._cap is not None:
+                self._cap.release()
+                self._cap = None
 
     def _run(self) -> None:
         while not self._stop.is_set():
             self.step()
+        self._release()
 
     def close(self) -> None:
         self._stop.set()
+        reader_alive = False
         if self._thread is not None:
-            self._thread.join(timeout=5)
+            self._thread.join(timeout=JOIN_TIMEOUT_S)
+            reader_alive = self._thread.is_alive()
             self._thread = None
-        self._release()
-        self._set_status(CameraStatus.OFFLINE, lost=False)
+        with self._status_lock:
+            if not reader_alive:
+                # Luồng nền còn kẹt trong read()/mở thì để nó tự giải phóng khi thoát vòng lặp.
+                self._release()
+            self._set_status(CameraStatus.OFFLINE, lost=False)
 
 
 class WebcamSource(LiveSource):
