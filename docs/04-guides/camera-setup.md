@@ -27,7 +27,7 @@ Nguồn chính: HS §4.1 (ưu tiên). Hình tham khảo: [assets/](../00-source/
 ## 3. Checklist buổi thử (tuần 1–2)
 
 1. Dựng giường mô phỏng; đặt tripod theo 2–3 vị trí ứng viên (đầu giường lệch trái, đầu giường lệch phải, giữa cạnh dài…).
-2. Ở mỗi vị trí, stream điện thoại lên laptop; chạy `postcare probe` (F05) và, khi đã có F11, `postcare replay --preview`.
+2. Ở mỗi vị trí, stream điện thoại lên laptop; chạy `uv run postcare probe --source http://<ip>:4747/video --seconds 30` (F05; IP Webcam dùng cổng `8080`, webcam ảo dùng `--source <index>`) để ghi FPS, độ phân giải, số khung bỏ; khi đã có F11 thì chạy thêm `postcare replay --preview`.
 3. Người tham gia diễn: nằm, trở mình, ngồi dậy, ngồi mép giường, đứng cạnh giường, bước ra ngoài, quay lại.
 4. Ghi lại cho mỗi vị trí:
    - có đủ landmark vai, hông, gối, cổ chân ở mọi tư thế không;

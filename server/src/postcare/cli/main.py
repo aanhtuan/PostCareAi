@@ -1,7 +1,8 @@
-"""Lệnh CLI `postcare`: version, seed, simulate, openapi."""
+"""Lệnh CLI `postcare`: version, seed, simulate, probe, openapi."""
 
 import json
 import sys
+import time
 from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import Annotated
@@ -123,6 +124,59 @@ def simulate(
     finally:
         sim.stop()
     typer.echo("Xong. Camera sẽ chuyển 'Mất kết nối' sau vài giây khi không còn heartbeat.")
+
+
+@app.command()
+def probe(
+    source: Annotated[
+        str,
+        typer.Option(
+            help="Index webcam (0), URL http(s)/rtsp (DroidCam, IP Webcam) hoặc file video"
+        ),
+    ],
+    seconds: Annotated[float, typer.Option(help="Số giây đọc nguồn")] = 10.0,
+    max_fps: Annotated[float, typer.Option(help="Giới hạn FPS xử lý (A03)")] = 15.0,
+) -> None:
+    """Kiểm tra nguồn video (F05): in FPS thực, độ phân giải, số khung bỏ, số lần mất kết nối."""
+    from postcare.vision.camera import SourceOpenError, guess_source_type, open_source
+
+    if seconds <= 0 or max_fps <= 0:
+        raise typer.BadParameter("seconds và max-fps phải > 0")
+    kind, value = guess_source_type(source)
+    src = open_source(
+        kind,
+        value,
+        max_fps=max_fps,
+        on_status_change=lambda s: typer.echo(f"[{time.strftime('%H:%M:%S')}] Trạng thái: {s}"),
+    )
+    typer.echo(f"Nguồn: {kind} {value} (đọc {seconds:g} s, max-fps {max_fps:g})")
+    try:
+        src.open()
+    except SourceOpenError as exc:
+        typer.echo(f"Không mở được nguồn: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    started = time.monotonic()
+    try:
+        while time.monotonic() - started < seconds:
+            if src.read(timeout_s=1.0) is None and src.ended:
+                break
+    except KeyboardInterrupt:
+        typer.echo("Đã dừng.")
+    finally:
+        elapsed = time.monotonic() - started
+        src.close()
+    stats = src.stats
+    typer.echo(f"Độ phân giải: {stats.width}x{stats.height}")
+    typer.echo(f"Số khung đã xử lý: {stats.frames} (trong {elapsed:.1f} s)")
+    typer.echo(f"FPS thực (theo ts_ms): {stats.fps:.1f}")
+    typer.echo(f"FPS xử lý (đồng hồ máy): {stats.frames / elapsed if elapsed > 0 else 0:.1f}")
+    typer.echo(f"Số khung bỏ: {stats.dropped_frames}")
+    typer.echo(f"Số lần mất kết nối: {stats.disconnects}")
+    if src.ended:
+        typer.echo("Đã đọc hết file.")
+    if stats.frames == 0:
+        typer.echo("Không nhận được khung hình nào.", err=True)
+        raise typer.Exit(1)
 
 
 @app.command()

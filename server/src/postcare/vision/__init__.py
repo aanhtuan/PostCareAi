@@ -1,1 +1,1 @@
-"""Module `vision`: chưa triển khai trong prototype đề xuất (xem ADR-0010)."""
+"""Module `vision`: Camera Service (`vision.camera`, F05) và nguồn giả cho test (`vision.fake`)."""

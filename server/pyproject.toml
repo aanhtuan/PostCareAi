@@ -16,6 +16,7 @@ dependencies = [
     "tzdata>=2024.1",
     # EngineConfig đọc config/engine.default.yaml (F10); test_tooling.py cũng dùng
     "pyyaml>=6.0",
+    "opencv-contrib-python>=4.10,<5",
 ]
 
 [project.optional-dependencies]

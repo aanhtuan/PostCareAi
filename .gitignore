@@ -50,3 +50,6 @@ Thumbs.db
 
 # Claude Code: file cá nhân
 .claude/settings.local.json
+
+# Worktree tam cua AI agent
+.claude/worktrees/

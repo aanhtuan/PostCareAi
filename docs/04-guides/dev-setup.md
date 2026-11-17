@@ -81,7 +81,11 @@ HS §4.2 có nhắc DroidCam; IP Webcam (Android) là một lựa chọn tương
 2. Mở app, ghi lại địa chỉ hiển thị. *(Giả định A14)* Thường có dạng:
    - DroidCam: `http://<ip-điện-thoại>:4747/video`
    - IP Webcam: `http://<ip-điện-thoại>:8080/video`
-3. Kiểm tra: `uv run postcare probe --source http://<ip>:4747/video` (từ F05). Lệnh in FPS và độ phân giải.
+3. Kiểm tra (trong `server/`): `uv run postcare probe --source http://<ip>:4747/video` (F05). Lệnh in độ phân giải, FPS thực, số khung bỏ, số lần mất kết nối; không mở được nguồn thì exit 1.
+   - Tùy chọn: `--seconds N` (mặc định 10), `--max-fps N` (mặc định 15, A03).
+   - Loại nguồn đoán theo `--source`: số nguyên → webcam (`--source 0`); `http://`, `https://`, `rtsp://` → URL; còn lại → file video (`--source D:/PostCareAi/data/raw/clip.mp4`).
+   - Với file, `probe` đọc nhanh hết mức (không phát theo tốc độ thực) và dừng khi hết file.
+   - Đang `probe` mà tắt app điện thoại: dòng `Trạng thái: OFFLINE` hiện ra, lệnh tự kết nối lại sau 1, 2, 4… tối đa 10 s.
 4. Khai báo camera trong màn hình "Quản lý giường": loại nguồn `URL`, địa chỉ ở bước 2.
 5. Cách khác: dùng DroidCam client trên máy tính để tạo webcam ảo, rồi khai báo loại `WEBCAM` với index tương ứng.
 
