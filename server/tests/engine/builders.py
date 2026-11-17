@@ -17,7 +17,7 @@ from pathlib import Path
 from postcare.engine import Engine
 from postcare.schemas.context import EngineContext
 from postcare.schemas.engine_config import EngineConfig
-from postcare.schemas.events import EngineOutput
+from postcare.schemas.events import EngineEvent, EngineOutput
 from postcare.schemas.observation import FrameObservation, Keypoint, KeypointName, PersonPose
 from postcare.schemas.roi import RoiPolygon
 
@@ -49,6 +49,16 @@ def run_engine(
 ) -> list[EngineOutput]:
     engine = Engine(config or default_config(), context(roi))
     return [engine.process(obs) for obs in seq]
+
+
+def events(outs: Iterable[EngineOutput]) -> list[EngineEvent]:
+    """Mọi sự kiện engine phát ra, theo thứ tự (F15)."""
+    return [e for o in outs for e in o.events]
+
+
+def codes(outs: Iterable[EngineOutput]) -> list[str]:
+    """Mã các sự kiện engine phát ra, theo thứ tự (testing.md mục 2)."""
+    return [e.code.value for e in events(outs)]
 
 
 def _clamp(v: float) -> float:
@@ -253,6 +263,21 @@ class PoseSequence:
 
     def move_to(self, body: Body, seconds: float) -> "PoseSequence":
         return self._move(body, seconds)
+
+    def turn_over(self, seconds: float, degrees: float = 60) -> "PoseSequence":
+        """Trở mình khi nằm (F15): xoay đường vai/hông `degrees` độ, thân vẫn nằm yên chỗ."""
+        start = self.body
+        w = start.half_width
+        n = self._n(seconds)
+        for i in range(1, n + 1):
+            a = math.radians(degrees) * i / n
+            rotated = (
+                w[0] * math.cos(a) - w[1] * math.sin(a),
+                w[0] * math.sin(a) + w[1] * math.cos(a),
+            )
+            self.body = replace(start, half_width=rotated)
+            self._emit(self.body.person(self.image_size))
+        return self
 
     def frames(self, bodies: Iterable[Body]) -> "PoseSequence":
         """Mỗi `Body` là một frame (dùng cho chuỗi góc/vị trí tùy ý)."""
