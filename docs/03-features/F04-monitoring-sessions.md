@@ -169,7 +169,7 @@ Bằng chứng theo AC (test tự động):
 
 Chạy tay (DB `postcare_f04`, `postcare seed --reset --no-history`, uvicorn cổng 8014, script urllib): mở phiên A01/BN-001 → 201, camera 1; trùng giường → 409 `SESSION_ALREADY_OPEN` `{conflict: bed, bed_id: 1}`; trùng bệnh nhân → 409; DOCTOR mở/chuyển → 403; tạm dừng → 200, lần hai → 409 `SESSION_ALREADY_PAUSED`; config nội bộ camera 1 `capture_paused: true`; lý do rỗng → 422 `VALIDATION_ERROR`; chuyển cùng giường → 400; chuyển sang A02 → 201, `previous_session_id = 1`, `previous_bed_code = A01`, `paused_at = null`, phiên cũ `ended_at` = `started_at` phiên mới; chuyển lại phiên cũ → 409 `SESSION_ALREADY_ENDED`; chuyển sang giường đang có phiên → 409 và phiên nguồn vẫn mở; `/sessions/1/chain` → `[(1, A01, null), (2, A02, "Đổi phòng")]`; resume khi không tạm dừng → 409 `SESSION_NOT_PAUSED`; kết thúc → 200, lần hai → 409.
 
-Kiểm tra (2026-11-18): `make check` exit 0 (server 692 passed, web 77 passed, build OK); `powershell -ExecutionPolicy Bypass -File scriptsdev.ps1 check` exit 0.
+Kiểm tra (2026-11-18): `make check` exit 0 (server 692 passed, web 77 passed, build OK); `powershell -ExecutionPolicy Bypass -File scripts/dev.ps1 check` exit 0.
 
 Điều người sau cần biết:
 - Migration `0005_f04` (`down_revision = "0004"`). Nếu F37 vào `main` trước với revision khác nối sau `0004`, đổi `down_revision` của `0005_f04` sang revision của F37 khi merge (hoặc ngược lại), để Alembic chỉ có một head.
