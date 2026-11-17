@@ -4,7 +4,7 @@ Enum trạng thái nằm ở `schemas/enums.py` (một nguồn sự thật, DB v
 xuất lại để engine import từ một chỗ.
 """
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, JsonValue
 
 from postcare.schemas.enums import (
     ActivityLevel,
@@ -49,3 +49,6 @@ class BodyStateSnapshot(BaseModel):
     rest_status: RestStatus
     face_status: FaceStatus
     face_signals: FaceSignals
+    explanation: dict[str, JsonValue] | None = None
+    """Căn cứ của lần chuyển `body_state` gần nhất (F14 R10): `rule_id`, `from_state`, `to_state`,
+    `held_ms`, đặc trưng chính, có thể có `anomaly`. None ở trạng thái khởi tạo."""
