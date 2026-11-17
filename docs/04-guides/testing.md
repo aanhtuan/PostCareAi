@@ -10,7 +10,7 @@ Mục tiêu: mọi thay đổi đều được kiểm chứng tự động bằn
 | Unit: domain | pytest | `server/tests/domain/` | Có | Dùng DB test |
 | API | pytest + FastAPI TestClient | `server/tests/api/` | Có | DB `postcare_test`, rollback mỗi test |
 | Tích hợp worker ↔ API | pytest | `server/tests/integration/` | Có | Worker chạy với `FakeFrameSource` / `FakePoseAdapter` |
-| Vision (model thật) | pytest marker `vision` | `server/tests/vision/` | **Không**; chạy `make test-vision` | Cần `models/` và video trong `data/`; bỏ qua nếu thiếu |
+| Vision (model thật) | pytest marker `vision` | `server/tests/vision/` | **Không**; chạy `make test-vision` | Cần `models/` và video trong `data/`; bỏ qua nếu thiếu. Marker đăng ký trong `pyproject.toml` (`--strict-markers`); F00 có `test_placeholder.py` (luôn skip) để `pytest -m vision` trả exit 0 thay vì 5 cho tới F11 |
 | Eval | pytest | `server/tests/eval/` | Có | Dữ liệu tổng hợp nhỏ |
 | Frontend unit/component | Vitest + Testing Library | `web/src/**/*.test.tsx` | Có | Mock API |
 | Từ cấm | Vitest | `web/src/i18n/vi.test.ts` (tạo ở F00) | Có | Quét `vi.ts` theo [danh sách](../01-product/glossary.md#từ-cấm-trên-ui) |
@@ -74,7 +74,7 @@ Builder hỗ trợ thêm các thao tác: `noise(frames=2)`, `drop_landmarks(seco
 
 ## 4. Frontend
 
-- Component test cho mọi màn hình chính. Mock API bằng `msw` hoặc mock fetch *(giả định chọn msw ở F00)*.
+- Component test cho mọi màn hình chính. Mock API bằng `msw` (đã chốt ở F00): server dùng chung ở `web/src/test/msw.ts`, khởi động trong `web/src/test/setup.ts` với `onUnhandledRequest: 'error'`, mỗi test tự thêm handler bằng `server.use(...)`. Test prototype cũ thay `globalThis.fetch` bằng mock thủ công vẫn được giữ.
 - Test `vi.ts`:
   - có đủ text cho mọi `EventCode`, `BodyState`, `AlertStatus`, `AlertOutcome` (so với danh sách export từ type OpenAPI);
   - không chứa từ cấm.

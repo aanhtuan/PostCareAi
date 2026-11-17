@@ -24,7 +24,7 @@ Repo đã có một **code base chạy được** để trình bày các phần 
 |---|---|
 | API FastAPI: đăng nhập JWT, phân quyền 4 vai trò, giường/camera/bệnh nhân, phiên theo dõi, sự kiện → cảnh báo, vòng đời cảnh báo + audit, timeline, bàn giao ca, WebSocket realtime | **Phần AI và camera:** MediaPipe, Event Detection Engine, worker đọc camera, MJPEG. Thay bằng lệnh giả lập `postcare simulate` gửi dữ liệu qua đúng API nội bộ mà worker thật sẽ dùng |
 | Web React tiếng Việt: Tổng quan, Theo dõi trực tiếp (skeleton mô phỏng), Cảnh báo, Lịch sử theo dõi, Bàn giao ca, Quản lý giường | Màn hình Cấu hình camera / vẽ ROI, chế độ hiển thị, thêm/sửa danh mục trên UI |
-| SQLite mặc định (chạy ngay), hỗ trợ PostgreSQL qua `DATABASE_URL` | Alembic migration (đang dùng `create_all`), import-linter, mypy, pre-commit, CI, msw, E2E |
+| SQLite mặc định (chạy ngay), hỗ trợ PostgreSQL qua `DATABASE_URL` | Alembic migration (đang dùng `create_all`), E2E. Đã có từ F00: mypy, import-linter, pre-commit/pre-push hook, CI GitHub Actions, msw |
 | Bộ giả lập CLI: rời giường, mất quan sát, chuyển động bất thường, tín hiệu khuôn mặt, đổi tư thế | Quyền xem của người nhà (F36), quản lý tài khoản (F35), khu vực/ca trực (F37), chuyển giường (F04) |
 
 - Sự kiện do `postcare simulate` sinh ra **không** phải kết quả nhận diện AI và không phải bằng chứng chạy camera thật.
@@ -76,16 +76,18 @@ Chạy ở thư mục gốc repo. Không bắt buộc tạo `.env`: mọi biến
 
 | Việc | Có make | Không có make (PowerShell / bash) |
 |---|---|---|
-| Cài phụ thuộc | `make setup` | `uv --directory server sync` và `npm --prefix web ci` |
+| Cài phụ thuộc và git hook | `make setup` | `uv --directory server sync`, `npm --prefix web ci`, rồi `uv --directory server run pre-commit install --hook-type pre-commit --hook-type pre-push` |
 | Tạo dữ liệu mẫu | `make seed` | `uv --directory server run postcare seed` |
 
-Windows có thể dùng script thay make: `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 <lệnh>` với `<lệnh>` là `setup`, `seed`, `dev-api`, `dev-web`, `simulate`, `test`, `lint`, `format`, `check`.
+Windows có thể dùng script thay make: `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 <lệnh>` với `<lệnh>` là tên target bất kỳ của Makefile (`setup`, `dev`, `seed`, `dev-api`, `dev-web`, `simulate`, `test`, `lint`, `format`, `check`…). Danh sách đầy đủ: `make help`.
+
+`make setup` cài hook **pre-commit** (ruff format/check, prettier, eslint: chỉ kiểm tra, không tự sửa) và **pre-push** (`make check`). Hook cần `uv`, `node` và (pre-push) `make` có trong PATH.
 
 `postcare seed` **xóa và tạo lại** toàn bộ dữ liệu: 4 tài khoản, 3 ca trực, giường A01–A03 ("Khu hậu phẫu") mỗi giường một camera, bệnh nhân BN-001…BN-005, phiên đang mở cho A01–A03, vài sự kiện quá khứ cho A02 (một cảnh báo đã tiếp nhận) và A03 (cảnh báo mới) để dashboard giống phác thảo HS Hình 3. Thêm `--no-history` để chỉ tạo danh mục. Nếu API đang chạy, khởi động lại API sau khi seed.
 
 ## 3. Chạy
 
-Mở 3 terminal ở thư mục gốc:
+`make dev` chạy API và web cùng lúc (honcho, `Procfile.dev`). Hoặc mở 3 terminal ở thư mục gốc:
 
 | Terminal | Có make | Không có make |
 |---|---|---|
@@ -147,18 +149,23 @@ Test luôn dùng SQLite tạm, không cần PostgreSQL. Alembic sẽ được th
 
 | Việc | Có make | Không có make |
 |---|---|---|
-| Test (pytest + Vitest) | `make test` | `uv --directory server run pytest` và `npm --prefix web run test` |
+| Test (pytest + Vitest) | `make test` | `uv --directory server run pytest -m "not vision"` và `npm --prefix web run test` |
+| Test cần model + video | `make test-vision` | `uv --directory server run pytest -m vision` |
 | Lint (ruff + ESLint) | `make lint` | `uv --directory server run ruff check .` và `npm --prefix web run lint` |
 | Format | `make format` | `uv --directory server run ruff format .` và `npm --prefix web run format` |
-| Kiểm tra kiểu TS | `make typecheck` | `npm --prefix web run typecheck` |
-| Build web | `make build` | `npm --prefix web run build` |
+| Kiểm tra kiểu (mypy strict cho `schemas`, `engine`; tsc) | `make typecheck` | `uv --directory server run mypy` và `npm --prefix web run typecheck` |
+| Ranh giới module (import-linter) | `make lint-imports` | `uv --directory server run lint-imports` |
+| Type API còn khớp OpenAPI | `make check-api-types` | `uv --directory server run postcare openapi --out ../web/src/api/openapi.json --check` và `npm --prefix web run check-api-types` |
+| Build web | `make build-web` (alias `make build`) | `npm --prefix web run build` |
 | **Tất cả (bắt buộc xanh)** | `make check` | `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` |
 | Sinh lại type TS từ OpenAPI | `make gen-api-types` | `uv --directory server run postcare openapi --out ../web/src/api/openapi.json` rồi `npm --prefix web run gen-api-types` |
 
 ## 6. Cấu trúc thư mục
 
 ```text
-AGENTS.md  CLAUDE.md  README.md  Makefile  .env.example
+AGENTS.md  CLAUDE.md  README.md  Makefile  .env.example  Procfile.dev  .pre-commit-config.yaml
+.github/workflows/ci.yml       CI: make check (Ubuntu), dev.ps1 check (Windows)
+config/engine.default.yaml     Ngưỡng mặc định của engine (event-engine.md §6)
 scripts/dev.ps1                Lệnh tương đương Makefile cho Windows
 server/                        Python 3.12 (uv), package `postcare`
   src/postcare/
@@ -167,7 +174,7 @@ server/                        Python 3.12 (uv), package `postcare`
     domain/                    Nghiệp vụ: phiên, sự kiện→cảnh báo, vòng đời, audit,
                                overview, timeline, handover, ca trực, seed, kho RAM
     api/                       FastAPI: v1/ (REST), internal/ (worker), realtime.py (WS), deps, errors
-    cli/                       Typer: `postcare seed | simulate | openapi`; simulator.py
+    cli/                       Typer: `postcare version | seed | simulate | openapi`; simulator.py
     engine/ vision/ pipeline/ worker/ replay/ eval/   chưa triển khai (chỗ cho phần AI)
   tests/                       pytest (SQLite tạm cho mỗi test)
 web/                           React 19 + TypeScript + Vite + Mantine 8
@@ -186,6 +193,7 @@ docs/                          Tài liệu sản phẩm, kiến trúc, spec, ti�
 | `uv` / `node` / `npm` báo "is not recognized" | Terminal còn giữ PATH cũ. Tạm thời: dán `$env:Path = "$env:USERPROFILE\.local\bin;$env:USERPROFILE\.local\node\node-v24.21.0-win-x64;$env:Path"` vào terminal PowerShell (mỗi terminal mới đều phải dán lại). Lâu dài: đóng **toàn bộ** VS Code rồi mở lại. Xem thêm [mục 1](#1-yêu-cầu-cài-đặt) |
 | `npm.ps1 cannot be loaded because running scripts is disabled` | Dùng `npm.cmd …`, hoặc chạy lệnh qua `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 …` |
 | `make` không có trên Windows | Dùng cột "Không có make" hoặc `scripts\dev.ps1` |
+| Commit bị hook chặn (`ruff format --check`, `prettier --check`…) | Chạy `make format` (hoặc `scripts\dev.ps1 format`), `git add` lại rồi commit. Không dùng `--no-verify` |
 | Web báo "Mất kết nối cập nhật trực tiếp" / lỗi tải dữ liệu | API chưa chạy ở cổng 8000. Kiểm tra http://127.0.0.1:8000/api/v1/health |
 | Giả lập báo "Giường A01 chưa có phiên theo dõi" | Mở phiên ở **Quản lý giường** ("Bắt đầu theo dõi") hoặc chạy lại `seed` |
 | Giả lập báo không kết nối được API / 401 | API chưa chạy, hoặc `WORKER_TOKEN` của API và giả lập khác nhau (cùng đọc `.env` ở thư mục gốc) |
