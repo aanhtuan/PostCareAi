@@ -8,7 +8,7 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | Mã | Tên | Milestone | Ưu tiên | Nhánh | Phụ thuộc | Nguồn chính | Trạng thái |
 |---|---|---|---|---|---|---|---|
 | [F00](F00-project-skeleton.md) | Khung xương dự án | M0 | MVP | A+B+C | — | Yêu cầu người dùng; HS §6.1 | Done |
-| [F01](F01-database-foundation.md) | CSDL và migration nền | M0 | MVP | B | F00 | PDF §10, §10.1; HS §6.2 | In review |
+| [F01](F01-database-foundation.md) | CSDL và migration nền | M0 | MVP | B | F00 | PDF §10, §10.1; HS §6.2 | Done |
 | [F02](F02-auth-roles.md) | Đăng nhập và phân quyền | M0 | MVP | B+C | F01 | PDF §3; HS §2.2; QA#18 | Todo |
 | [F03](F03-bed-patient-camera-management.md) | Quản lý giường, bệnh nhân, camera | M0 | MVP | B+C | F02 | PDF §4.2, §9.1, §10.1 | Todo |
 | [F04](F04-monitoring-sessions.md) | Phiên theo dõi | M0 | MVP | B+C | F03 | PDF §4.2, §10.1; HS §6.2 | Todo |
