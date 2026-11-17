@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F13 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -140,7 +140,7 @@ Code hiện có dùng lại: `postcare/engine/pipeline.py` (khung F10: `TargetSe
    - `test_features.py` (AC1), `test_target.py` (AC2), `test_quality.py` (AC3), `test_engine_quality_gate.py` (AC4, AC5 và 4 ca âm tính của mục 6), `test_engine_static_guards.py` (AST: `postcare.engine` không import `time`/`datetime`).
 3. **`engine/geometry.py`**: `BedGeometry` (đỉnh ROI theo pixel, góc trục dài PCA), `point_in_polygon`, `signed_distance_to_edge`, `angle_to_axis_deg`.
 4. **`engine/features.py` + `engine/smoothing.py`**: `BodyFeatures` (frozen dataclass), `FeatureExtractor.update(person, obs)`, `reset()`. EMA từng keypoint dùng tới (vai, hông, gối, cổ chân; theo pixel), đặc trưng suy ra từ điểm đã làm mượt; `velocity` = (vx, vy) của `hip_center` đã làm mượt, đơn vị torso_length/giây, 0 ở frame đầu sau reset.
-5. **`engine/target.py`**: `TargetSelector.select(obs) -> TargetSelection(target, persons_in_roi, changed)`, `forget()`.
+5. **`engine/target.py`**: `TargetSelector.select(obs) -> TargetSelection(target, persons_in_roi, is_new)`, `forget()`.
 6. **`engine/quality.py`**: `assess_frame_quality` (R6) và `QualityGate` (R7, hysteresis theo `obs.ts_ms`).
 7. **`engine/engine.py`**: ghép bước 1–3 + cổng chất lượng; xóa phần tương ứng khỏi `pipeline.py`. `FrameAssessment` thêm `features` (chỉ có khi frame `GOOD`) và `observable`.
 8. **Static guard**: contract import-linter `engine-no-clock` (cấm `time`, `datetime`, `random` trong `postcare.engine`) + test AST `test_engine_static_guards.py` (bắt cả `__import__`).
@@ -177,6 +177,12 @@ Code hiện có dùng lại: `postcare/engine/pipeline.py` (khung F10: `TargetSe
 - R9: `observation_quality` đã nằm trong `BodyStateSnapshot`. `BodyStateSnapshot` chưa có trường `explanation`; đặc trưng sẽ đưa vào `explanation` của sự kiện khi F14/F15 cần.
 - Builder `server/tests/engine/builders.py`: `PoseSequence` (đủ các thao tác R10, thêm `hold`, `pose`, `move_to`, `camera_issue`, `remove_extra_people`), `person_from_px`, `frame`, `run_engine`, `default_config`, tư thế mẫu `LYING`/`SITTING`/`AT_EDGE`/`STANDING`/`OUTSIDE`/`NURSE`.
 - Không thêm khóa cấu hình, không thêm thư viện.
+
+**Review (2026-11-17): Đạt.** Đã sửa theo review (test trước):
+1. `engine/target.py`: vị trí nhớ chỉ cập nhật khi hai hông có visibility ≥ `pose.min_keypoint_visibility` (lúc nhận mới thì luôn ghi); frame bị che không kéo mục tiêu đi. Test `test_occluded_frames_do_not_drag_remembered_position` (fail trước khi sửa).
+2. Cấm thêm `importlib` trong `postcare.engine` (test AST và contract `engine-no-clock`).
+3. Test `test_square_roi_axis_is_degenerate_and_falls_back_to_horizontal` ghi lại hành vi ROI vuông (`atan2(0, 0) = 0` → trục ngang; mục 8).
+4. Mục 9 bước 5: `changed` → `is_new` cho khớp code.
 
 ## 11. Definition of Done
 
