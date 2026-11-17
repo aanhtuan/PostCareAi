@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F17 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 3 phiên |
@@ -144,7 +144,36 @@ Feature này nối engine với nghiệp vụ. Worker chạy engine realtime và
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+> Lập ngày 2026-11-18 (nhánh `feat/F17-events-alerts`).
+
+**Khảo sát:** prototype và F06 đã làm phần lớn F17.
+
+| Yêu cầu | Đã có | Bằng chứng / chỗ thiếu |
+|---|---|---|
+| R1, R2 | Migration `0002` (ADR-0010) tạo `events`, `alerts`, enum, unique `event_uid`, `alerts.event_id`, 3 index, có `downgrade`; khớp data-model.md | `tests/db/test_migrations.py::test_migrations_roundtrip`, `test_models_match_migrations`; `tests/db/test_enums_match.py::test_enums_match_schemas`. **Không cần migration mới** (cột không đổi; head vẫn `0006`) |
+| R3–R7 (worker) | F06 (spec F06 §9–10) | `tests/worker/test_worker_loop.py` (state khi đổi, `event_uid` giữ khi gửi lại, 409 bỏ, không phiên → không gửi sự kiện, phiên đổi → engine mới, UTC). Thiếu: tích hợp worker ↔ API thật với engine thật phát chuỗi rời giường (AC1, AC3) |
+| R8–R11 | `api/internal/cameras.py`, `domain/events.py` (catalog kiểm `priority`, chặn `CAMERA_*` từ worker, gắn phiên theo `occurred_at`, 409 `NO_ACTIVE_SESSION`, `CAPTURE_PAUSED` của F04) | `tests/test_events.py`. Chống trùng đồng thời dùng bắt `IntegrityError` của unique `event_uid` rồi đọc lại (tương đương `ON CONFLICT DO NOTHING`, giữ nguyên *(lệch cách cài đặt, cùng hành vi)*). Thiếu test: 401, đồng thời thật, sự kiện tới sau khi phiên đóng, `explanation`/`config_hash` lưu đúng, sự kiện ngoài cửa sổ phiên |
+| R12 | `POST …/state` giữ RAM, phát `bed.state` | `test_events.py::test_bed_state_kept_in_memory_and_published` |
+| R13–R15 | `_insert` cùng transaction, audit `alert.create` actor null, `publish_created` sau commit, `safe_publish` | `test_high_event_creates_pending_alert`, `test_publish_happens_after_commit`. Thiếu test: audit, publisher lỗi không rollback, lỗi DB không phát |
+| R16 | **Chưa có** `engine/rules/observation.py` | Làm mới |
+| R17–R19 | `domain/cameras.py` + `create_camera_event` | `test_camera_offline_creates_medium_alert_then_online`. Thiếu test: `UNKNOWN → ONLINE` không sinh, trường R18, giường không phiên vẫn có alert |
+| R20 | `GET /api/v1/events` (`api/v1/monitoring.py`, `require_staff`) | Thiếu test lọc/phân trang/`limit > 200`, DOCTOR đọc được, FAMILY 403 (F35 đã chặn, `test_family_role_default_deny.py`) |
+
+**Các bước:**
+
+1. **Test trước** (commit `test(F17): …`):
+   - `server/tests/engine/test_rules_observation.py`: `test_prolonged_no_observation_emits_observation_lost_info`, `test_restored_only_after_lost`, `test_short_occlusion_no_observation_lost` (mép giường, không `BED_EXIT`), `test_observation_lost_debounced`, mức ưu tiên từ catalog, `explanation.rule_id`, `config_hash`.
+   - `server/tests/domain/test_ingest_event.py`: `test_event_attached_to_open_session_at_occurred_at` (đến sau khi đóng phiên nhưng `occurred_at` trong phiên), sự kiện ngoài cửa sổ phiên → 409, `test_high_event_creates_pending_alert`, `test_log_info_event_no_alert`, `test_publisher_called_after_commit`, lỗi DB → không phát, publisher lỗi → dữ liệu còn, audit `alert.create`, `explanation`/`config_hash` lưu đúng.
+   - `server/tests/api/test_internal_events.py`: `test_same_event_uid_twice_single_row`, đồng thời (`real_commit`, 2 luồng), `test_engine_event_without_session_rejected`, 401, `priority` sai mã → 400, `CAMERA_OFFLINE` từ worker → 400, camera chưa gắn giường → 400.
+   - `server/tests/domain/test_camera_events.py`: `test_online_to_offline_creates_camera_offline_alert`, `test_offline_to_online_creates_camera_online_log`, `test_first_online_no_event`, giường không phiên vẫn có alert (R19), trường R18.
+   - `server/tests/api/test_events_list.py`: lọc `bed_id`, `session_id`, `from/to`, `priority`, `code`, phân trang, sắp giảm dần, `limit > 200` → 400, DOCTOR 200, FAMILY 403.
+   - `server/tests/integration/test_worker_events.py`: `test_worker_fake_exit_sequence_persists_events` (worker + `TestClient` + engine thật + `FakePoseAdapter` theo chuỗi rời giường), `test_no_active_session_sends_no_engine_events`.
+2. **Engine** `engine/rules/observation.py` (`ObservationRules`), ghép vào `RuleSet` qua debounce chung. Chuỗi `NO_OBSERVATION` tính từ frame đầu có `body_state = NO_OBSERVATION` (kể cả lúc engine khởi động *(giả định)*); phát một `OBSERVATION_LOST` mỗi chuỗi khi giữ ≥ `quality.observation_lost_event_s`; `occurred_at_ms` = đầu chuỗi; `confidence = 1.0` *(giả định: hệ thống chắc chắn là không quan sát được)*; `RESTORED` ở frame đầu thoát `NO_OBSERVATION` chỉ khi `LOST` của chuỗi đó đã **qua** debounce. Sinh lại expected fixture nếu lệch (xem lại).
+3. **API/domain:** sửa chỗ test chỉ ra (dự kiến nhỏ).
+4. **Docs:** event-engine.md (rule quan sát), api-conventions.md nếu đổi, spec §10.
+5. `make check`, `scripts\dev.ps1 check`; trạng thái In review.
+
+Không có câu hỏi chặn.
 
 ## 10. Ghi chú bàn giao
 
