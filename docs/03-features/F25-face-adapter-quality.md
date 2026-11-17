@@ -147,6 +147,8 @@ Bằng chứng AC:
 
 Phân bố `face.status` trên clip thật (80 khung đầu, 10 FPS, 40 khung chạy face, ROI cả khung, scale 1.6 ban đầu): clip cận mặt ngồi/đứng (pexels-9902443, 6130032, 6944081, 6010961) đa số `OK`; người nằm nghiêng mặt 90° (mixkit-5457, pexels-6130226) gần như toàn `NOT_VISIBLE` dù vùng đầu > 130 px (bộ phát hiện mặt kém với mặt xoay ngang); clip toàn thân xa (pexels-8860232, mixkit-48202) chủ yếu `TOO_SMALL`. Không có lỗi face ở clip nào.
 
+Kiểm tra: `make check` exit 0, `scripts/dev.ps1 check` exit 0 (lần đầu MemoryError lúc import do máy hết RAM khi nhiều tác vụ song song; chạy lại xanh), `make test-vision` 6 passed (POSTCARE_MODELS_DIR, POSTCARE_DATA_DIR trỏ về checkout chính).
+
 Người sau cần biết:
 - Worker (F06/F17) chưa truyền `face` vào `process_frame`: khi nối, tạo `FaceGate.from_config(config, open_face_adapter(models_dir / manifest.face.filename, config))` nếu `config.face.enabled`, đóng bằng `gate.close()`.
 - Engine chưa đọc `obs.face` (`face_status` trong snapshot vẫn `NOT_VISIBLE`): F26 làm.
