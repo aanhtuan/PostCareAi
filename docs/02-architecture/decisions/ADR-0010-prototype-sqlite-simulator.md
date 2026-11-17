@@ -1,6 +1,6 @@
 # ADR-0010: Prototype đề xuất dùng SQLite, create_all và bộ giả lập thay worker AI
 
-- **Trạng thái:** Chấp nhận (tạm thời, chỉ cho bản prototype đề xuất)
+- **Trạng thái:** Thay thế một phần. Mục 1 (SQLite) và mục 2 (`create_all`) bị thay bởi F01 theo [ADR-0004](ADR-0004-postgresql.md) (17/11/2026). Mục 3 (bộ giả lập) vẫn hiệu lực tới khi có worker thật
 - **Ngày:** 2026-10-12
 - **Nguồn liên quan:** yêu cầu người dùng (tạo code base chạy được để đề xuất, chưa cần phần AI); HS §8.3 (kịch bản demo); ADR-0002, ADR-0004
 
@@ -39,3 +39,4 @@ ADR-0004 chọn PostgreSQL và Alembic. ADR-0002 định nghĩa worker gửi d�
   - test chạy trên `TEST_DATABASE_URL` PostgreSQL (rollback mỗi test) như testing.md; giữ SQLite chỉ cho chạy nhanh nếu nhóm muốn.
 - **Điều kiện thay bộ giả lập:** khi F05/F06/F10–F15 xong, `postcare worker --camera-id N` gửi dữ liệu thật qua cùng API nội bộ; `postcare simulate` giữ lại làm công cụ demo/kiểm thử dự phòng (HS §8.3: video dự phòng).
 - Khi đổi lại, đánh dấu ADR này "Thay thế bởi ADR-XXXX".
+- *(Cập nhật F01, 17/11/2026)* Điều kiện quay lại PostgreSQL + Alembic đã làm: migration `0001` (bảng nền F01) và `0002` (giữ `events`, `alerts`, `cameras.last_config_hash` của prototype), API không còn `create_all`, `make db-upgrade` / `make db-seed` là lệnh thật, `make seed` thành `postcare seed --reset` (xóa và tạo lại dữ liệu demo), test chạy trên `TEST_DATABASE_URL` với rollback. SQLite đã bỏ hoàn toàn.

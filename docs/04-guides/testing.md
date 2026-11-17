@@ -62,7 +62,12 @@ Builder hỗ trợ thêm các thao tác: `noise(frames=2)`, `drop_landmarks(seco
 
 ## 3. Backend
 
-- DB test: biến `TEST_DATABASE_URL` (mặc định `postgresql+psycopg://postcare:postcare@localhost:5432/postcare_test`). Fixture `db_session` bọc transaction và rollback sau mỗi test.
+- DB test: biến `TEST_DATABASE_URL` (mặc định `postgresql+psycopg://postcare:postcare@localhost:5432/postcare_test`). Fixture trong `server/tests/conftest.py` (F01):
+  - `test_engine` (phạm vi phiên): từ chối URL trùng `DATABASE_URL` hoặc tên DB không kết thúc bằng `_test`; kết nối thử (timeout 5 s), lỗi thì **fail** kèm hướng dẫn, không skip; chạy `alembic upgrade head` một lần.
+  - `connection` + `db_session`: mỗi test một transaction ngoài, rollback sau test. Session dùng `join_transaction_mode="create_savepoint"`, nên `commit()` trong code chỉ nhả savepoint.
+  - `app` / `client`: API dùng chung connection của test (dữ liệu cũng bị rollback); đầu test chạy `TRUNCATE … RESTART IDENTITY` trong transaction để id bắt đầu từ 1.
+  - Test cần commit thật (ví dụ đọc từ kết nối thứ hai để kiểm tra "lưu trước, phát sau") đánh dấu `@pytest.mark.real_commit`; dữ liệu được dọn bằng `TRUNCATE` trước và sau test.
+- Test migration (`server/tests/db/`) chạy `downgrade base` rồi `upgrade head` trên DB test; không dùng `db_session` trong test đó.
 - Fixture `client` (TestClient), `auth_headers(role)` để test phân quyền.
 - Với mỗi endpoint ghi, test:
   - thành công;

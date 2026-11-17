@@ -66,7 +66,7 @@ flowchart LR
 | `pipeline` | Ghép `vision` + `engine` cho một khung hình (dùng chung bởi worker và replay, để offline phản ánh đúng realtime) | `vision`, `engine`, `schemas` | `api`, `db` |
 | `worker` | Vòng lặp realtime: `pipeline` + HTTP client tới API | `pipeline`, `vision`, `engine`, `schemas`, httpx | `api`, `db` |
 | `replay` / `eval` | Chạy offline trên file video; tính metric từ file JSONL/CSV | `pipeline`, `vision`, `engine`, `schemas` | `api`, `db` |
-| `db` | SQLAlchemy model, session, Alembic (`db/migrations/`) | sqlalchemy, `schemas` (enum) | `api`, `vision`, `engine` |
+| `db` | SQLAlchemy model, session, Alembic (`db/migrations/`, chạy từ code qua `db/migrate.py`) | sqlalchemy, alembic, `schemas` (enum), `settings` (URL cho Alembic) | `api`, `vision`, `engine` |
 | `domain` | Nghiệp vụ: phiên, sự kiện → cảnh báo, vòng đời cảnh báo, audit, timeline, bàn giao ca, chỉ số workflow (F29) | `db`, `schemas` | `api`, `vision`, `engine` |
 | `api` | FastAPI routers (`api.v1`, `api.internal`), auth, realtime gateway, frame buffer, kho trạng thái giường trong RAM | `domain`, `db`, `schemas` | `vision`, `engine` |
 | `cli` | Lệnh Typer: `worker`, `probe`, `replay`, `eval`, `seed`, `measure-delivery`, `workflow-report`… | tất cả | — |

@@ -19,9 +19,9 @@ Phiên bản chính xác được **khóa ở F00** bằng `server/uv.lock` và 
 | Web framework | FastAPI + Uvicorn | FastAPI ≥ 0.115 | fastapi 0.143.0, uvicorn 0.54.0 | WebSocket và OpenAPI có sẵn; tích hợp Pydantic | Django + DRF, Flask |
 | Validation | Pydantic v2 + pydantic-settings | 2.x | pydantic 2.14.1, pydantic-settings 2.15.0 | Dùng chung cho schema engine và API | dataclasses + marshmallow |
 | ORM | SQLAlchemy | 2.0.x | 2.0.54 | Ổn định, phổ biến | SQLModel |
-| Migration | Alembic | 1.x | — | Chuẩn đi cùng SQLAlchemy | — |
-| Driver DB | psycopg | 3.x | 3.3.6 (extra `postgres`) | Driver PostgreSQL chính thức thế hệ mới | psycopg2 |
-| Database | PostgreSQL | 16 | — | Nguồn chọn (PDF §10, HS §6.1); JSONB, partial unique index, `timestamptz`. Trên máy dev chạy bằng Docker image `postgres:16` (QA#34) | SQLite (chỉ cho test nhanh và prototype, ADR-0010) |
+| Migration | Alembic | 1.x | 1.20.1 (F01; `server/alembic.ini`, `db/migrations/`) | Chuẩn đi cùng SQLAlchemy | — |
+| Driver DB | psycopg | 3.x | 3.3.6 (`psycopg[binary]`, phụ thuộc chính từ F01) | Driver PostgreSQL chính thức thế hệ mới | psycopg2 |
+| Database | PostgreSQL | 16 | image `postgres:16` (máy dev, CI Ubuntu); CI Windows dùng bản PostgreSQL cài sẵn trên runner | Nguồn chọn (PDF §10, HS §6.1); JSONB, partial unique index, `timestamptz`. Trên máy dev chạy bằng Docker image `postgres:16` (QA#34) | SQLite (đã bỏ ở F01; trước đó dùng cho prototype, ADR-0010) |
 | Auth | PyJWT + pwdlib[bcrypt] | 2.x / 0.x | pyjwt 2.15.1, pwdlib 0.3.1, bcrypt 5.0.0 | Giống hướng dẫn bảo mật của FastAPI | fastapi-users, session cookie |
 | CLI | Typer | 0.x | 0.27.3 | Đơn giản, có type hint | click, argparse |
 | HTTP client (worker) | httpx | 0.x | 0.28.1 | Sync + async, keep-alive | requests |
@@ -60,7 +60,7 @@ Phiên bản chính xác được **khóa ở F00** bằng `server/uv.lock` và 
 | Container cho PostgreSQL | Docker (Docker Desktop trên Windows) | Chạy PostgreSQL 16 giống nhau trên mọi máy dev, không cần cài server (QA#34) | cài PostgreSQL native |
 | GitHub CLI | gh | Tạo PR, xem CI từ dòng lệnh | giao diện web |
 | Git hook | pre-commit (4.7.0, nhóm dev trong `server/uv.lock`) | Độc lập với AI tool. Hook pre-commit chạy format/lint (chỉ kiểm tra); hook pre-push chạy `make check`. Mọi hook là `repo: local`, dùng ruff/prettier/eslint đã khóa trong lockfile | husky, lefthook |
-| CI | GitHub Actions | Phổ biến. F00: job Ubuntu (`make setup` + `make check`) và job Windows (`scripts/dev.ps1 setup` + `check`, AGENTS.md quy tắc 10). Service Postgres thêm ở F01 | GitLab CI |
+| CI | GitHub Actions | Phổ biến. F00: job Ubuntu (`make setup` + `make check`) và job Windows (`scripts/dev.ps1 setup` + `check`, AGENTS.md quy tắc 10). F01: service `postgres:16` cho job Ubuntu, PostgreSQL cài sẵn cho job Windows, biến `TEST_DATABASE_URL` | GitLab CI |
 | Nguồn camera điện thoại | DroidCam hoặc IP Webcam | HS §4.2 [7] | camera IP |
 
 ## Cài đặt

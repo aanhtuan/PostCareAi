@@ -90,6 +90,7 @@ erDiagram
 | config_version | int | default 1 | Tăng mỗi lần sửa cấu hình (worker poll) |
 | status | enum `camera_status` | default `UNKNOWN` | `ONLINE`, `OFFLINE`, `UNKNOWN` |
 | last_seen_at | timestamptz | null | Heartbeat gần nhất |
+| last_config_hash | text | not null, default `''` | Prototype (ADR-0010, migration 0002): hash cấu hình ngưỡng gần nhất worker gửi lên; dùng cho `events.config_hash` của sự kiện camera do API sinh |
 | is_active | bool | default true | |
 
 ### monitoring_sessions (F01, logic ở F04)
@@ -206,7 +207,10 @@ Bảng chỉ INSERT; code không có hàm update hay delete.
 ## Quy ước
 
 - Thời gian lưu UTC (`timestamptz`). UI hiển thị `Asia/Ho_Chi_Minh`, định dạng `HH:mm:ss` (PDF §9.3).
-- Enum trong DB phải khớp enum trong `postcare.schemas`. Có test so sánh (F10, F17).
-- Mọi thay đổi schema đi qua migration Alembic (`server/src/postcare/db/migrations/`). Không sửa migration đã merge.
+- Enum là kiểu enum native của PostgreSQL (`user_role`, `camera_source_type`…), phải khớp enum trong `postcare.schemas`. Có test so sánh `pg_enum` với Python (`server/tests/db/test_enums_match.py`, F01; F10, F17 bổ sung). Thêm giá trị enum cần migration mới (`ALTER TYPE … ADD VALUE`).
+- Cột có `default` cũng là `NOT NULL`, trừ cột ghi rõ `null` *(giả định F01)*. Kiểu: id/FK `bigint`, chuỗi `text`, JSON `jsonb`, thời gian `timestamptz`.
+- Tên constraint theo quy ước trong `postcare/db/base.py` (`pk_<bảng>`, `uq_<bảng>_<cột>`, `fk_<bảng>_<cột>_<bảng đích>`), để migration sau tham chiếu được.
+- Mọi thay đổi schema đi qua migration Alembic (`server/src/postcare/db/migrations/`). Không sửa migration đã merge. Test `test_models_match_migrations` báo lỗi khi model và migration lệch nhau.
+- Migration hiện có: `0001` (F01: 7 bảng nền), `0002` (prototype ADR-0010: `events`, `alerts` theo mục tương ứng ở trên và cột `cameras.last_config_hash`; F17 tiếp nhận bằng migration mới).
 - Trạng thái cơ thể không lưu từng lần đổi. "Số lần đổi trạng thái" ở bàn giao ca (PDF §9.1) đếm qua các sự kiện tư thế/vị trí (F24) *(giả định)*.
 - Xóa mềm (`is_active = false`) với bảng danh mục (`beds`, `patients`, `cameras`, `areas`, `shift_definitions`, `users`), có khôi phục (QA#36). Không xóa cứng bất kỳ bảng nào; không xóa cứng sự kiện, cảnh báo hay audit. Bản ghi đã xóa vẫn giữ lịch sử, timeline, audit. Mã (`code`, `username`) duy nhất kể cả bản ghi đã xóa.
