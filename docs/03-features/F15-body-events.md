@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F15 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -34,12 +34,12 @@ Feature này sinh **sự kiện** từ chuỗi trạng thái ổn định của 
 - **R1.** Rule chỉ đọc chuỗi trạng thái ổn định, `explanation` và đặc trưng do F13–F14 cung cấp. Engine thuần, xác định *(event-engine.md mục 1)*.
 - **R2.** `SIT_UP` (INFO): `SITTING` được xác lập, và các trạng thái ổn định ngay trước đó là `RAISING` rồi `LYING` *(PDF §7.1 (tr.8–9); HS §5.2, §5.4)*.
 - **R3.** `STAND_UP` (INFO, A11): `STANDING` được xác lập, trạng thái ổn định trước đó là `SITTING` hoặc `AT_EDGE` *(HS §5.1; event-engine.md mục 5)*.
-- **R4.** `BED_EDGE` (MEDIUM): `AT_EDGE` được xác lập (đã giữ `min_duration_s.AT_EDGE`) *(PDF §7.2 (tr.9); HS §5.2, §5.4)*. Chỉ sinh khi đi ra mép từ trạng thái trong giường (`LYING`, `RAISING`, `SITTING`). Không sinh khi `AT_EDGE` đến từ `STANDING` hoặc `OUT_OF_BED` (đang quay về giường) *(giả định: cảnh báo mép giường nhằm báo người bệnh sắp rời giường, HS §2.1; tránh cảnh báo sai khi người bệnh trở lại giường)*.
+- **R4.** `BED_EDGE` (MEDIUM): `AT_EDGE` được xác lập (đã giữ `min_duration_s.AT_EDGE`) *(PDF §7.2 (tr.9); HS §5.2, §5.4)*. Chỉ sinh khi đi ra mép từ trạng thái trong giường (`LYING`, `RAISING`, `SITTING`). Không sinh khi `AT_EDGE` đến từ `STANDING` hoặc `OUT_OF_BED` (đang quay về giường) *(giả định: cảnh báo mép giường nhằm báo người bệnh sắp rời giường, HS §2.1; tránh cảnh báo sai khi người bệnh trở lại giường)*. Có sinh khi `AT_EDGE` là trạng thái ổn định đầu tiên, chưa có trạng thái quan sát nào trước đó (bắt đầu theo dõi hoặc worker khởi động lại khi người bệnh đã ở mép) *(giả định, chốt 18/11/2026 theo hướng an toàn)*.
 - **R5.** `BED_EXIT` (HIGH): `OUT_OF_BED` được xác lập (đã giữ `min_duration_s.OUT_OF_BED`) **qua chuỗi hợp lệ** `… → AT_EDGE → (STANDING) → OUT_OF_BED` *(PDF §7.2 (tr.9); HS §5.2; event-engine.md mục 4)*:
   - Chuỗi được xét trên các trạng thái ổn định, **bỏ qua** đoạn `NO_OBSERVATION` xen giữa *(giả định: nếu bị che ở mép giường rồi sau đó được quan sát rõ ở ngoài ROI đủ lâu thì vẫn là "được quan sát ra ngoài vùng giường", HS §5.2)*.
   - Điều kiện trước (event-engine.md mục 4, chốt sau review F14): trạng thái ổn định gần nhất trước `OUT_OF_BED` (bỏ qua `NO_OBSERVATION`) là `AT_EDGE` **hoặc** `STANDING`. Đứng ở mép giường luôn là `STANDING`, nên `SITTING → STANDING → OUT_OF_BED` là lần rời giường thật.
   - Đi thẳng từ `LYING`/`RAISING`/`SITTING` (state có `anomaly = "skipped_edge"`) hoặc chưa có trạng thái quan sát nào trước đó thì không sinh `BED_EXIT`.
-- **R6.** `RETURN_TO_BED` (INFO, A11): sau `OUT_OF_BED`, người mục tiêu về lại trong ROI ở trạng thái `SITTING` hoặc `LYING` và giữ ≥ `min_duration_s.RETURN_TO_BED` *(HS §5.2: "trạng thái được xác lập đủ chắc chắn"; event-engine.md mục 5)*. Có thể đi qua `STANDING`, `AT_EDGE` hoặc `NO_OBSERVATION` ở giữa *(giả định)*.
+- **R6.** `RETURN_TO_BED` (INFO, A11): sau `OUT_OF_BED`, người mục tiêu về lại trong ROI ở trạng thái `SITTING` hoặc `LYING` và giữ ≥ `min_duration_s.RETURN_TO_BED` *(HS §5.2: "trạng thái được xác lập đủ chắc chắn"; event-engine.md mục 5)*. Có thể đi qua `STANDING`, `AT_EDGE` hoặc `NO_OBSERVATION` ở giữa *(giả định)*. Chỉ cần đã `OUT_OF_BED`, nên `RETURN_TO_BED` có thể có mà **không có `BED_EXIT` trước đó** (lần ra ngoài có `skipped_edge`, hoặc bắt đầu theo dõi khi người bệnh ở ngoài rồi xác lập `OUT_OF_BED`) *(giả định)*.
 - **R7.** `POSTURE_CHANGE` (LOG): đang `LYING`, `shoulder_line_angle_deg` đổi so với hướng tham chiếu > `posture_change.shoulder_angle_delta_deg`, và hướng mới giữ ổn định ≥ `posture_change.stable_s` *(HS §5.2, §5.4; event-engine.md mục 5)*. Hướng tham chiếu được đặt lại sau mỗi lần sinh sự kiện và mỗi khi vào `LYING` *(giả định)*.
 - **R8.** Debounce *(A01; HS §5.4; event-engine.md mục 7)*:
   - Cùng `code` không phát lại trong `debounce.same_code_same_session_s` kể từ lần phát gần nhất.
@@ -108,6 +108,8 @@ Trở mình **không** sinh `ABNORMAL_MOVEMENT` được kiểm ở F23. Các ca
 ## 7. Giả định
 
 - *(giả định)* `BED_EDGE` chỉ sinh khi ra mép từ trạng thái trong giường (R4).
+- *(giả định, chốt 18/11/2026 theo hướng an toàn)* `BED_EDGE` cũng sinh khi `AT_EDGE` đầu tiên không có trạng thái quan sát nào trước đó (R4).
+- *(giả định)* `RETURN_TO_BED` có thể có mà không có `BED_EXIT` trước đó (R6).
 - *(giả định)* Chuỗi `BED_EXIT` và `RETURN_TO_BED` bỏ qua đoạn `NO_OBSERVATION` xen giữa (R5, R6).
 - *(giả định)* Hướng tham chiếu của `POSTURE_CHANGE` đặt lại sau mỗi sự kiện và khi vào `LYING` (R7).
 - *(giả định)* "Cùng phiên" của debounce là vòng đời một instance `Engine`; worker tạo Engine mới khi phiên đổi (R8, F17).
@@ -164,7 +166,13 @@ Trở mình **không** sinh `ABNORMAL_MOVEMENT` được kiểm ở F23. Các ca
 - `Debouncer(window_s).allow(key, ts_ms)` dùng chung cho F23/F26 (khóa là chuỗi).
 - Builder: `PoseSequence.turn_over(seconds, degrees=60)` (sau đó dùng `hold()`, vì `lying()` đặt lại tư thế nằm gốc), `codes(outs)`, `events(outs)`.
 - R5 sửa theo event-engine.md mục 4 (điều kiện trước BED_EXIT là `AT_EDGE` **hoặc** `STANDING`, chốt sau review F14).
-- Câu hỏi mở (không chặn): bắt đầu theo dõi khi người bệnh đã ngồi ở mép (không có trạng thái trong giường trước đó) thì không có `BED_EDGE` theo R4; cần người dùng xác nhận.
+- Câu hỏi mở về `BED_EDGE` lúc bắt đầu theo dõi đã chốt (xem review).
+
+**Review (2026-11-18): Đạt, kèm sửa:**
+1. `_IN_BED`/`_EXIT_PATH` bị lặp ở `rules/body.py`: đổi thành `IN_BED_STATES`/`EXIT_PATH_STATES` công khai ở `state_machine.py`, `rules/body.py` import (một nguồn sự thật).
+2. Chốt (coordinator, hướng an toàn): `AT_EDGE` đầu tiên không có trạng thái quan sát nào trước đó → `BED_EDGE` (R4, mục 7). Test: `test_edge_at_monitoring_start_emits_bed_edge` (đỏ trước khi sửa), `test_edge_after_occlusion_at_edge_no_new_bed_edge` (âm tính: mép → bị che → mép không phát lại).
+3. Ghi rõ ở R6, mục 7 và event-engine.md mục 5: `RETURN_TO_BED` có thể không có `BED_EXIT` trước đó. Test: `test_return_to_bed_after_skipped_edge_without_bed_exit`. Ghi chú: bắt đầu theo dõi khi người bệnh ở hẳn ngoài ROI thì engine chưa nhận mục tiêu (F13 nhận mục tiêu trong ROI), nên trường hợp này hiện chỉ xảy ra qua `skipped_edge`.
+- Đã merge `main` (không có thay đổi mới); `make check` và `scripts\dev.ps1 check` exit 0 sau khi sửa.
 
 ## 11. Definition of Done
 

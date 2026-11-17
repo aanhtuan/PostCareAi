@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pydantic import JsonValue
 
 from postcare.engine.pipeline import FrameAssessment
-from postcare.engine.state_machine import StateRecord
+from postcare.engine.state_machine import EXIT_PATH_STATES, IN_BED_STATES, StateRecord
 from postcare.schemas.engine_config import EngineConfig
 from postcare.schemas.events import EventCode
 from postcare.schemas.observation import PersonPose
@@ -22,8 +22,6 @@ MS_PER_S = 1000
 _BUFFER_SLACK_MS = 1000
 """Dư cho bộ đệm visibility (một vài frame sau mốc min_duration; không phải ngưỡng)."""
 
-_IN_BED = frozenset({BodyState.LYING, BodyState.RAISING, BodyState.SITTING})
-_EXIT_PATH = frozenset({BodyState.AT_EDGE, BodyState.STANDING})
 _STAND_FROM = frozenset({BodyState.SITTING, BodyState.AT_EDGE})
 _RETURNED = frozenset({BodyState.SITTING, BodyState.LYING})
 _STATE_FEATURE_KEYS = (
@@ -139,15 +137,16 @@ class BodyRules:
             if immediate in _STAND_FROM:
                 code = EventCode.STAND_UP
         elif to == BodyState.AT_EDGE:
-            # Chỉ khi ra mép từ trong giường; quay về qua mép (từ STANDING/OUT_OF_BED) thì không
-            # (R4)
-            if last_observed in _IN_BED:
+            # Ra mép từ trong giường, hoặc AT_EDGE đầu tiên chưa có trạng thái nào trước đó
+            # (bắt đầu theo dõi / worker khởi động lại; hướng an toàn). Quay về qua mép (từ
+            # STANDING/OUT_OF_BED) thì không (R4).
+            if last_observed is None or last_observed in IN_BED_STATES:
                 code = EventCode.BED_EDGE
         elif to == BodyState.OUT_OF_BED:
             self._awaiting_return = True
             self._return_since_ms = None
             # Điều kiện trước: AT_EDGE hoặc STANDING ngay trước, bỏ qua NO_OBSERVATION (R5)
-            if last_observed in _EXIT_PATH:
+            if last_observed in EXIT_PATH_STATES:
                 code = EventCode.BED_EXIT
                 extra["state_chain"] = _chain_since_last_exit(history)
         if code is None:
