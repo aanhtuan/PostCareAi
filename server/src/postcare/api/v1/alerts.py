@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import AwareDatetime
 from sqlalchemy.orm import Session
 
-from postcare.api.deps import get_current_user, get_publisher, get_session, require_writer
+from postcare.api.deps import get_publisher, get_session, require_staff, require_writer
 from postcare.db.models import User
 from postcare.domain import alerts as svc
 from postcare.domain.dto import AlertOut, OutcomeIn, Page, ResolveIn
@@ -12,7 +12,7 @@ from postcare.schemas.enums import AlertStatus, Priority
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 
-@router.get("", response_model=Page[AlertOut], dependencies=[Depends(get_current_user)])
+@router.get("", response_model=Page[AlertOut], dependencies=[Depends(require_staff)])
 def list_alerts(
     status: list[AlertStatus] | None = Query(None),
     bed_id: int | None = None,
@@ -35,7 +35,7 @@ def list_alerts(
     )
 
 
-@router.get("/{alert_id}", response_model=AlertOut, dependencies=[Depends(get_current_user)])
+@router.get("/{alert_id}", response_model=AlertOut, dependencies=[Depends(require_staff)])
 def get_alert(alert_id: int, db: Session = Depends(get_session)) -> AlertOut:
     return svc.get_alert(db, alert_id)
 

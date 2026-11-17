@@ -67,6 +67,8 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(Text)
     role: Mapped[UserRole] = mapped_column(pg_enum(UserRole, "user_role"))
     is_active: Mapped[bool] = _is_active()
+    # Tăng khi đặt lại mật khẩu: JWT mang `tv` khác giá trị này bị từ chối (F35, migration 0004).
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     created_at: Mapped[datetime] = _created_at()
 
 

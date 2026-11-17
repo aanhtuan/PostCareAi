@@ -37,6 +37,7 @@ EXPECTED: dict[str, dict[str, tuple[str, bool, str | None]]] = {
         "role": ("user_role", False, None),
         "is_active": ("BOOLEAN", False, "true"),
         "created_at": (TS, False, "now()"),
+        "token_version": ("INTEGER", False, "0"),  # F35, migration 0004
     },
     "patients": {
         "id": ("BIGINT", False, None),

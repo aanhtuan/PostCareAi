@@ -48,3 +48,8 @@ export type CameraStatusOut = {
 export const PRIORITIES: Priority[] = ['LOG', 'INFO', 'MEDIUM', 'HIGH'];
 export const ALERT_STATUSES: AlertStatus[] = ['PENDING', 'ACKNOWLEDGED', 'RESOLVED'];
 export const WRITE_ROLES: UserRole[] = ['NURSE', 'CHARGE_NURSE', 'ADMIN'];
+// F35: vai trò nhân viên (FAMILY không vào được giao diện nhân viên) và thứ tự hiển thị.
+export const STAFF_ROLES: UserRole[] = ['NURSE', 'CHARGE_NURSE', 'DOCTOR', 'ADMIN'];
+export const USER_ROLES: UserRole[] = [...STAFF_ROLES, 'FAMILY'];
+export type UserCreate = S['UserCreate'];
+export type UserUpdate = S['UserUpdate'];

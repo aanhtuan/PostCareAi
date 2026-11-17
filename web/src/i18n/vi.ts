@@ -20,6 +20,7 @@ const role: Record<UserRole, string> = {
   CHARGE_NURSE: 'Phụ trách ca',
   DOCTOR: 'Bác sĩ',
   ADMIN: 'Quản trị',
+  FAMILY: 'Người nhà',
 };
 
 // Catalog sự kiện (event-engine.md mục 5).
@@ -321,6 +322,42 @@ export const vi = {
     confirmEnd: 'Kết thúc phiên theo dõi của giường này?',
     started: 'Đã bắt đầu theo dõi',
     ended: 'Đã kết thúc theo dõi',
+  },
+  // Quản lý người dùng (F35). Tách khối riêng để dễ gộp với F03.
+  users: {
+    title: 'Người dùng',
+    add: 'Thêm người dùng',
+    edit: 'Sửa',
+    editTitle: 'Sửa người dùng',
+    username: 'Tên đăng nhập',
+    usernameHint: '3–64 ký tự: chữ thường không dấu, số, dấu chấm, gạch dưới, gạch ngang',
+    fullName: 'Họ tên',
+    role: 'Vai trò',
+    allRoles: 'Mọi vai trò',
+    status: { active: 'Đang dùng', locked: 'Đã khóa' },
+    statusLabel: 'Trạng thái',
+    actions: 'Thao tác',
+    password: 'Mật khẩu',
+    passwordHint: 'Tối thiểu 8 ký tự',
+    lock: 'Khóa',
+    unlock: 'Mở khóa',
+    confirmLock: 'Khóa tài khoản này? Người dùng sẽ không đăng nhập được.',
+    resetPassword: 'Đặt lại mật khẩu',
+    resetPasswordHint: 'Báo mật khẩu mới trực tiếp cho người dùng.',
+    newPassword: 'Mật khẩu mới',
+    showLocked: 'Hiện tài khoản đã khóa',
+    save: 'Lưu',
+    empty: 'Không có tài khoản nào',
+    created: 'Đã thêm người dùng',
+    updated: 'Đã lưu thay đổi',
+    locked: 'Đã khóa tài khoản',
+    unlocked: 'Đã mở khóa tài khoản',
+    passwordReset: 'Đã đặt lại mật khẩu',
+  },
+  // Người nhà (F35: trang chờ trước khi có F36).
+  family: {
+    noAccess: 'Chưa có quyền xem',
+    noAccessHint: 'Tài khoản của bạn chưa được cấp quyền xem phiên theo dõi nào.',
   },
 };
 
