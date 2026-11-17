@@ -22,7 +22,8 @@ Cách xét `ABNORMAL_MOVEMENT` *(giả định F23 R7, ghi ở event-engine.md m
    C2, C3 = so vị trí / góc thân cuối với mẫu "trước"; C4 = `hip_y` cuối / chiều cao khung hình ≥
    `final_low_position_ratio`; C5 = trung vị tốc độ mẫu vận động (cùng cách tính với chỉ số vận
    động, `engine/activity.py`) trong khoảng giữ < `activity.low_threshold`.
-   Đủ `min_conditions` → phát.
+   Đủ `min_conditions` **và** có ít nhất một điều kiện hạ thấp (C1 hoặc C4) → phát
+   *(giả định, chốt 18/11/2026)*.
 
 `occurred_at_ms` = mẫu đầu tiên trong chuyển động có tốc độ hông ≥ `hip_drop_speed_torso_per_s`,
 không có thì frame đầu có dấu hiệu nhanh. `detected_at_ms` = lúc chấm điểm.
@@ -54,6 +55,8 @@ CONDITIONS = (
     "still_after",
 )
 """C1–C5, theo thứ tự ghi trong `explanation.conditions_met`."""
+LOWERING_CONDITIONS = ("hip_drop_speed", "final_low_position")
+"""Phải có ít nhất một trong hai (C1, C4) ngoài `min_conditions` (giả định, chốt 18/11/2026)."""
 
 
 @dataclass(frozen=True)
@@ -269,12 +272,16 @@ class MovementRules:
             and still < self._act.low_threshold,
         }
         conditions_met: list[JsonValue] = [name for name in CONDITIONS if met[name]]
-        if len(conditions_met) < am.min_conditions:
+        # Bắt buộc ít nhất một điều kiện hạ thấp (C1 hoặc C4): đứng dậy nhanh từ sàn hay đi rồi
+        # dừng không phải "chuyển động nhanh xuống" (giả định, chốt 18/11/2026; ADR-0009).
+        lowered = any(met[name] for name in LOWERING_CONDITIONS)
+        if len(conditions_met) < am.min_conditions or not lowered:
             return []
         explanation: Explanation = {
             "rule_id": _rule_id(EventCode.ABNORMAL_MOVEMENT),
             "conditions_met": conditions_met,
             "min_conditions": am.min_conditions,
+            "lowering_required": True,
             "hip_drop_speed_torso_per_s": _r(motion.peak_vy),
             "displacement_torso": _r(displacement),
             "trunk_angle_change_deg": _r(trunk_change, 1),
