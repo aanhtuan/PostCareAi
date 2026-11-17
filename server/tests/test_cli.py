@@ -92,3 +92,14 @@ def test_seed_help_lists_reset_option() -> None:
     assert result.exit_code == 0, result.output
     plain = re.sub(r"\[[0-9;]*m", "", result.output)
     assert "--reset" in plain
+
+
+def test_worker_command_help_lists_camera_id() -> None:
+    """F06 R11: `postcare worker --camera-id N`."""
+    from typer.testing import CliRunner
+
+    from postcare.cli.main import app
+
+    result = CliRunner().invoke(app, ["worker", "--help"])
+    assert result.exit_code == 0, result.output
+    assert "--camera-id" in result.output

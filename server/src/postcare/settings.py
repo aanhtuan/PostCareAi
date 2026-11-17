@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     seed_password: str = "postcare"
     camera_offline_after_s: float = 5.0  # A02
     camera_watch_interval_s: float = 1.0
+    # F06: khung JPEG xem trực tiếp (A03; giả định R7, R8). API chỉ giữ khung mới nhất trong RAM.
+    frame_max_bytes: int = 2 * 1024 * 1024
+    # Worker (F06; A02, A03, ADR-0002): chu kỳ heartbeat, poll cấu hình, nhịp gửi khung, nén JPEG.
+    worker_heartbeat_interval_s: float = 2.0
+    worker_config_poll_s: float = 5.0
+    worker_frame_fps: float = 5.0
+    worker_jpeg_max_side: int = 960
+    worker_jpeg_quality: int = 70
+    worker_max_fps: float = 15.0  # A03: FPS xử lý tối đa (F05 DEFAULT_MAX_FPS)
 
     @property
     def web_origin_list(self) -> list[str]:

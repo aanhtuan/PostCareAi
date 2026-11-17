@@ -1396,6 +1396,7 @@
           "catalog"
         ],
         "summary": "Get Camera",
+        "description": "Kèm `runtime` (FPS, độ sáng, khung bỏ, trạng thái nguồn) từ heartbeat trong RAM (F06 R9).",
         "operationId": "get_camera_api_v1_cameras__camera_id__get",
         "security": [
           {
@@ -1419,7 +1420,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CameraOut"
+                  "$ref": "#/components/schemas/CameraDetailOut"
                 }
               }
             }
@@ -3547,6 +3548,58 @@
           }
         }
       }
+    },
+    "/internal/v1/cameras/{camera_id}/frame": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Frame",
+        "description": "Khung JPEG xem trực tiếp (F06 R7, R8): chỉ giữ khung mới nhất trong RAM, không ghi đĩa.",
+        "operationId": "frame_internal_v1_cameras__camera_id__frame_post",
+        "parameters": [
+          {
+            "name": "camera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Camera Id"
+            }
+          },
+          {
+            "name": "x-worker-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Worker-Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4213,6 +4266,99 @@
         ],
         "title": "CameraCreate"
       },
+      "CameraDetailOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "bed_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bed Id"
+          },
+          "bed_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bed Code"
+          },
+          "source_type": {
+            "$ref": "#/components/schemas/CameraSourceType"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "display_mode": {
+            "$ref": "#/components/schemas/DisplayMode"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CameraStatus"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "config_version": {
+            "type": "integer",
+            "title": "Config Version"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "runtime": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CameraRuntimeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "bed_id",
+          "bed_code",
+          "source_type",
+          "source",
+          "display_mode",
+          "status",
+          "last_seen_at",
+          "config_version",
+          "is_active"
+        ],
+        "title": "CameraDetailOut",
+        "description": "`GET /cameras/{id}`: thêm `runtime` (null khi chưa có heartbeat từ lúc API khởi động)."
+      },
       "CameraOut": {
         "properties": {
           "id": {
@@ -4316,6 +4462,69 @@
           "status"
         ],
         "title": "CameraRef"
+      },
+      "CameraRuntimeOut": {
+        "properties": {
+          "fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fps"
+          },
+          "brightness": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brightness"
+          },
+          "dropped_frames": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dropped Frames"
+          },
+          "source_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Status"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fps",
+          "brightness",
+          "dropped_frames",
+          "source_status",
+          "updated_at"
+        ],
+        "title": "CameraRuntimeOut",
+        "description": "Số liệu worker báo qua heartbeat, chỉ trong RAM của API (F06 R4, R9)."
       },
       "CameraSourceType": {
         "type": "string",

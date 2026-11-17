@@ -100,3 +100,21 @@ def _draw_person(out: Image, person: PersonPose, w: int, h: int, thick: int) -> 
     for name, kp in kps.items():
         if kp.visibility >= DRAW_MIN_VISIBILITY:
             cv2.circle(out, px(name), thick + 1, _JOINT, -1, cv2.LINE_AA)
+
+
+def encode_jpeg(image: Image, *, max_side: int = 960, quality: int = 70) -> bytes:
+    """Nén khung RAW thành JPEG cho xem trực tiếp (F06 R7; A03).
+
+    Thu nhỏ để cạnh dài ≤ `max_side` (không phóng to). Chỉ trả bytes trong RAM, không ghi đĩa
+    (QA#29). Chế độ BLUR / SKELETON do F28 thêm.
+    """
+    h, w = image.shape[:2]
+    longest = max(h, w)
+    if max_side > 0 and longest > max_side:
+        scale = max_side / longest
+        size = (max(1, round(w * scale)), max(1, round(h * scale)))
+        image = cv2.resize(image, size, interpolation=cv2.INTER_AREA)
+    ok, buf = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, int(quality)])
+    if not ok:
+        raise ValueError("OpenCV không nén được khung JPEG")
+    return bytes(buf.tobytes())

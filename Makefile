@@ -6,6 +6,7 @@ BED ?= A01
 SCENARIO ?= bed-exit
 SPEED ?= 1
 CAMERA ?=
+VIDEO ?=
 API_HOST ?= 0.0.0.0
 API_PORT ?= 8000
 
@@ -19,7 +20,7 @@ help:
 	@echo dev: run API and web together - honcho, Procfile.dev
 	@echo dev-api: run API on $(API_HOST):$(API_PORT) with reload
 	@echo dev-web: run Vite dev server on port 5173
-	@echo worker: run worker for one camera: make worker CAMERA=1 - F06
+	@echo worker: run worker for one camera: make worker CAMERA=1 [VIDEO=path] - F06
 	@echo seed: prototype demo - DROP all data, migrate, load base and demo data
 	@echo simulate: simulate AI worker: make simulate BED=A01 SCENARIO=bed-exit SPEED=1
 	@echo format: auto-format server and web
@@ -52,8 +53,7 @@ dev-web:
 	npm --prefix web run dev
 
 worker:
-	@echo make worker CAMERA=$(CAMERA): not implemented yet - see F06. Use make simulate meanwhile.
-	@exit 1
+	uv --directory server run postcare worker --camera-id $(CAMERA) $(if $(VIDEO),--video $(VIDEO),)
 
 seed:
 	uv --directory server run postcare seed --reset

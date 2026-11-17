@@ -3,10 +3,18 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from postcare.api.deps import get_session, require_admin, require_staff
+from postcare.api.deps import get_session, get_store, require_admin, require_staff
 from postcare.db.models import User
 from postcare.domain import catalog
-from postcare.domain.dto import CameraCreate, CameraOut, CameraUpdate, Page
+from postcare.domain.dto import (
+    CameraCreate,
+    CameraDetailOut,
+    CameraOut,
+    CameraRuntimeOut,
+    CameraUpdate,
+    Page,
+)
+from postcare.domain.runtime import RuntimeStore
 
 router = APIRouter(prefix="/cameras", tags=["catalog"])
 
@@ -28,9 +36,23 @@ def create_camera(
     return catalog.create_camera(db, body, user)
 
 
-@router.get("/{camera_id}", response_model=CameraOut, dependencies=[Depends(require_staff)])
-def get_camera(camera_id: int, db: Session = Depends(get_session)) -> CameraOut:
-    return catalog.get_camera(db, camera_id)
+@router.get("/{camera_id}", response_model=CameraDetailOut, dependencies=[Depends(require_staff)])
+def get_camera(
+    camera_id: int, db: Session = Depends(get_session), store: RuntimeStore = Depends(get_store)
+) -> CameraDetailOut:
+    """Kèm `runtime` (FPS, độ sáng, khung bỏ, trạng thái nguồn) từ heartbeat trong RAM (F06 R9)."""
+    out = catalog.get_camera(db, camera_id)
+    rt = store.find_camera(camera_id)
+    runtime = None
+    if rt is not None and rt.updated_at is not None:
+        runtime = CameraRuntimeOut(
+            fps=rt.fps,
+            brightness=rt.brightness,
+            dropped_frames=rt.dropped_frames,
+            source_status=rt.source_status,
+            updated_at=rt.updated_at,
+        )
+    return CameraDetailOut(**out.model_dump(), runtime=runtime)
 
 
 @router.patch("/{camera_id}", response_model=CameraOut)

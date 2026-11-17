@@ -58,7 +58,10 @@ Chạy hệ thống khi phát triển:
 ```bash
 make dev                    # API + web (honcho, Procfile.dev)
 make worker CAMERA=1        # worker cho camera id 1 (terminal riêng)
+make worker CAMERA=1 VIDEO=D:/clip.mp4   # phát file video như camera (nhịp thời gian thật)
 ```
+
+Worker (F06, `postcare worker --camera-id N`) đọc `API_BASE_URL`, `WORKER_TOKEN` từ `.env`, cần model pose (`make models`, hoặc `POSTCARE_MODELS_DIR`) và camera đã có ROI giường. Chu kỳ đặt trong settings: `WORKER_HEARTBEAT_INTERVAL_S` (2), `WORKER_CONFIG_POLL_S` (5), `WORKER_FRAME_FPS` (5), `WORKER_JPEG_MAX_SIDE` (960), `WORKER_JPEG_QUALITY` (70), `WORKER_MAX_FPS` (15); API: `FRAME_MAX_BYTES` (2 MB). Không có camera/model thì dùng giả lập `make simulate`.
 
 Nếu `make dev` (honcho) lỗi trên Windows, mở 2 terminal và chạy riêng `make dev-api`, `make dev-web`.
 

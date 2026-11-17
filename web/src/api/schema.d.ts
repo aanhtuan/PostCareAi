@@ -313,7 +313,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Camera */
+        /**
+         * Get Camera
+         * @description Kèm `runtime` (FPS, độ sáng, khung bỏ, trạng thái nguồn) từ heartbeat trong RAM (F06 R9).
+         */
         get: operations["get_camera_api_v1_cameras__camera_id__get"];
         put?: never;
         post?: never;
@@ -796,6 +799,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v1/cameras/{camera_id}/frame": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Frame
+         * @description Khung JPEG xem trực tiếp (F06 R7, R8): chỉ giữ khung mới nhất trong RAM, không ghi đĩa.
+         */
+        post: operations["frame_internal_v1_cameras__camera_id__frame_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1002,6 +1025,32 @@ export interface components {
             /** Bed Id */
             bed_id?: number | null;
         };
+        /**
+         * CameraDetailOut
+         * @description `GET /cameras/{id}`: thêm `runtime` (null khi chưa có heartbeat từ lúc API khởi động).
+         */
+        CameraDetailOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Bed Id */
+            bed_id: number | null;
+            /** Bed Code */
+            bed_code: string | null;
+            source_type: components["schemas"]["CameraSourceType"];
+            /** Source */
+            source: string;
+            display_mode: components["schemas"]["DisplayMode"];
+            status: components["schemas"]["CameraStatus"];
+            /** Last Seen At */
+            last_seen_at: string | null;
+            /** Config Version */
+            config_version: number;
+            /** Is Active */
+            is_active: boolean;
+            runtime?: components["schemas"]["CameraRuntimeOut"] | null;
+        };
         /** CameraOut */
         CameraOut: {
             /** Id */
@@ -1031,6 +1080,25 @@ export interface components {
             /** Name */
             name: string;
             status: components["schemas"]["CameraStatus"];
+        };
+        /**
+         * CameraRuntimeOut
+         * @description Số liệu worker báo qua heartbeat, chỉ trong RAM của API (F06 R4, R9).
+         */
+        CameraRuntimeOut: {
+            /** Fps */
+            fps: number | null;
+            /** Brightness */
+            brightness: number | null;
+            /** Dropped Frames */
+            dropped_frames: number | null;
+            /** Source Status */
+            source_status: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /**
          * CameraSourceType
@@ -2565,7 +2633,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CameraOut"];
+                    "application/json": components["schemas"]["CameraDetailOut"];
                 };
             };
             /** @description Validation Error */
@@ -3628,6 +3696,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EventIngestOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    frame_internal_v1_cameras__camera_id__frame_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-worker-token"?: string | null;
+            };
+            path: {
+                camera_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
