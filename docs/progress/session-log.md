@@ -2,6 +2,16 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-17 – Claude Code (Opus, planner) – F00
+
+- **Mục tiêu phiên:** Lập kế hoạch F00 theo plan-feature.md, xuất phát từ code prototype.
+- **Đã làm:** Khảo sát Makefile, `scripts/dev.ps1`, `server/pyproject.toml`, `api/main.py`, `cli/main.py`, test backend/frontend, cấu hình web. Ghi bảng phần đã đạt (9.1), 13 bước (9.2), test theo AC (9.3), doc cần cập nhật (9.4), rủi ro (9.5) vào spec mục 9; thêm giả định mới vào mục 7 và 2 câu hỏi mở không chặn vào mục 8. Spec, ROADMAP: F00 `Planned`; TASKS: F00 sang "Đang làm" kèm checklist. Chỉ sửa tài liệu, không chạy git, chưa commit.
+- **Kết quả kiểm tra:** Không chạy `make check` (chỉ đổi tài liệu). Khảo sát import `from postcare` cho thấy chưa có vi phạm ranh giới overview.md §3.
+- **Đang dở:** Chưa triển khai bước nào của 9.2. `docs/03-features/README.md` chưa đổi trạng thái F00 (ngoài quyền của planner).
+- **Bước tiếp theo:** test-writer viết test bước 2, 6, 7, 10 (`server/tests/test_health.py`, `test_cli.py`, `test_tooling.py`, `web/src/App.test.tsx`); implementer làm bước 1 (`uv --directory server add --dev mypy import-linter pre-commit honcho`) rồi lần lượt tới bước 13, `make check` sau mỗi bước.
+- **Blocker / câu hỏi cho người dùng:** Không chặn. Câu hỏi mở: job CI Windows; `make` trong PATH Git Bash cho pre-push; service Postgres trong CI để F01 (mặc định); bỏ alias `make build`.
+- **Giả định mới:** giữ prototype và package `cli/`; trang gốc là trang đăng nhập dùng `vi.app.name`; kiểm tra OpenAPI so JSON đã parse; hook chỉ kiểm tra không tự sửa; `test_tooling.py` giữ dev.ps1 tương đương Makefile; msw `onUnhandledRequest: 'error'` (đã ghi vào spec mục 7).
+
 ## 2026-11-17 – Claude Code (Opus) – Hợp nhất đề xuất nhóm, chốt kế hoạch tới demo dữ liệu thật
 
 - **Mục tiêu phiên:** Đánh giá hai file đề xuất của nhóm (MASTER-SPEC, Tổng hợp), gỡ mâu thuẫn, gộp vào tài liệu, xóa tài liệu lỗi thời; lập kế hoạch triển khai đầy đủ theo roadmap với dữ liệu thật thay bộ giả lập.

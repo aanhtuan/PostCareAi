@@ -30,7 +30,7 @@ Phiên bản chính xác được **khóa ở F00** bằng `server/uv.lock` và 
 | Client WebSocket (đo delivery) | websockets | 12.x+ | — | Lệnh `measure-delivery` của F29 đo thời gian WS nhận sự kiện | httpx-ws |
 | Chạy nhiều tiến trình dev | honcho | 2.x | 2.0.0 | Đọc `Procfile.dev`, chạy được trên Windows | 3 terminal riêng |
 | Lint + format | ruff | 0.x | 0.17.0 | Một công cụ cho cả lint và format | black + flake8 + isort |
-| Kiểm tra kiểu | mypy | 1.x | 2.4.1 (bản mới nhất khi khóa; mục tiêu ghi 1.x) | Strict cho `schemas` và `engine` (phần lõi) | pyright |
+| Kiểm tra kiểu | mypy | 2.x | 2.4.1 | Strict cho `schemas` và `engine` (phần lõi) | pyright |
 | Ranh giới module | import-linter | 2.x | 2.16 | Kiểm tra tự động [quy tắc import](overview.md#3-module-trong-serversrcpostcare) | review thủ công |
 | Test | pytest | 8.x | 9.1.1 (bản mới nhất khi khóa; mục tiêu ghi 8.x) | Chuẩn | unittest |
 

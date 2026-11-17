@@ -521,7 +521,7 @@ provides-extras = ["postgres"]
 dev = [
     { name = "honcho", specifier = ">=2.0" },
     { name = "import-linter", specifier = ">=2.1" },
-    { name = "mypy", specifier = ">=1.11" },
+    { name = "mypy", specifier = ">=2.4" },
     { name = "pre-commit", specifier = ">=4.0" },
     { name = "pytest", specifier = ">=8.2" },
     { name = "pyyaml", specifier = ">=6.0" },

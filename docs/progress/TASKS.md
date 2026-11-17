@@ -10,6 +10,21 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 
 ## Đang làm
 
+- **F00 – Khung xương dự án** ([spec](../03-features/F00-project-skeleton.md), nhánh `feat/F00-project-skeleton`). Trạng thái: Planned (17/11/2026). Kế hoạch ở spec mục 9; phần đã đạt sẵn ở 9.1. Vòng đời tiếp: test-writer → implementer → code-reviewer → cập nhật tiến độ → merge.
+  - [x] Lập kế hoạch (planner).
+  - [ ] 1. Thêm mypy, import-linter, pre-commit, honcho vào nhóm dev; marker `vision`; `[tool.mypy]`.
+  - [ ] 2. `test_health.py`, `test_cli.py`; router `api/v1/health.py`; lệnh `postcare version`.
+  - [ ] 3. Test giữ chỗ marker `vision` (`make test-vision` exit 0).
+  - [ ] 4. mypy strict xanh cho `schemas`, `engine`.
+  - [ ] 5. `server/.importlinter` theo overview.md §3; kiểm ca âm tính.
+  - [ ] 6. `postcare openapi --check` + script `check-api-types` (openapi-typescript `--check`).
+  - [ ] 7. msw + `App.test.tsx` + `web/.nvmrc`.
+  - [ ] 8. `config/engine.default.yaml`.
+  - [ ] 9. `Procfile.dev`.
+  - [ ] 10. `test_tooling.py`; viết lại Makefile đủ target R3; `scripts/dev.ps1` tương đương.
+  - [ ] 11. `.pre-commit-config.yaml` (pre-commit + pre-push), `make setup` cài hook.
+  - [ ] 12. `.github/workflows/ci.yml` (Ubuntu, `make setup` + `make check`, chưa có Postgres).
+  - [ ] 13. Cập nhật doc (spec 9.4), kiểm chứng thủ công AC1–AC6 trên Windows, ghi mục 10.
 - **Hợp nhất đề xuất nhóm vào tài liệu** (nhánh `docs/consolidate-proposals`). Người dùng đã duyệt kế hoạch ngày 17/11/2026 (QA#31–QA#37).
   - [x] Commit lưu hai file đề xuất gốc (`fc5a2bf`).
   - [x] QA#31–QA#37, PRD (vai trò `FAMILY`, US10–US12), glossary, tech-stack, dev-setup (Docker PostgreSQL), ROADMAP và mục lục feature (F35 vào M0, F36, F37, F31 R1–R3 ở M4).
@@ -22,8 +37,7 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 
 ## Tiếp theo
 
-- **F00 – Khung xương dự án** ([spec](../03-features/F00-project-skeleton.md)). Làm theo vòng đời: planner → test-writer → implementer → code-reviewer → cập nhật tiến độ → merge.
-  - Máy dev (17/11/2026): Git, uv 0.13.9 (Python 3.12.16), Node 24, GNU Make 4.4.1 và gh 2.104.0 (cài bản zip có kiểm tra checksum), Docker Desktop. PostgreSQL chạy bằng Docker (QA#34). GPU GTX 1650 Ti 4 GB (chỉ dùng nếu benchmark CPU không đạt, QA#35).
+- Máy dev (17/11/2026): Git, uv 0.13.9 (Python 3.12.16), Node 24, GNU Make 4.4.1 và gh 2.104.0 (cài bản zip có kiểm tra checksum), Docker Desktop. PostgreSQL chạy bằng Docker (QA#34). GPU GTX 1650 Ti 4 GB (chỉ dùng nếu benchmark CPU không đạt, QA#35).
 - Sau F00, chạy song song theo nhánh: F01 (B), F05 và F10 (A).
 
 ## Task không phải code (song song)
@@ -44,6 +58,7 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 
 - Ghi ở đây các ý tưởng ngoài spec phát sinh trong lúc làm. Không tự triển khai.
 - Dùng skill tra cứu PubMed (ví dụ `pubmed-database`) để đối chiếu PMID khi làm slide. Công cụ của nhóm, không phải chức năng sản phẩm (đề xuất nhóm 17/11/2026).
+- `npm audit` báo 8 lỗ hổng (7 moderate, 1 high) trong devDependency của web (17/11/2026). Xem từng gói, nâng phiên bản nếu không phá build; ghi kết quả vào session-log.
 
 ## Đã xong gần đây
 
