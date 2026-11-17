@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F14 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -116,7 +116,7 @@ Các ca trở mình, debounce, khuôn mặt được kiểm ở F15, F23, F26, F
 - *(giả định)* Đứng cần thêm vector hông → cổ chân thẳng theo cùng ngưỡng góc của thân.
 - *(giả định)* Tỷ lệ `torso_length` chỉ dùng khi góc báo vùng nằm.
 - *(giả định)* Frame kém (cổng chưa đóng) xen giữa làm ứng viên đếm lại từ đầu.
-- *(giả định)* `skipped_edge` đánh dấu mọi lần ra ngoài từ `LYING`/`RAISING`/`SITTING` không qua `AT_EDGE` (bỏ qua `NO_OBSERVATION`, `STANDING`).
+- *(giả định)* `skipped_edge` chỉ đánh dấu khi vào `OUT_OF_BED` thẳng từ `LYING`/`RAISING`/`SITTING` (bỏ qua `NO_OBSERVATION`), không qua `AT_EDGE` hay `STANDING`. Điều kiện trước BED_EXIT cho F15: `AT_EDGE` hoặc `STANDING` ngay trước `OUT_OF_BED`.
 
 ## 8. Câu hỏi mở
 
@@ -136,7 +136,7 @@ Các ca trở mình, debounce, khuôn mặt được kiểm ở F15, F23, F26, F
   - Đang `LYING` thì mọi góc ngoài vùng nằm (kể cả đã thẳng) là `RAISING`: rời nằm luôn qua `RAISING` (`LYING → RAISING → SITTING`, PDF §7.1) *(giả định; bổ sung khi cài đặt: với góc tăng đều, vùng 35°–55° quá ngắn so với `min_duration_s.RAISING`)*.
   - `STANDING`: thân thẳng + có gối và cổ chân nhìn thấy, gối thấp hơn hông, cổ chân thấp hơn gối, `(knee_y − hip_y) ≥ standing_hip_above_knee_ratio × (ankle_y − knee_y)` **và** vector hông → cổ chân cũng thẳng theo cùng ngưỡng góc của thân (chân duỗi, không nằm ngang) *(giả định: chặn ca suy biến khi chân nằm ngang trên giường, knee_y ≈ hip_y ≈ ankle_y)*. Thêm trường `BodyFeatures.leg_angle_deg`.
 - `engine/state_machine.py`: `BodyStateMachine` với `update(assessment, ts_ms)` (frame GOOD), `interrupt(ts_ms)` (frame kém khi cổng còn mở: xóa ứng viên, giữ trạng thái), `lose_observation(quality, ts_ms)` (cổng đóng → `NO_OBSERVATION`). Ứng viên + mốc bắt đầu; xác lập khi `ts − start ≥ min_duration_s.<đích>`. `explanation` (dict JSON) và `history` (tối đa 32 bản ghi `StateRecord(state, since_ms, explanation)`, hằng số không phải ngưỡng).
-  - `skipped_edge`: khi vào `OUT_OF_BED`, duyệt lùi lịch sử bỏ qua `NO_OBSERVATION`, `STANDING`; nếu gặp `LYING/RAISING/SITTING` trước `AT_EDGE` → `anomaly = "skipped_edge"` *(giả định: mở rộng R9 cho mọi đường ra từ trong giường không qua mép)*.
+  - `skipped_edge`: khi vào `OUT_OF_BED`, duyệt lùi lịch sử bỏ qua `NO_OBSERVATION`; gặp `AT_EDGE`/`STANDING` → hợp lệ; gặp `LYING/RAISING/SITTING` → `anomaly = "skipped_edge"` (sửa sau review, xem mục 10).
 - `BodyStateSnapshot` thêm `explanation: dict[str, JsonValue] | None = None` (explanation của lần chuyển gần nhất; `None` ở trạng thái khởi tạo) — event-engine.md mục 4 yêu cầu ghi `anomaly` "vào state". `Engine.state_history` trả lịch sử cho F15.
 - `pipeline.StateMachine` = `BodyStateMachine` (giữ tên để Engine/F13 test không đổi).
 
@@ -166,6 +166,12 @@ Các ca trở mình, debounce, khuôn mặt được kiểm ở F15, F23, F26, F
 - Builder: `raise_to_sitting`/`move_to` xoay vector vai (giữ chiều dài thân); `AT_EDGE` đổi chân thành tư thế ngồi thật (đùi gần ngang); thêm `PoseSequence.frames(bodies)`.
 - Rời `LYING` luôn qua `RAISING`, nên `raise_to_sitting(seconds=1.5)` vẫn cho `RAISING`. Ví dụ ở testing.md mục 2 (`move_to_edge(1)` rồi `standing`) không giữ `AT_EDGE` đủ 1.5 s; F15 cần chuỗi dài hơn khi viết test.
 - `FakeStateMachine` (F13) giữ lại cho test cổng chất lượng, thêm `interrupt`/`lose_observation`.
+
+**Review (2026-11-18): Cần sửa → đã sửa.**
+1. `skipped_edge` quá rộng: `SITTING → STANDING → OUT_OF_BED` (ngồi mép < 1.5 s rồi đứng dậy) bị đánh dấu, F15 có thể bỏ sót BED_EXIT thật. Sửa: chỉ đánh dấu khi không qua `AT_EDGE` hay `STANDING` (R9). Test: `test_sitting_to_standing_to_out_of_bed_is_valid_exit_path` (không anomaly), `test_lying_to_out_of_bed_marks_skipped_edge` (có anomaly). event-engine.md mục 4 ghi điều kiện trước BED_EXIT cho F15: `AT_EDGE` hoặc `STANDING` ngay trước `OUT_OF_BED`.
+2. Ví dụ ở testing.md mục 2 không đạt được (`AT_EDGE` không giữ đủ 1.5 s): sửa thời lượng theo `min_duration_s`.
+3. event-engine.md mục 4 ghi ngoại lệ "rời LYING luôn qua RAISING" (đứng ở mép từ LYING cho `AT_EDGE` trước) và hành vi giữ trạng thái ở 25°–45° khi ngả lưng từ trạng thái thân thẳng, là mục hiệu chỉnh của F16.
+- Đã merge `main` (F02, F11) vào nhánh; `make check` và `scripts\dev.ps1 check` exit 0 sau khi sửa.
 
 ## 11. Definition of Done
 

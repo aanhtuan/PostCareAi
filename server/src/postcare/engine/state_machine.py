@@ -32,7 +32,8 @@ HISTORY_SIZE = 32
 
 ANOMALY_SKIPPED_EDGE = "skipped_edge"
 _IN_BED = frozenset({BodyState.LYING, BodyState.RAISING, BodyState.SITTING})
-_SKIP_WHEN_TRACING = frozenset({BodyState.NO_OBSERVATION, BodyState.STANDING})
+_EXIT_PATH = frozenset({BodyState.AT_EDGE, BodyState.STANDING})
+"""Điều kiện trước OUT_OF_BED cho BED_EXIT (F15): đi qua AT_EDGE hoặc STANDING (R9)."""
 
 Explanation = dict[str, JsonValue]
 
@@ -151,10 +152,15 @@ class BodyStateMachine:
         return exp
 
     def _skipped_edge(self) -> bool:
-        """Ra ngoài từ trong giường mà không qua `AT_EDGE` (R9; bỏ qua NO_OBSERVATION, STANDING)."""
+        """Ra ngoài thẳng từ LYING/RAISING/SITTING, không qua AT_EDGE hay STANDING (R9).
+
+        Đoạn NO_OBSERVATION xen giữa được bỏ qua (event-engine.md mục 4).
+        """
         for record in reversed(self._history):
-            if record.state in _SKIP_WHEN_TRACING:
+            if record.state == BodyState.NO_OBSERVATION:
                 continue
+            if record.state in _EXIT_PATH:
+                return False
             return record.state in _IN_BED
         return False
 
