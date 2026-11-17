@@ -55,7 +55,7 @@ CHECK_STEPS = [
     "test",
     "build-web",
 ]
-PLACEHOLDER_TARGETS = {"worker": "F06", "db-upgrade": "F01", "db-seed": "F01", "models": "F11"}
+PLACEHOLDER_TARGETS = {"worker": "F06", "models": "F11"}
 
 
 # --------------------------------------------------------------------------- helpers
@@ -215,6 +215,26 @@ def test_placeholder_targets_exit_nonzero() -> None:
         body = "\n".join(recipes.get(target, []))
         assert re.search(r"\bexit\s+1\b", body), f"`{target}` phải trả exit khác 0"
         assert feature in body, f"`{target}` phải nhắc {feature}"
+
+
+def test_db_targets_are_real_commands() -> None:
+    """F01 R6, R7: db-upgrade chạy alembic upgrade head, db-seed gọi `postcare seed`."""
+    _, recipes, _, _ = _makefile()
+    upgrade = "\n".join(recipes.get("db-upgrade", []))
+    seed = "\n".join(recipes.get("db-seed", []))
+    assert "uv --directory server run alembic upgrade head" in upgrade, upgrade
+    assert re.search(r"uv --directory server run postcare seed\s*$", seed, re.M), seed
+    for body in (upgrade, seed):
+        assert not re.search(r"\bexit\s+1\b", body), body
+    prototype = "\n".join(recipes.get("seed", []))
+    assert "postcare seed --reset" in prototype, prototype
+
+
+def test_dev_ps1_db_tasks_match_makefile() -> None:
+    text = DEV_PS1.read_text(encoding="utf-8")
+    assert re.search(r"'db-upgrade'\s*\{[^}]*'alembic', 'upgrade', 'head'", text)
+    assert re.search(r"'db-seed'\s*\{[^}]*'postcare', 'seed'\s*\)", text)
+    assert re.search(r"'seed'\s*\{[^}]*'postcare', 'seed', '--reset'", text)
 
 
 def test_worker_takes_camera_variable() -> None:
@@ -413,6 +433,21 @@ def test_ci_runs_setup_and_check_on_ubuntu() -> None:
     assert runs.index("make setup") < runs.index("make check")
     node = [s for s in job["steps"] if str(s.get("uses", "")).startswith("actions/setup-node")]
     assert node and node[0].get("with", {}).get("node-version-file") == "web/.nvmrc"
+
+
+def test_ci_has_postgres_service_and_test_database_url() -> None:
+    """F01 R11: job Ubuntu có service postgres:16 và TEST_DATABASE_URL; job Windows có DB test."""
+    cfg = _load_yaml(ROOT / ".github" / "workflows" / "ci.yml")
+    jobs = cfg["jobs"]
+    check = jobs["check"]
+    pg = check.get("services", {}).get("postgres", {})
+    assert pg.get("image") == "postgres:16", pg
+    env = check.get("env", {})
+    assert env.get("TEST_DATABASE_URL", "").endswith("/postcare_test"), env
+    win = jobs["windows"]
+    assert win.get("env", {}).get("TEST_DATABASE_URL", "").endswith("/postcare_test")
+    win_runs = " ".join(str(s.get("run", "")) for s in win["steps"])
+    assert "postcare_test" in win_runs, "job Windows phải tạo DB postcare_test"
 
 
 def test_nvmrc_pins_node_lts() -> None:

@@ -80,3 +80,10 @@ def test_openapi_check_fails_when_endpoint_missing(tmp_path: Path) -> None:
 def test_openapi_check_fails_when_file_missing(tmp_path: Path) -> None:
     result = runner.invoke(app, ["openapi", "--out", str(tmp_path / "chua-sinh.json"), "--check"])
     assert result.exit_code != 0
+
+
+def test_seed_help_lists_reset_option() -> None:
+    """F01 R7: `postcare seed` có trong CLI; `--reset` là chế độ dữ liệu demo của prototype."""
+    result = runner.invoke(app, ["seed", "--help"])
+    assert result.exit_code == 0, result.output
+    assert "--reset" in result.output

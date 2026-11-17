@@ -4,6 +4,7 @@ import uuid
 from datetime import timedelta
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -84,6 +85,7 @@ def test_event_without_open_session_is_409(client: TestClient, post_event) -> No
     assert r.json()["error"]["code"] == "NO_ACTIVE_SESSION"
 
 
+@pytest.mark.real_commit
 def test_publish_happens_after_commit(
     app: Any,
     client: TestClient,
