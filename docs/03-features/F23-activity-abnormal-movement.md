@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F23 |
-| Trạng thái | In progress |
+| Trạng thái | In review |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -71,10 +71,10 @@ Feature này theo dõi **mức vận động** theo thời gian (ít / bình th�
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** Chỉ số vận động tính trên cửa sổ trượt, chuẩn hóa theo `torso_length`, cho ra `LOW` / `NORMAL` / `HIGH`. Mất quan sát cho ra "chưa xác định", không phải `LOW` *(HS §5.1; PDF §7 (tr.8))*. — *Kiểm chứng:* `server/tests/engine/test_activity.py` (`test_still_body_is_low`, `test_moderate_motion_is_normal`, `test_vigorous_motion_is_high`, `test_index_invariant_to_body_scale`, `test_no_observation_gives_unknown_not_low`).
-- [ ] **AC2.** `ACTIVITY_INCREASED` và `ACTIVITY_LOW_PROLONGED` sinh ở mức LOG *(HS §5.1; A11)*. — *Kiểm chứng:* `test_rules_movement.py` (`test_activity_increased_after_hold`, `test_activity_low_prolonged_after_threshold`, `test_activity_events_are_log`).
-- [ ] **AC3.** `ABNORMAL_MOVEMENT` (HIGH) sinh khi hạ thấp nhanh, dịch chuyển mạnh hoặc đổi hướng thân đột ngột, với ≥ `abnormal_movement.min_conditions` điều kiện thỏa trong cửa sổ ngắn; `explanation` ghi điều kiện nào thỏa *(HS §5.2, §5.4; PDF §7.3 (tr.9); ADR-0009)*. — *Kiểm chứng:* `test_rules_movement.py` (`test_fast_drop_emits_abnormal_movement_high`, `test_below_min_conditions_no_event`, `test_explanation_lists_conditions`).
-- [ ] **AC4.** Trở mình bình thường không sinh `ABNORMAL_MOVEMENT` *(HS §5.2)*. — *Kiểm chứng:* `test_turn_over_no_abnormal_movement`.
+- [x] **AC1.** Chỉ số vận động tính trên cửa sổ trượt, chuẩn hóa theo `torso_length`, cho ra `LOW` / `NORMAL` / `HIGH`. Mất quan sát cho ra "chưa xác định", không phải `LOW` *(HS §5.1; PDF §7 (tr.8))*. — *Kiểm chứng:* `server/tests/engine/test_activity.py` (`test_still_body_is_low`, `test_moderate_motion_is_normal`, `test_vigorous_motion_is_high`, `test_index_invariant_to_body_scale`, `test_no_observation_gives_unknown_not_low`).
+- [x] **AC2.** `ACTIVITY_INCREASED` và `ACTIVITY_LOW_PROLONGED` sinh ở mức LOG *(HS §5.1; A11)*. — *Kiểm chứng:* `test_rules_movement.py` (`test_activity_increased_after_hold`, `test_activity_low_prolonged_after_threshold`, `test_activity_events_are_log`).
+- [x] **AC3.** `ABNORMAL_MOVEMENT` (HIGH) sinh khi hạ thấp nhanh, dịch chuyển mạnh hoặc đổi hướng thân đột ngột, với ≥ `abnormal_movement.min_conditions` điều kiện thỏa trong cửa sổ ngắn; `explanation` ghi điều kiện nào thỏa *(HS §5.2, §5.4; PDF §7.3 (tr.9); ADR-0009)*. — *Kiểm chứng:* `test_rules_movement.py` (`test_fast_drop_emits_abnormal_movement_high`, `test_below_min_conditions_no_event`, `test_explanation_lists_conditions`).
+- [x] **AC4.** Trở mình bình thường không sinh `ABNORMAL_MOVEMENT` *(HS §5.2)*. — *Kiểm chứng:* `test_turn_over_no_abnormal_movement`.
 - [ ] **AC5.** Có kết quả đánh giá trên tập dev (F16) cho `ABNORMAL_MOVEMENT`, `ACTIVITY_INCREASED`, `ACTIVITY_LOW_PROLONGED` *(HS §8.2; ADR-0008)*. — *Kiểm chứng:* lệnh `postcare eval --split dev` → `reports/eval-dev-<date>.md` có các dòng này; ghi đường dẫn báo cáo ở mục 10.
 
 ## 6. Kế hoạch test
@@ -108,8 +108,14 @@ Thêm ca âm tính riêng: nằm xuống chậm từ tư thế ngồi không sin
 - *(giả định)* C4 tính theo chiều cao khung hình; C5 dùng `activity.low_threshold` (R7).
 - *(giả định)* Đổi người mục tiêu thì không xét chuyển động bất thường (R8).
 - Mức ưu tiên `ACTIVITY_*` là LOG (A11).
+- *(giả định, đổi khi làm)* Tốc độ keypoint đo trên bước `activity.sample_interval_s` (khóa mới, 1 s) chứ không giữa hai frame liền nhau, và chỉ số là **trung vị** (không phải trung bình) các mẫu trong cửa sổ. Lý do ở mục 10 (nhiễu MediaPipe; nhiễu 1–3 frame).
+- *(giả định)* C1–C5 chấm với vị trí **cuối** sau `hold_after_s` (C2, C3 so với mẫu trước chuyển động), để keypoint nhảy rồi quay về không được tính; chi tiết ở event-engine.md mục 5.
+- *(giả định)* `occurred_at_ms` = mẫu đầu tiên có tốc độ hông ≥ `hip_drop_speed_torso_per_s`; vận tốc hông chia torso lớn hơn giữa frame và mốc.
 
 ## 8. Câu hỏi mở
+
+- **Không chặn (mới, F23):** R7 không bắt buộc hướng đi xuống, nên đứng dậy nhanh từ sàn rồi đứng yên (C2 + C3 + C5), hoặc đi nhanh rồi dừng khi hông ở thấp trong khung (C2 + C4 + C5) cũng đủ 3 điều kiện. Có nên bắt buộc C1 hoặc C4 (một điều kiện "hạ thấp")? Cần người dùng chốt; hiện làm đúng chữ của R7.
+- **Không chặn (mới, F23):** `activity.low_threshold = 0,02` thấp hơn nhiễu tĩnh của MediaPipe đo được (~0,02–0,07 torso/s ở 720p, cao hơn ở 320×240), nên `ACTIVITY_LOW_PROLONGED` và C5 hiếm khi thỏa trên video thật. Đề xuất F16 hiệu chỉnh (khoảng 0,05).
 
 - **Không chặn:** C4 (`final_low_position_ratio`) chỉ có nghĩa khi camera nhìn thấy sàn cạnh giường. Nếu vị trí camera chốt ở tuần 1–2 không thấy sàn, C4 có thể luôn sai, và khi đó cần hạ `abnormal_movement.min_conditions` qua override camera. Kiểm bằng S15 trên tập dev.
 - **Không chặn (phụ thuộc ngoài code):** AC5 cần video dev của S02, S15, S16 và ground truth.
@@ -140,7 +146,40 @@ Thêm ca âm tính riêng: nằm xuống chậm từ tư thế ngồi không sin
 
 ## 10. Ghi chú bàn giao
 
-> Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+**Bằng chứng (2026-11-18, nhánh `feat/F23-activity-movement`):**
+- AC1: `server/tests/engine/test_activity.py` (`test_still_body_is_low`, `test_moderate_motion_is_normal`, `test_vigorous_motion_is_high`, `test_leg_motion_only_counts_partially`, `test_index_invariant_to_body_scale[0.5/1.5]`, `test_window_not_filled_is_unknown`, `test_no_observation_gives_unknown_not_low[low_visibility/missing]`, `test_activity_resets_after_no_observation`, `test_activity_level_in_snapshot_changes_state` (R11), `test_activity_deterministic`).
+- AC2: `test_rules_movement.py`: `test_activity_increased_after_hold`, `test_brief_high_activity_no_activity_increased`, `test_activity_low_prolonged_after_threshold`, `test_activity_low_prolonged_default_threshold` (300 s, 3 fps), `test_low_shorter_than_threshold_no_event`, `test_low_prolonged_emitted_once_per_segment`, `test_occlusion_resets_low_prolonged_counter[…]`, `test_activity_events_are_log`.
+- AC3: `test_fast_drop_emits_abnormal_movement_high` (HIGH, `occurred_at_ms` trong lúc hạ, `detected_at_ms` ≥ cuối + `hold_after_s`, `config_hash`), `test_explanation_lists_conditions`, `test_each_condition_counted[5 điều kiện]` (tắt từng điều kiện: còn 4 → phát khi `min_conditions=4`, không phát khi 5), `test_below_min_conditions_no_event`, `test_abnormal_movement_outside_roi`, `test_abnormal_movement_debounced`, `test_abnormal_movement_after_debounce_window_emitted_again`, `test_abnormal_movement_deterministic`.
+- AC4 và ca âm tính mục 6: `test_turn_over_no_abnormal_movement`, `test_keypoint_jump_1_to_3_frames_no_movement_event[1-3]`, `test_spike_to_floor_1_to_3_frames_no_abnormal_movement[1-3]` (nhiễu gần, vẫn bám mục tiêu), `test_occlusion_no_abnormal_movement_no_low_activity[…]`, `test_fast_passerby_outside_roi_no_event`, `test_two_people_in_roi_no_movement_event`, `test_target_switch_no_abnormal_movement`, `test_slow_lie_down_no_abnormal_movement`, `test_sitting_down_quickly_on_chair_no_abnormal_movement`, `test_sitting_down_quickly_on_bed_edge_no_abnormal_movement`, `test_bending_forward_no_abnormal_movement`.
+- Test viết trước, đỏ vì `Engine` chưa có `activity_index`/sự kiện vận động (commit `test(F23)`, 24 test đỏ, test cũ xanh).
+- Fixture từ clip thật (`server/tests/fixtures/`, regression `test_fixtures_regression.py`): `gmd_s1_fall12_abnormal_movement` (GMDCSA24 S1 Fall/12, ngã ngửa từ đứng, nhãn Falling 1,9–6 s → `BED_EXIT`@2,49 s, `ABNORMAL_MOVEMENT`@2,56 s) và `gmd_s1_adl06_sit_read_negative` (ADL/06 ngồi đọc sách → không sự kiện).
+- `make check` exit 0 (536 passed, 5 deselected; web 47 passed); `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0; `make test-vision` exit 0 (5 passed).
+- **AC5 chưa làm:** cần `postcare eval` (F16, đang làm song song) và video dev S02/S15/S16. Thay tạm bằng replay trên dữ liệu ngoài dưới đây.
+
+**Kiểm trên clip thật (`postcare replay --video`, model full, 15 fps; cấu hình `config/cameras/urfd-cam0.yaml`, `caucafall.yaml` (ROI gần trọn khung, giả định), `gmdcsa24-subject1.yaml`):**
+
+| Tập | Clip | `ABNORMAL_MOVEMENT` như clip gốc | Kéo dài khung cuối 5 s *(xấp xỉ "nằm yên sau đó")* |
+|---|---|---|---|
+| GMDCSA24 S1 Fall 01–16 | 16 ngã | 2/16 (11, 12; đúng khoảng Falling) | 8/16 (03, 04, 06, 11, 12, 15, 16 đúng khoảng; 10 trễ, sau khung cuối) |
+| GMDCSA24 S1 ADL 01–08 | 8 ADL | 0 | 0 |
+| URFD cam0 fall 01–08 | 8 ngã | 0/8 | 3/8 (03 đúng khoảng; 07, 08 trễ hơn mốc nằm) |
+| URFD cam0 ADL 01–08 | 8 ADL | 0 | 2 (adl01; adl03 do keypoint lỗi: torso co còn 4–12 px) |
+| CAUCAFall S1–S2 Fall* | 10 ngã | 0/10 | 1/10 |
+| CAUCAFall S1–S2 ADL (SitDown, Pickupobject, Kneel, Walk, Hop) | 10 ADL | 0 | 0 |
+
+Nguyên nhân trượt, theo thứ tự:
+1. Clip kết thúc 1–3 s sau khi ngã, trong khi rule chấm sau khi hết dấu hiệu nhanh và giữ `hold_after_s` (≈ 3,5 s sau chuyển động): nhiều ca còn đang chờ ở cuối clip với 3 dấu hiệu nhanh (GMDCSA 03–08, 15, 16). Trên camera thật người nằm lại sàn nên không bị cắt; bảng "kéo dài" ước lượng phần này nhưng lạc quan với C5.
+2. R8 nghiêm: frame `LOW_CONFIDENCE` ngay lúc ngã (URFD 01, 04, 05, 07; CAUCA FallForward, FallSitting; GMDCSA 01, 02, 13, 14 có phần thân ngoài khung) hủy cửa sổ.
+3. C5 hiếm thỏa: trung vị tốc độ sau ngã thật 0,03–0,14 torso/s > `low_threshold` 0,02 (mục 8).
+4. C4 phụ thuộc góc camera: CAUCAFall (camera cao nhìn chéo) có hông sau ngã ở ~0,55–0,6 chiều cao khung.
+
+Chỉ số vận động: với tốc độ đo giữa hai frame liền nhau, người ngồi đọc sách yên (GMDCSA ADL/07) có 0,16–0,21 torso/s (> `high_threshold`). Đo trên bước 1 s: 0,02–0,07; đi lại 0,8–1,0; ngồi dậy 0,3–0,6. Vì vậy thêm `activity.sample_interval_s` và dùng trung vị (`activity.py`).
+
+**Cho người sau:**
+- `RuleSet.evaluate(ts_ms, assessment, body_state, history, activity)` có thêm `activity` (`ActivityReading`); `FrameAssessment.target_is_new`; `Engine.activity_index`. `EventDraft` và `VisibilityBuffer` dùng chung ở `engine/rules/common.py` (`BodyEventDraft` là tên cũ).
+- Sự kiện vận động LOG xuất hiện song song với chuỗi cơ thể khi người bệnh cử động (ví dụ đi ra khỏi giường → `ACTIVITY_INCREASED`). Test F15 lọc theo mã F15. `snapshot.state_changed` cũng đổi khi `activity_level` đổi (worker gửi `state` nhiều hơn).
+- Khóa mới `activity.sample_interval_s` làm đổi `config_hash`.
+- Kịch bản dựng lại kết quả bảng trên: replay từng clip vào `runs/f23/<tên>/` rồi chạy engine trên `observations.jsonl` (`--from-observations`); script phân tích tạm không commit.
 
 ## 11. Definition of Done
 

@@ -44,7 +44,7 @@ out = run_engine(seq, config=default_config())
 assert codes(out) == ["SIT_UP", "BED_EDGE", "STAND_UP", "BED_EXIT"]
 ```
 
-Builder hỗ trợ thêm các thao tác: `noise(frames=2)`, `drop_landmarks(seconds=…)`, `add_person_outside_roi(…)`, `add_second_person_in_roi(…)`, `turn_over(…)`, `fast_drop(…)`, `face(signals={…}, seconds=…)`.
+Builder hỗ trợ thêm các thao tác: `noise(frames=2)`, `drop_landmarks(seconds=…)`, `add_person_outside_roi(…)`, `add_second_person_in_roi(…)`, `turn_over(…)`, `fast_drop(seconds, to=FLOOR)`, `limb_motion(seconds, speed_torso_per_s, whole_body=False)`, `scaled(factor)`, `face(signals={…}, seconds=…)`. Tư thế mẫu cho F23: `UPRIGHT`, `FLOOR`, `CHAIR_SEATED`, `BENT_FORWARD`. Sự kiện vận động (LOG) xuất hiện song song khi người bệnh cử động, nên test rule cơ thể chỉ so mã của F15.
 
 **Ca âm tính bắt buộc** (mỗi ca là một test có tên rõ):
 
@@ -65,6 +65,7 @@ Builder hỗ trợ thêm các thao tác: `noise(frames=2)`, `drop_landmarks(seco
 - `postcare replay --from-observations runs/<id>/observations.jsonl --camera-config <yaml> --start-s A --end-s B --save-observations server/tests/fixtures/<scenario>.jsonl --save-expected` cắt đoạn ngắn (F12). Fixture chỉ chứa các trường của `FrameObservation` (toạ độ), không ảnh, không đường dẫn video.
 - `<scenario>.expected.json` gồm `camera` (`camera_id`, `roi_polygon`, `thresholds`), `range_s`, `config_hash` (tham khảo) và `events` (`code`, `occurred_at_ms`). File do lệnh sinh ra; **xem lại so với ground truth** trước khi commit.
 - Test regression `server/tests/engine/test_fixtures_regression.py`: mỗi `*.jsonl` có `.expected.json` đi kèm → chạy engine (ngưỡng mặc định hợp nhất với `camera.thresholds`), so danh sách sự kiện. Thiếu `.expected.json` → ca bị skip kèm lý do. Đổi ngưỡng hoặc rule làm lệch sự kiện → sinh lại expected bằng lệnh trên, xem lại rồi commit cùng PR.
+- Fixture từ GMDCSA24 Subject 1 (MIT, Alam et al.; F23): `gmd_s1_fall12_abnormal_movement` (Fall/12, ngã ngửa từ tư thế đứng → `BED_EXIT`, `ABNORMAL_MOVEMENT`) và `gmd_s1_adl06_sit_read_negative` (ADL/06, ngồi trên giường đọc sách → không sự kiện).
 - Fixture tổng hợp `synthetic_sit_occluded` (builder F13: nằm, điều dưỡng ngoài ROI, ngồi dậy, mất người, nằm lại) giữ khung regression có ít nhất một ca.
 - Test replay không dùng media: `server/tests/replay/` chạy với `FakeFrameSource` + `FakePoseAdapter`. Test vision `server/tests/vision/test_replay_video.py` chạy `postcare replay --video` với model thật trên `data/external/pexels/pexels-8090735.mp4` (`make test-vision`).
 
