@@ -23,9 +23,10 @@ Hệ thống dùng MediaPipe Pose Landmarker và Face Landmarker đã huấn luy
 | Điều dưỡng / nhân viên y tế | `NURSE` | Biết giường nào có sự kiện, lúc nào, mức ưu tiên, đã có ai nhận chưa; tiếp nhận và ghi kết quả | Xem mọi màn hình; thao tác cảnh báo; mở/đóng phiên | PDF §3; HS §2.2 |
 | Phụ trách ca / quản lý khu vực | `CHARGE_NURSE` | Tổng quan nhiều giường, cảnh báo tồn đọng, lịch sử, bàn giao ca | Như NURSE + đổi chế độ hiển thị | PDF §3; HS §2.2 |
 | Bác sĩ / người có thẩm quyền | `DOCTOR` | Tra cứu timeline như nguồn tham khảo | **Chỉ đọc** | PDF §3; HS §2.2 |
-| Quản trị | `ADMIN` | Cấu hình giường, bệnh nhân, camera, ROI, ngưỡng | Toàn quyền cấu hình | *(giả định)*; PDF §9.1 (màn hình cấu hình) |
+| Quản trị | `ADMIN` | Cấu hình giường, bệnh nhân, camera, ROI, ngưỡng, khu vực, ca trực, tài khoản | Toàn quyền cấu hình | *(giả định)*; PDF §9.1 (màn hình cấu hình); QA#36 |
+| Người nhà | `FAMILY` | Biết trạng thái và diễn biến của đúng người thân khi không ở cạnh giường | **Chỉ xem** phiên được cấp quyền, ở mức chia sẻ đã được đồng ý (thông tin hoặc skeleton). Không thấy giường khác, không thao tác cảnh báo | QA#31; F36 |
 
-Bệnh nhân là người được quan sát, **không** phải người dùng. Họ được gắn với hệ thống qua giường và phiên theo dõi, không nhận diện bằng khuôn mặt (PDF §4.2).
+Bệnh nhân là người được quan sát, **không** phải người dùng. Họ được gắn với hệ thống qua giường và phiên theo dõi, không nhận diện bằng khuôn mặt (PDF §4.2). Chấp thuận cho nhân viên quan sát khác với chấp thuận chia sẻ cho người nhà (QA#31).
 
 ## 4. User story chính
 
@@ -40,6 +41,9 @@ Bệnh nhân là người được quan sát, **không** phải người dùng. 
 | US07 | Người dùng | biết khi hệ thống không quan sát đủ | không hiểu nhầm "không có cảnh báo" là "an toàn" | F13, F17, F21 |
 | US08 | Phụ trách ca | chuyển sang chế độ chỉ hiển thị skeleton | giảm hình ảnh nhận dạng phải xem | F28 |
 | US09 | Nhóm phát triển | đo P/R/F1, cảnh báo sai/giờ, latency trên video mô phỏng | chứng minh hệ thống bằng số liệu | F16, F29 |
+| US10 | Người nhà | xem trên điện thoại trạng thái và diễn biến của người thân, trong phạm vi được chia sẻ | yên tâm khi không ở cạnh giường | F36 |
+| US11 | Quản trị | thêm, sửa, xóa (mềm) và khôi phục giường, bệnh nhân, camera, khu vực, ca trực, tài khoản | quản lý danh mục mà không cần chạy seed | F03, F35, F37 |
+| US12 | Điều dưỡng | chuyển bệnh nhân sang giường khác trong một thao tác | timeline của bệnh nhân không bị đứt | F04 |
 
 ## 5. Phạm vi
 
@@ -52,17 +56,18 @@ Bệnh nhân là người được quan sát, **không** phải người dùng. 
 | Event + workflow | Lưu sự kiện, cảnh báo realtime, vòng đời cảnh báo, audit, màn hình Cảnh báo, Tổng quan realtime, Timeline, mức vận động, chuyển động bất thường, Bàn giao ca | F17–F24 |
 | Face + hoạt động | Face có điều kiện chất lượng, tín hiệu mắt/lông mày/nheo/mũi-miệng, "Biểu hiện khuôn mặt cần kiểm tra", trạng thái nghỉ/hoạt động (tham khảo) | F25–F27 |
 | Đánh giá + demo | Chế độ riêng tư, đánh giá chính thức (P/R/F1, FP/giờ, latency, coverage, FPS/CPU/RAM), chuẩn bị demo | F28–F30 |
+| Bổ sung 17/11/2026 | Quản lý tài khoản (F35), khu vực và ca trực (F37), quyền xem của người nhà (F36), hai worker đồng thời cho demo (F31 R1–R3) | F31, F35–F37; QA#31–QA#36 |
 
 **Mốc tối thiểu:** chuỗi Body AI → sự kiện → cảnh báo → xác nhận → timeline (hết M2). Nếu nhánh khuôn mặt chưa ổn định, hệ thống vẫn giữ được giá trị cốt lõi (HS §7.3; PDF §12).
 
 ### 5.2. Sau MVP
 
 Theo HS §9.2 và PDF §18:
-- F31: nhiều camera/giường chạy đồng thời.
+- F31: nhiều camera/giường chạy đồng thời. Riêng R1–R3 (hai worker trên một máy) được kéo vào demo chung kết (QA#32).
 - F32: chuyển tiếp cảnh báo chưa được tiếp nhận.
 - F33: thông báo di động.
 - F34: dashboard thống kê dài hạn theo ca.
-- F35: quản lý người dùng trên UI *(giả định)*.
+- ~~F35~~: quản lý người dùng trên UI đã chuyển vào MVP (QA#36).
 
 ### 5.3. Ngoài phạm vi (không làm)
 
@@ -70,7 +75,8 @@ Theo HS §9.2 và PDF §18:
 - Chẩn đoán đau, mất ý thức, biến chứng, nguyên nhân y khoa của chuyển động; phân loại ngủ/tỉnh (PDF §4.2; HS §9.1).
 - Nhận diện danh tính bằng khuôn mặt (PDF §4.2).
 - Tích hợp HIS, cấu hình rule theo khu vực, cảm biến phi hình ảnh (PDF §18; HS §9.2).
-- MMPose/RTMPose, Py-Feat, classifier chuyên biệt (chỉ là hướng dự phòng: PDF §6, §17; HS §5.5).
+- MMPose/RTMPose, Py-Feat, classifier chuyên biệt (chỉ là hướng dự phòng: PDF §6, §17; HS §5.5). RTMPose chỉ được viết adapter khi benchmark MediaPipe không đạt (QA#35).
+- Truy cập của người nhà từ ngoài LAN, xác minh tư cách pháp lý của người đại diện (QA#31; F36).
 - Triển khai lâm sàng (HS §6.3; PDF ghi chú cuối).
 
 ## 6. Yêu cầu chức năng tổng quát

@@ -19,6 +19,8 @@ Người dùng cần tra cứu lại diễn biến của một phiên theo dõi 
 
 Feature này làm API timeline gồm cả sự kiện lẫn thao tác cảnh báo, và màn hình "Lịch sử theo dõi" dạng "14:38:12 - Bệnh nhân ngồi dậy" (PDF §9.3 (tr.12)). Màn hình lọc được theo giường và thời gian, xem được người tiếp nhận, và ghi kết quả kiểm tra ngay tại đó (HS Hình 3). Đây là bước cuối của mốc tối thiểu Body AI → sự kiện → cảnh báo → xác nhận → timeline (HS §7.3; demo HS §8.3). Timeline không thay thế hồ sơ bệnh án (HS §2.2; PDF §3 (tr.5)).
 
+> **Liên quan F04/F36 (bổ sung 17/11/2026):** sau khi chuyển giường, timeline của bệnh nhân nối các phiên qua `previous_session_id` ([F04](F04-monitoring-sessions.md)). Người nhà chỉ xem timeline của phiên được cấp quyền ([F36](F36-family-access.md)).
+
 ## 2. Phạm vi
 
 **Trong phạm vi**

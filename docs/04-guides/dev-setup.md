@@ -1,6 +1,6 @@
 # Cài đặt môi trường phát triển
 
-Hỗ trợ **Windows 10/11 / Windows Server** và **Linux (Ubuntu)**. Chỉ cần CPU (HS §7.2).
+Hỗ trợ **Windows 10/11 / Windows Server** và **Linux (Ubuntu)**. Chỉ cần CPU (HS §7.2). GPU NVIDIA là tùy chọn, chỉ dùng khi benchmark CPU không đạt (QA#35).
 
 > Các lệnh cài bằng `winget` / `choco` dưới đây là *(giả định)* tên gói phổ biến. Kiểm tra lại khi chạy. Nếu tên gói khác, cập nhật file này.
 
@@ -9,11 +9,13 @@ Hỗ trợ **Windows 10/11 / Windows Server** và **Linux (Ubuntu)**. Chỉ cầ
 | Công cụ | Phiên bản | Windows | Ubuntu |
 |---|---|---|---|
 | Git | ≥ 2.40 | `winget install Git.Git` | `sudo apt install git` |
-| GNU Make | ≥ 4 | `winget install ezwinports.make` hoặc `choco install make` | `sudo apt install make` |
+| GNU Make | ≥ 4 | `winget install ezwinports.make` hoặc `choco install make`. Không có winget: tải `make-4.4.1-without-guile-w32-bin.zip` từ SourceForge ezwinports, so SHA1 với trang tải, giải nén vào `%USERPROFILE%\.local\make` và thêm `bin` vào PATH | `sudo apt install make` |
+| Docker | mới nhất | Docker Desktop | `sudo apt install docker.io` |
+| GitHub CLI | mới nhất | `winget install GitHub.cli`, hoặc zip `gh_<ver>_windows_amd64.zip` từ GitHub Releases, kiểm tra với `checksums.txt` | `sudo apt install gh` |
 | uv | mới nhất | `powershell -c "irm https://astral.sh/uv/install.ps1 \| iex"` | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | Python 3.12 | qua uv | `uv python install 3.12` | `uv python install 3.12` |
 | Node.js | 24 LTS (hoặc 22 LTS) | `winget install OpenJS.NodeJS.LTS` | dùng nvm hoặc NodeSource |
-| PostgreSQL | 16 | `winget install PostgreSQL.PostgreSQL.16` | `sudo apt install postgresql-16` (hoặc docker, mục 4) |
+| PostgreSQL | 16 | **Docker (mục 4, mặc định, QA#34)**; hoặc `winget install PostgreSQL.PostgreSQL.16` | Docker (mục 4) hoặc `sudo apt install postgresql-16` |
 | pre-commit | qua uv | cài tự động bởi `make setup` | như Windows |
 
 **Lưu ý trên Windows:**
@@ -50,13 +52,19 @@ make worker CAMERA=1        # worker cho camera id 1 (terminal riêng)
 
 Nếu `make dev` (honcho) lỗi trên Windows, mở 2 terminal và chạy riêng `make dev-api`, `make dev-web`.
 
-## 4. PostgreSQL bằng Docker (tùy chọn, Linux)
+## 4. PostgreSQL bằng Docker (mặc định, Windows và Linux)
+
+Mở Docker Desktop (Windows) trước, rồi chạy một lần:
 
 ```bash
 docker run -d --name postcare-db -e POSTGRES_USER=postcare -e POSTGRES_PASSWORD=postcare \
-  -e POSTGRES_DB=postcare -p 5432:5432 postgres:16
+  -e POSTGRES_DB=postcare -p 5432:5432 -v postcare-pgdata:/var/lib/postgresql/data postgres:16
 docker exec -it postcare-db createdb -U postcare postcare_test
 ```
+
+Trong `.env`: `DATABASE_URL=postgresql+psycopg://postcare:postcare@localhost:5432/postcare`.
+
+Các lần sau chỉ cần `docker start postcare-db`. Dữ liệu nằm trong volume `postcare-pgdata`; xóa hẳn bằng `docker rm -f postcare-db` rồi `docker volume rm postcare-pgdata`.
 
 ## 5. Dùng điện thoại làm camera
 

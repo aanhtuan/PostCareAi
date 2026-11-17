@@ -75,6 +75,20 @@
 |---|---|---|---|
 | QA#30 | Tài liệu đầu ra | Theo cấu trúc `docs/` ở [AGENTS.md](../../AGENTS.md); báo cáo metric sinh tự động ở `reports/` | Yêu cầu người dùng; HS §8.2 |
 
+## I. Quyết định bổ sung ngày 17/11/2026
+
+Các quyết định dưới đây có sau khi nhóm đề xuất mở rộng (đã gộp vào [pitch-and-evidence.md](pitch-and-evidence.md) và [DEMO-PLAN.md](../progress/DEMO-PLAN.md)). Bản gốc của hai đề xuất (`POSTCARE-AI-MASTER-SPEC.md`, viết tắt "MS", và `PostCare-AI-Tong-hop.md`) được lưu trong lịch sử git ở commit `fc5a2bf`: `git show fc5a2bf:POSTCARE-AI-MASTER-SPEC.md`. Chúng thay thế phần tương ứng của các QA ở trên khi có khác biệt.
+
+| # | Câu hỏi | Quyết định | Nguồn |
+|---|---|---|---|
+| QA#31 | Người nhà | Thêm vai trò `FAMILY` vào phạm vi chính. Người nhà chỉ xem đúng phiên của người thân, ở mức đã được chia sẻ, có cấp/thu hồi quyền và audit. Chấp thuận quan sát khác chấp thuận chia sẻ. Spec: F36 | Yêu cầu người dùng (2026-11-17); đề xuất nhóm |
+| QA#32 | Số camera trong demo | Chung kết: một camera live (A01) và một clip phát lại (A02) chạy cùng lúc qua cùng pipeline, mỗi giường một tiến trình worker. Làm F31 R1–R3. Chỉ tuyên bố hai camera live khi đã thử thật. Thay một phần QA#13 | Yêu cầu người dùng (2026-11-17) |
+| QA#33 | Dữ liệu ngoài | Trước khi nhóm tự quay, dùng dataset và stock footage có giấy phép phù hợp (xem [datasets.md](../04-guides/datasets.md)). Kết quả trên dữ liệu ngoài phải ghi nguồn nhãn. Nguồn cấm trình chiếu chỉ dùng nội bộ. Bổ sung QA#27 | Yêu cầu người dùng (2026-11-17) |
+| QA#34 | PostgreSQL trên máy dev | Chạy PostgreSQL 16 bằng Docker (xem [dev-setup.md](../04-guides/dev-setup.md)). Thay câu "Docker không bắt buộc" của QA#23 cho máy dev Windows | Yêu cầu người dùng (2026-11-17) |
+| QA#35 | Model pose | MediaPipe Pose là model chính. Chọn biến thể Lite / Full / Heavy bằng benchmark trên máy dev (CPU). MediaPipe Python trên Windows không có GPU, nên GPU delegate qua WSL2 là phương án tăng tốc. RTMPose (ONNX Runtime CUDA) chỉ là adapter dự phòng. Không dùng MoveNet | Yêu cầu người dùng (2026-11-17); PDF §6; HS §5.5; ADR-0003 |
+| QA#36 | Xóa danh mục | Chỉ xóa mềm (`is_active = false`), có khôi phục. Bản ghi đã xóa vẫn giữ lịch sử, timeline, audit. Quản lý gồm giường, bệnh nhân, camera (F03), tài khoản (F35, nay là MVP), khu vực và ca trực (F37), chuyển bệnh nhân giữa giường (F04) | Yêu cầu người dùng (2026-11-17) |
+| QA#37 | Hai loại độ trễ | "Độ trễ phát hiện" tính từ lúc hành động tới lúc sự kiện hiện trên màn hình, đã gồm `min_duration`. "Delivery latency" (A07, < 1 giây) chỉ tính từ lúc lưu DB tới lúc web nhận. Báo cáo ghi riêng hai số | evaluation.md; đề xuất nhóm |
+
 ## Danh sách giả định kỹ thuật dùng chung
 
 Các giá trị dưới đây đều là *(giả định)*. Chúng nằm trong file cấu hình, có thể chỉnh sau khi đo thực tế.
@@ -93,6 +107,6 @@ Các giá trị dưới đây đều là *(giả định)*. Chúng nằm trong f
 | A10 | JWT hết hạn sau 8 giờ (bằng một ca) | F02 |
 | A11 | STAND_UP và RETURN_TO_BED mức Thông tin; ACTIVITY_* mức Nhật ký; OBSERVATION_LOST mức Thông tin; CAMERA_OFFLINE mức Cần chú ý | F15, F17, F23 |
 | A12 | Ánh xạ thẻ giường: có cảnh báo PENDING → "Cảnh báo mới"; có cảnh báo ACKNOWLEDGED chưa xử lý hoặc đang "Không đủ dữ liệu quan sát" → "Cần kiểm tra"; còn lại → "Đang theo dõi" | F21 |
-| A13 | GNU Make cài trên Windows qua `winget` hoặc `choco`; Node 24 LTS (nếu chưa là LTS thì dùng 22 LTS) | F00 |
+| A13 | GNU Make cài trên Windows qua `winget` hoặc `choco`, hoặc bản zip ezwinports có kiểm tra checksum khi không có winget; Node 24 LTS (nếu chưa là LTS thì dùng 22 LTS) | F00 |
 | A14 | DroidCam / IP Webcam cung cấp URL MJPEG mà OpenCV đọc được | F05 |
 | A15 | Trang bàn giao ca in được bằng print CSS | F24 |

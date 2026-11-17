@@ -4,14 +4,14 @@
 |---|---|
 | Mã | F31 |
 | Trạng thái | Todo |
-| Ưu tiên | Sau MVP |
-| Milestone | Sau MVP |
+| Ưu tiên | MVP cho R1–R3; phần còn lại Sau MVP |
+| Milestone | M4 (R1–R3) / Sau MVP |
 | Ước lượng | 3 phiên |
-| Phụ thuộc | F30 |
+| Phụ thuộc | F06, F17 |
 | Nhánh code | A (vision/engine) + B (backend) |
-| Nguồn | HS §9.2, §2.2; PDF §18 (tr.18); conflicts C01; QA#13 |
+| Nguồn | HS §9.2, §2.2; PDF §18 (tr.18); conflicts C01; QA#13; QA#32 |
 
-> Spec ngắn, ở mức định hướng. **Sẽ chi tiết hóa khi bắt đầu** (sau khi MVP một giường ổn định, HS §9.2).
+> Spec ngắn, ở mức định hướng. **Sẽ chi tiết hóa khi bắt đầu.** Theo QA#32, R1–R3 được làm ở M4 để demo chung kết chạy cùng lúc A01 (camera live) và A02 (clip phát lại, `FILE --realtime`). Chỉ tuyên bố "hai camera live" khi đã thử hai camera thật trên cùng phần cứng.
 
 ## 1. Mục tiêu
 

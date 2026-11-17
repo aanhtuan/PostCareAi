@@ -33,7 +33,9 @@ Xem [docs/01-product/PRD.md](docs/01-product/PRD.md).
 | Quyết định kiến trúc (ADR) | `docs/02-architecture/decisions/` |
 | Danh sách feature và spec | `docs/03-features/README.md` |
 | Quy ước code / test | `docs/04-guides/coding-standards.md`, `testing.md` |
-| Cài đặt, camera, đánh giá | `docs/04-guides/dev-setup.md`, `camera-setup.md`, `evaluation.md` |
+| Cài đặt, camera, đánh giá, dữ liệu ngoài | `docs/04-guides/dev-setup.md`, `camera-setup.md`, `evaluation.md`, `datasets.md` |
+| Prompt mẫu cho mọi AI tool | `docs/04-guides/prompt-guide.md` |
+| Kế hoạch demo, nội dung trình bày | `docs/progress/DEMO-PLAN.md`, `docs/01-product/pitch-and-evidence.md` |
 | Quy trình làm feature | `docs/ai/workflows/` |
 | Vai trò planner / reviewer / test writer | `docs/ai/roles/` |
 | Roadmap, task, nhật ký phiên | `docs/progress/` |

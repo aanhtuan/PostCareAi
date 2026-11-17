@@ -2,6 +2,21 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-17 – Claude Code (Opus) – Hợp nhất đề xuất nhóm, chốt kế hoạch tới demo dữ liệu thật
+
+- **Mục tiêu phiên:** Đánh giá hai file đề xuất của nhóm (MASTER-SPEC, Tổng hợp), gỡ mâu thuẫn, gộp vào tài liệu, xóa tài liệu lỗi thời; lập kế hoạch triển khai đầy đủ theo roadmap với dữ liệu thật thay bộ giả lập.
+- **Đã làm:**
+  - Cài công cụ thiếu trên máy dev (không có winget): uv 0.13.9 qua pip, GNU Make 4.4.1 (zip ezwinports, đã so SHA1), gh 2.104.0 (zip GitHub Releases, đã so SHA256); thêm vào PATH người dùng. Docker Desktop có sẵn.
+  - Quyết định người dùng: QA#31 (người nhà, F36), QA#32 (chung kết 1 camera live + 1 clip, F31 R1–R3), QA#33 (dữ liệu ngoài), QA#34 (PostgreSQL bằng Docker), QA#35 (MediaPipe chính, chọn biến thể bằng benchmark, GPU qua WSL2, RTMPose dự phòng), QA#36 (chỉ xóa mềm; F35 vào MVP; F37 khu vực/ca trực; chuyển giường trong F04), QA#37 (hai loại độ trễ). Đi đúng roadmap, không làm lát cắt tắt.
+  - Tài liệu mới: `docs/01-product/pitch-and-evidence.md`, `docs/progress/DEMO-PLAN.md`, `docs/04-guides/datasets.md`, spec F36, F37; viết lại F35; mở rộng F03, F04; cập nhật PRD, glossary, tech-stack, dev-setup, data-model, api-conventions, ROADMAP, mục lục feature, F31, ghi chú ở F18/F21/F22, README, AGENTS, TASKS, evaluation.md §8.
+  - Dữ liệu (không commit): URFD, GMDCSA24, CAUCAFall, 19 clip Pexels/Mixkit vào `data/external/` (~2,5 GB); `data/eval/manifest.csv` (379 video, 0,87 giờ) và `truth.csv` (211 nhãn, có cột `label_source`). Le2i bỏ qua vì không còn mirror video. Không tải NTU, Toyota Smarthome, ETRI, SLP, CMDFall, Montreal.
+  - Xóa `SUMMARY.md` (nội dung đã vào README và nhật ký) và hai file đề xuất; bản gốc ở commit `fc5a2bf`.
+- **Kết quả kiểm tra:** Chỉ đổi tài liệu. Kiểm tra link tương đối bằng script: không còn link hỏng. `make check` PASS (ruff, prettier, eslint, tsc, pytest 40 passed, vitest 25 passed, build). Chưa đổi code.
+- **Đang dở:** Chưa bắt đầu feature nào; mọi F00–F37 vẫn Todo.
+- **Bước tiếp theo:** F00 theo vòng đời planner → test-writer → implementer → code-reviewer → cập nhật tiến độ → merge (`feat/F00-project-skeleton`). Sau F00 chạy song song F01 (B), F05 và F10 (A).
+- **Blocker / câu hỏi cho người dùng:** Không chặn. Câu hỏi mở ghi trong F35/F36/F37/F04 (người nhà thấy sự kiện nào, grant sau chuyển giường, đổi ca ảnh hưởng bàn giao cũ…). Khoảng trống dữ liệu: không có video công khai về rời giường bệnh từ camera cố định; S02, S07, S12, S14, S16 chưa có nguồn.
+- **Giả định mới:** nhãn tay trên stock clip; mã không gán nhãn trên một video không tính là FP (datasets.md, F16); tạm dừng thu hình là cờ của phiên (F04/F36).
+
 ## 2026-11-16 12:28 – Codex – Chuẩn bị xuất bản GitHub
 
 - **Mục tiêu phiên:** Đẩy dự án lên https://github.com/aanhtuan/PostCareAi.git theo yêu cầu người dùng.

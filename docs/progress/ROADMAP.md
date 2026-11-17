@@ -9,12 +9,12 @@ Cột trạng thái ở bảng dưới phải khớp với spec và với [03-fe
 
 | Milestone | Tuần | Mục tiêu (HS §7.3) | Feature | Điều kiện kết thúc | Trạng thái |
 |---|---|---|---|---|---|
-| **M0 Nền tảng** | 1–2 | Camera input, ROI, database, API, dashboard khung, phiên theo dõi | F00–F09 | Xem được camera thật trên web, vẽ được ROI, mở được phiên | Todo |
+| **M0 Nền tảng** | 1–2 | Camera input, ROI, database, API, dashboard khung, phiên theo dõi, quản lý tài khoản / khu vực / ca trực | F00–F09, F35, F37 | Xem được camera thật trên web, vẽ được ROI, mở được phiên | Todo |
 | **M1 Body AI** | 3–4 | Pose, nằm/ngồi/đứng, ngồi dậy, mép giường, rời/quay lại giường | F10–F16 | Replay video dev ra đúng chuỗi sự kiện cơ thể; có báo cáo eval dev đầu tiên | Todo |
 | **M2 Event + workflow** | 5–6 | Temporal rule, mức ưu tiên, cảnh báo, tiếp nhận, timeline, audit | F17–F24 | **Mốc tối thiểu** (HS §7.3): chạy trọn kịch bản demo chính bằng camera thật | Todo |
 | **M3 Face + hoạt động** | 7–8 | Tín hiệu mắt/lông mày/nheo mắt, biểu hiện cần kiểm tra, mức hoạt động tham khảo | F25–F27 | Có tín hiệu mặt khi đủ rõ, FACE_ATTENTION, trạng thái nghỉ/hoạt động | Todo |
-| **M4 Đánh giá + demo** | 9–10 | Bộ test, P/R/F1, FP/giờ, latency, privacy mode, demo hoàn chỉnh | F28–F30 | Báo cáo cuối với ngưỡng đã chốt; E2E xanh; demo chạy ổn 3 lần liên tiếp | Todo |
-| Sau MVP | — | Hướng mở rộng HS §9.2 | F31–F35 | — | Todo |
+| **M4 Đánh giá + demo** | 9–10 | Bộ test, P/R/F1, FP/giờ, latency, privacy mode, người nhà, hai worker đồng thời, demo hoàn chỉnh | F28–F30, F31 (R1–R3), F36 | Báo cáo cuối với ngưỡng đã chốt; E2E xanh; demo chạy ổn 3 lần liên tiếp | Todo |
+| Sau MVP | — | Hướng mở rộng HS §9.2 | F31 (phần còn lại), F32–F34 | — | Todo |
 
 **Đường cắt phạm vi:**
 - Thiếu thời gian thì dừng sau **M2**: sản phẩm vẫn trọn chuỗi Body AI → sự kiện → cảnh báo → xác nhận → timeline (HS §7.3; PDF §12).
@@ -46,7 +46,11 @@ flowchart LR
   F23 & F26-->F27
   F07 & F11-->F28
   F16 & F18 & F19 & F26-->F29
-  F20 & F21 & F22 & F24 & F27 & F28-->F30
+  F02-->F35
+  F03-->F37
+  F06 & F17-->F31
+  F02 & F04 & F18 & F22 & F28 & F35-->F36
+  F20 & F21 & F22 & F24 & F27 & F28 & F31 & F36-->F30
 ```
 
 **Làm song song theo nhánh** (PDF §12, QA#3). Sau F00, ba nhánh chạy song song:
@@ -54,7 +58,7 @@ flowchart LR
 | Nhánh | Thứ tự gợi ý |
 |---|---|
 | A: vision/engine | F05 → F10 → F13 → F14 → F15 → F11 → F12 → F16 → F23 → F25 → F26 → F27 |
-| B: backend | F01 → F02 → F03 → F04 → F06 → F17 → F19 → F24 → F29 |
+| B: backend | F01 → F02 → F35 → F03 → F37 → F04 → F06 → F17 → F19 → F24 → F31 (R1–R3) → F36 → F29 |
 | C: frontend/test | (sau F02, F03, F04) F09 → F07 → F08 → F18 (phần client) → F20 → F21 → F22 → F28 → F30 |
 
 F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được trước khi có model (F11).
@@ -94,8 +98,10 @@ F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được tr�
 | F28 | Chế độ riêng tư khi hiển thị | M4 | Todo |
 | F29 | Đánh giá chính thức và chỉ số realtime/workflow | M4 | Todo |
 | F30 | Sẵn sàng demo | M4 | Todo |
-| F31 | Nhiều camera/giường chạy đồng thời | Sau MVP | Todo |
+| F31 | Nhiều camera/giường chạy đồng thời (R1–R3 ở M4) | M4 / Sau MVP | Todo |
 | F32 | Chuyển tiếp cảnh báo chưa được tiếp nhận | Sau MVP | Todo |
 | F33 | Thông báo di động cho điều dưỡng | Sau MVP | Todo |
 | F34 | Dashboard thống kê dài hạn theo ca | Sau MVP | Todo |
-| F35 | Quản lý người dùng trên UI | Sau MVP | Todo |
+| F35 | Quản lý người dùng trên UI | M0 | Todo |
+| F36 | Quyền xem của người nhà theo phiên | M4 | Todo |
+| F37 | Quản lý khu vực và ca trực | M0 | Todo |

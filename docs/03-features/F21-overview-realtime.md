@@ -20,6 +20,8 @@ Người phụ trách ca cần nhìn một màn hình là biết giường nào 
 
 Feature này nâng màn hình "Tổng quan" khung của F09 thành bản realtime theo phác thảo Hình 3 của HS. Mỗi thẻ giường hiện trạng thái *Đang theo dõi / Cần kiểm tra / Cảnh báo mới*, kèm trạng thái cơ thể, chất lượng quan sát, số cảnh báo đang chờ và mức ưu tiên cao nhất (PDF §9.1 (tr.11)). Dữ liệu cập nhật qua WebSocket (F18), không còn polling.
 
+> **Liên quan F04/F36 (bổ sung 17/11/2026):** thẻ giường cần hiển thị trạng thái "tạm dừng thu hình" của phiên ([F04](F04-monitoring-sessions.md)) để người xem hiểu lý do không có dữ liệu. Tài khoản `FAMILY` không vào được Tổng quan ([F35](F35-user-management.md) `require_staff`).
+
 ## 2. Phạm vi
 
 **Trong phạm vi**
