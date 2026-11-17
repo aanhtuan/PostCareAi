@@ -1,0 +1,15 @@
+# Clip stock Pexels 6130026 "Nurse checking the patient" (RDNE Stock project; datasets.md §3.4).
+# Video ở data/external/pexels/pexels-6130026.mp4 (không commit), 1280×720, 30 fps, 16,2 s.
+# (giả định) ROI ước lượng bằng mắt (hiệu chỉnh dev 2026-11-18, calibration-2026-11-18.md):
+# Giường bệnh ở nửa phải x ≈ 0,45–1,0, y ≈ 0,35–1,0; điều dưỡng đứng bên trái (x < 0,45, ngoài
+# ROI) (khung 1, 8, 14 s).
+
+version: 1
+camera_id: 0
+roi_polygon:
+  - [0.45, 0.35]
+  - [1.0, 0.35]
+  - [1.0, 1.0]
+  - [0.45, 1.0]
+thresholds: {}
+notes: "Stock footage - diễn viên. ROI ước lượng (giả định)."

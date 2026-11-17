@@ -1,0 +1,14 @@
+# Clip stock Pexels 6944081 "Man having trouble sleeping" (cottonbro studio; datasets.md §3.4).
+# Video ở data/external/pexels/pexels-6944081.mp4 (không commit), 1366×720, 25 fps, 50,6 s.
+# (giả định) ROI ước lượng bằng mắt (hiệu chỉnh dev 2026-11-18, calibration-2026-11-18.md):
+# Camera nhìn ngang giường, đèn mờ; nệm và người nằm ở y ≈ 0,55–1,0, mọi x (khung 1, 3, 20, 45 s).
+
+version: 1
+camera_id: 0
+roi_polygon:
+  - [0.0, 0.5]
+  - [1.0, 0.5]
+  - [1.0, 1.0]
+  - [0.0, 1.0]
+thresholds: {}
+notes: "Stock footage - diễn viên. ROI ước lượng (giả định)."

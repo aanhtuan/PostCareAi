@@ -1,0 +1,15 @@
+# Clip stock Pexels 8860232 "An elderly man sitting on a bed" (cottonbro studio; datasets.md §3.4).
+# Video ở data/external/pexels/pexels-8860232.mp4 (không commit), 1366×720, 25 fps, 33,6 s.
+# (giả định) ROI ước lượng bằng mắt (hiệu chỉnh dev 2026-11-18, calibration-2026-11-18.md):
+# Khung hẹp, tối; phần giường thấy được ở x ≈ 0–0,47 (bên phải là rèm che), mặt nệm
+# y ≈ 0,6–0,97; người ngồi tựa đầu giường ở x ≈ 0,3–0,4 (khung 1, 3, 15, 30 s).
+
+version: 1
+camera_id: 0
+roi_polygon:
+  - [0.0, 0.6]
+  - [0.47, 0.6]
+  - [0.47, 0.97]
+  - [0.0, 0.97]
+thresholds: {}
+notes: "Stock footage - diễn viên. ROI ước lượng (giả định)."

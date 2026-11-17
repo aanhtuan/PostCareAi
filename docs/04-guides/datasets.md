@@ -180,6 +180,21 @@ Các clip stock còn lại không có sự kiện trong `eval_codes`.
 
 Thời lượng (`duration_s`) đọc bằng OpenCV (số frame / fps).
 
+**Cột `camera_config`** (thêm khi hiệu chỉnh dev 18/11/2026, [calibration-2026-11-18.md](calibration-2026-11-18.md)). Cột cuối của `manifest.csv`, đường dẫn tính từ gốc repo. Gán theo quy tắc sau, chỉ dựa vào `video_id` và `eval_codes`, không dựa vào kết quả eval:
+
+| Dòng manifest | `camera_config` |
+|---|---|
+| `urfd_*_cam0` (ngã + ADL) | `config/cameras/urfd-cam0.yaml` |
+| `urfd_*_cam1` | `config/cameras/urfd-cam1.yaml` |
+| `gmd_s1_adl_01` … `gmd_s1_adl_06` (cảnh có giường của Subject 1) | `config/cameras/gmdcsa24-subject1.yaml` |
+| `gmd_*` khác có `eval_codes=ABNORMAL_MOVEMENT` (dev và test) | `config/cameras/gmdcsa24-room.yaml` (ROI gần trọn khung) |
+| `gmd_*` có `SIT_UP` trong `eval_codes` ở tập test (1 dòng) | để trống: F29 vẽ ROI giường trước khi chạy, không xem kết quả |
+| `cauca_*` (test) | `config/cameras/caucafall.yaml` (có từ F23) |
+| `stock_pexels_<id>` tập dev | `config/cameras/pexels-<id>.yaml` |
+| Clip stock tập test | để trống (eval tự dùng `config/cameras/<tên file video>.yaml` nếu có, ví dụ `mixkit-29966.yaml`) |
+
+ROI của các file `pexels-*.yaml` (dev) vẽ bằng mắt trên khung hình có lưới 0,1 tại các mốc ghi trong comment của từng file *(giả định)*. Không xem khung hình hay kết quả của clip tập test. Bản manifest trước khi thêm cột không đổi ở các cột khác; thêm lại bằng một script nhỏ theo bảng trên.
+
 ## 4. Kịch bản được bao phủ
 
 | Kịch bản | Nguồn | Ghi chú |
