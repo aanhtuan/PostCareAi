@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F04 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 3 phiên |
@@ -74,6 +74,14 @@ Gắn một bệnh nhân (mã thử nghiệm) với một giường và camera t
 - **R17.** Sau commit phát `session.updated` cho cả hai phiên (F18) và báo cho hub để quyền xem của người nhà trên phiên cũ kết thúc (F36 R5, R14). Phiên mới **không** kế thừa quyền xem của người nhà *(giả định; F36)*. Phiên cũ đang "tạm dừng thu hình" (F36) thì phiên mới bắt đầu ở trạng thái **không** tạm dừng *(giả định; cần xác nhận lại ở F36)*.
 - **R18.** UI: giường có phiên hiện nút "Chuyển giường" (NURSE, CHARGE_NURSE, ADMIN), mở hộp thoại chọn giường đích (chỉ giường đang dùng, chưa có phiên mở) và nhập lý do; hộp thoại xác nhận ghi rõ "Kết thúc theo dõi ở giường A01 và bắt đầu ở giường A02" *(giả định)*. Chi tiết phiên hiện "Chuyển từ giường …" khi có `previous_session_id`.
 
+**Tạm dừng thu hình (phần phiên)** *(MS §3; F36 R15–R17; người giao việc chuyển phần mức phiên sang F04 ngày 2026-11-18)*
+
+- **R19.** Cột `monitoring_sessions.paused_at`, `paused_by` (F36 R15; data-model.md). `SessionOut` có `paused_at`, `paused_by`. `POST /api/v1/sessions/{id}/pause` `{reason?}` và `POST /api/v1/sessions/{id}/resume` → 200 `SessionOut`. Quyền như mở/đóng phiên; `DOCTOR`, `FAMILY` → 403 (F36 R16).
+- **R20.** Đang tạm dừng mà gọi pause → 409 `SESSION_ALREADY_PAUSED`; không tạm dừng mà gọi resume → 409 `SESSION_NOT_PAUSED`; phiên đã kết thúc → 409 `SESSION_ALREADY_ENDED` (F36 R16). Kết thúc phiên hoặc chuyển giường khi đang tạm dừng là hợp lệ; khi đó `paused_at`/`paused_by` của phiên cũ được xóa (giá trị cũ nằm trong `before` của audit) *(giả định)*, phiên mới không tạm dừng (R17).
+- **R21.** Audit `session.pause` (`after` `{paused_at, reason}`) / `session.resume` (`before` `{paused_at}`), cùng transaction; sau commit phát `session.updated` (F36 R17, phần nhân viên).
+- **R22.** `GET /internal/v1/cameras/{id}/config` trả `capture_paused` (phiên đang mở của giường đang tạm dừng); `POST /internal/v1/events` cho phiên đang tạm dừng (sự kiện xảy ra từ lúc `paused_at`) → 409 `CAPTURE_PAUSED` (F36 R18). UI "Quản lý giường": nút "Tạm dừng thu hình" / "Tiếp tục thu hình" cho vai trò được ghi, nhãn "Đang tạm dừng thu hình – hệ thống không quan sát trong lúc này" (F36 R18, R21).
+- Vẫn thuộc F36: `family.state`/`capture_paused` cho người nhà, worker dừng đọc khung, API bỏ `state`/`frame` khi tạm dừng, mục tạm dừng trên timeline.
+
 ## 4. Thiết kế liên quan
 
 - **Module / file dự kiến:**
@@ -95,6 +103,7 @@ Gắn một bệnh nhân (mã thử nghiệm) với một giường và camera t
 - [ ] **AC4.** Bắt đầu và kết thúc đều ghi audit log (`session.start`, `session.end`). UI có nút "Bắt đầu theo dõi" / "Kết thúc theo dõi". *(PRD NFR08)* — *Kiểm chứng:* test `test_session_start_end_audited`; component test `StartSessionDialog starts session`, `EndSessionButton asks for confirmation`, `doctor sees no session buttons`.
 - [ ] **AC5.** "Chuyển giường" trong một thao tác: phiên cũ có `ended_at`/`ended_by`, phiên mới cùng bệnh nhân ở giường đích có `previous_session_id` = phiên cũ, `transfer_reason`, camera của giường đích; một bản ghi audit `session.transfer`; `GET /sessions/{id}/chain` trả cả hai phiên theo thứ tự. *(QA#36; PRD US12)* — *Kiểm chứng:* test `test_transfer_ends_old_and_opens_new`, `test_transfer_links_sessions`, `test_transfer_uses_target_bed_camera`, `test_transfer_audited_once`, `test_session_chain_ordered`; component test `TransferSessionDialog transfers patient`, `doctor sees no transfer button`.
 - [ ] **AC6.** Chuyển giường không để lại trạng thái dở dang: giường đích có phiên mở → 409 `SESSION_ALREADY_OPEN` và phiên cũ **vẫn mở**, không có audit; giường đích trùng giường hiện tại hoặc đã xóa → 400; phiên đã kết thúc → 409 `SESSION_ALREADY_ENDED`; hai yêu cầu chuyển đồng thời vào cùng giường chỉ một thành công; sự kiện của phiên cũ không đổi `session_id`. *(QA#36; data-model.md)* — *Kiểm chứng:* test `test_transfer_target_busy_409_keeps_old_open`, `test_transfer_same_bed_400`, `test_transfer_to_deleted_bed_400`, `test_transfer_closed_session_409`, `test_concurrent_transfer_same_target_one_wins`, `test_transfer_keeps_old_events_on_old_session`, `test_transfer_requires_reason`.
+- [ ] **AC7.** Tạm dừng / tiếp tục thu hình theo phiên: audit `session.pause`/`session.resume`; tạm dừng hai lần → 409 `SESSION_ALREADY_PAUSED`; tiếp tục khi không tạm dừng → 409 `SESSION_NOT_PAUSED`; phiên đã kết thúc → 409 `SESSION_ALREADY_ENDED`; config nội bộ có `capture_paused`; sự kiện engine khi tạm dừng → 409 `CAPTURE_PAUSED`; `DOCTOR`/`FAMILY` → 403. *(R19–R22; F36 AC6 phần phiên)* — *Kiểm chứng:* `server/tests/api/test_session_pause.py`; component test `PauseCaptureButton pauses and resumes`.
 
 ## 6. Kế hoạch test
 
@@ -128,9 +137,17 @@ Gắn một bệnh nhân (mã thử nghiệm) với một giường và camera t
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+Khảo sát (2026-11-18): đã có `domain/sessions.py` (`start_session` khóa hàng giường/bệnh nhân, bắt `IntegrityError`; `end_session`; `list_sessions`; `session_at`), `api/v1/sessions.py` (start/end/list/get/timeline với `require_writer`/`require_staff`), `tests/test_sessions.py`, test partial unique ở `tests/db/test_migrations.py`, UI mở/kết thúc phiên viết liền trong `ManagementPage.tsx`, `utils/time.ts`. Thiếu: chuyển giường, chuỗi phiên, tạm dừng, khóa hàng phiên khi kết thúc, test theo tên AC, component test, `details.bed_id`/`patient_id` trong 409.
 
-1. …
+1. **Test trước (server):** `server/tests/api/test_sessions.py` (AC1–AC4, chuyển từ `tests/test_sessions.py`), `server/tests/api/test_session_transfer.py` (AC5, AC6), `server/tests/api/test_session_pause.py` (AC7), `server/tests/domain/test_sessions_constraints.py` (partial unique, `previous_session_id` unique, đồng thời bằng `real_commit` + 2 luồng), test "phát sau commit" (`real_commit`, publisher đọc lại bằng kết nối khác). Thêm endpoint mới vào danh sách FAMILY bị chặn. Xác nhận đỏ đúng lý do, commit `test(F04): …`.
+2. **Migration `0005_f04`** (`0005_f04_session_transfer_pause.py`, `down_revision = "0004"`): `previous_session_id` (FK `monitoring_sessions.id`, unique `uq_monitoring_sessions_previous_session_id`), `transfer_reason` text, `paused_at` timestamptz, `paused_by` (FK `users.id`). Cập nhật `db/models.py` (quan hệ `previous_session`/`next_session`), `tests/db/test_migrations.py`. Nếu F37 vào `main` trước: đổi `down_revision` sang revision của F37 khi merge.
+3. **Domain** `domain/sessions.py`: khóa hàng phiên `FOR UPDATE` ở end/transfer/pause/resume; `transfer_session` (khóa phiên cũ → kiểm tra R14 → khóa giường đích → kết thúc + flush → chèn phiên mới → audit `session.transfer` → commit → phát `session.updated` phiên cũ rồi phiên mới; `IntegrityError` → rollback, 409); `session_chain`; `pause_session`/`resume_session`; xóa `paused_*` khi kết thúc. `domain/dto.py`: `SessionTransfer`, `SessionPause`, `SessionChainItem`, trường mới của `SessionOut`. `domain/cameras.py` `capture_paused`; `domain/events.py` `CAPTURE_PAUSED`.
+4. **API** `api/v1/sessions.py`: `/transfer` (201), `/chain`, `/pause`, `/resume`. `make gen-api-types`.
+5. **Web:** tách `pages/Management/StartSessionDialog.tsx`, `EndSessionButton.tsx`; thêm `TransferSessionDialog.tsx`, `PauseCaptureButton.tsx`; hook `useTransferSession`, `usePauseCapture`, `useResumeCapture` trong `api/hooks.ts`; text trong `i18n/vi.ts` (`session.*`, `capture.*`); giờ bắt đầu `HH:mm:ss` (`formatTime`). Component test `StartSessionDialog.test.tsx`, `TransferSessionDialog.test.tsx`, `PauseCaptureButton` trong `ManagementPage.test.tsx`.
+6. **Docs:** `api-conventions.md` (mã lỗi pause chuyển sang F04, endpoint pause là F04, `capture_paused`), `data-model.md` (cột ghi F04, migration 0005), spec F36 (ghi chú phần đã làm ở F04).
+7. **Kiểm chứng:** `make check`, `scripts/dev.ps1 check`; chạy tay bằng curl trên DB `postcare_f04`, cổng 8014; ghi bằng chứng vào §10, trạng thái "In review".
+
+Quyết định nhỏ *(giả định)*: `reason` thiếu/rỗng (sau khi bỏ khoảng trắng) → 422 `VALIDATION_ERROR` như mọi lỗi schema (api-conventions.md), không phải 400; `SessionChainItem` dùng `bed_id`, `bed_code` (thay vì `bed`) cho khớp `SessionOut`; `/chain` trả `{items, total}`.
 
 ## 10. Ghi chú bàn giao
 
