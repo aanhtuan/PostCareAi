@@ -4,13 +4,10 @@ Engine thuần và xác định: cùng chuỗi `FrameObservation` + cùng cấu 
 chỉ lấy từ `obs.ts_ms` (AGENTS.md quy tắc 5; event-engine.md mục 1).
 """
 
-from postcare.engine.pipeline import (
-    FrameAssessment,
-    QualityAssessor,
-    RuleSet,
-    StateMachine,
-    TargetSelector,
-)
+from postcare.engine.features import FeatureExtractor
+from postcare.engine.pipeline import FrameAssessment, RuleSet, StateMachine
+from postcare.engine.quality import QualityGate, assess_quality
+from postcare.engine.target import TargetSelector
 from postcare.schemas.context import EngineContext
 from postcare.schemas.engine_config import EngineConfig
 from postcare.schemas.events import EngineOutput
@@ -34,25 +31,33 @@ class Engine:
         self.context = context
         self.config_hash = config.config_hash()
         self._target = TargetSelector(config, context)
-        self._quality = QualityAssessor(config)
+        self._features = FeatureExtractor(config, context.roi_polygon)
+        self._gate = QualityGate(config)
         self._state_machine = StateMachine(config)
         self._rules = RuleSet(config)
         self._last_ts_ms: int | None = None
         self._last_snapshot: BodyStateSnapshot | None = None
+        self._body_state = BodyState.NO_OBSERVATION
 
     @property
     def state(self) -> BodyStateSnapshot:
         """Trạng thái hiện tại; trước frame đầu tiên là trạng thái khởi tạo `NO_OBSERVATION`."""
         if self._last_snapshot is not None:
             return self._last_snapshot
-        return _snapshot(self._state_machine.state, ObservationQuality.NO_PERSON)
+        return _snapshot(self._body_state, ObservationQuality.NO_PERSON)
 
     def process(self, obs: FrameObservation) -> EngineOutput:
         """Xử lý một khung hình. `ts_ms` phải tăng ngặt; sai camera → `ValueError`."""
         self._check_input(obs)
-        target = self._target.select(obs)
-        assessment = FrameAssessment(self._quality.assess(obs, target), target)
-        body_state = self._state_machine.update(assessment, obs.ts_ms)
+        assessment = self._assess(obs)
+        if not assessment.observable:
+            body_state = BodyState.NO_OBSERVATION
+        elif assessment.features is None:
+            # Frame kém nhưng chưa đủ lâu: giữ trạng thái, không phân loại từ frame xấu (R7).
+            body_state = self._body_state
+        else:
+            body_state = self._state_machine.update(assessment, obs.ts_ms)
+        self._body_state = body_state
         snapshot = _snapshot(body_state, assessment.quality)
         events = self._rules.evaluate(obs, assessment, self._last_snapshot, snapshot)
         # Output đầu tiên luôn là "đổi" để worker gửi trạng thái ban đầu (giả định F10).
@@ -60,6 +65,29 @@ class Engine:
         self._last_ts_ms = obs.ts_ms
         self._last_snapshot = snapshot
         return EngineOutput(state=snapshot, state_changed=changed, events=events)
+
+    def _assess(self, obs: FrameObservation) -> FrameAssessment:
+        """Bước 1–3: mục tiêu, chất lượng frame, cổng chất lượng, đặc trưng đã làm mượt (F13)."""
+        selection = self._target.select(obs)
+        quality = assess_quality(obs, selection, self.config)
+        was_observable = self._gate.observable
+        observable = self._gate.update(quality, obs.ts_ms)
+        if not observable and selection.target is None:
+            # Đã ở NO_OBSERVATION và không còn bám được ai: lần sau phải nhận mục tiêu từ ROI.
+            self._target.forget()
+        # Reset làm mượt khi đổi mục tiêu hoặc khi thoát NO_OBSERVATION (giả định R4).
+        if selection.is_new or (observable and not was_observable):
+            self._features.reset()
+        features = None
+        if quality == ObservationQuality.GOOD and selection.target is not None:
+            features = self._features.update(selection.target, obs)
+        return FrameAssessment(
+            quality=quality,
+            target=selection.target,
+            features=features,
+            observable=observable,
+            persons_in_roi=selection.persons_in_roi,
+        )
 
     def _check_input(self, obs: FrameObservation) -> None:
         if obs.camera_id != self.context.camera_id:
