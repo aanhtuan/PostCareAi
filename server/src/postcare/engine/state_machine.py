@@ -31,8 +31,9 @@ HISTORY_SIZE = 32
 """Số trạng thái ổn định gần nhất giữ lại cho F15 (kích thước bộ đệm, không phải ngưỡng)."""
 
 ANOMALY_SKIPPED_EDGE = "skipped_edge"
-_IN_BED = frozenset({BodyState.LYING, BodyState.RAISING, BodyState.SITTING})
-_EXIT_PATH = frozenset({BodyState.AT_EDGE, BodyState.STANDING})
+IN_BED_STATES = frozenset({BodyState.LYING, BodyState.RAISING, BodyState.SITTING})
+"""Trạng thái trong giường (dùng cho skipped_edge và F15 BED_EDGE)."""
+EXIT_PATH_STATES = frozenset({BodyState.AT_EDGE, BodyState.STANDING})
 """Điều kiện trước OUT_OF_BED cho BED_EXIT (F15): đi qua AT_EDGE hoặc STANDING (R9)."""
 
 Explanation = dict[str, JsonValue]
@@ -159,9 +160,9 @@ class BodyStateMachine:
         for record in reversed(self._history):
             if record.state == BodyState.NO_OBSERVATION:
                 continue
-            if record.state in _EXIT_PATH:
+            if record.state in EXIT_PATH_STATES:
                 return False
-            return record.state in _IN_BED
+            return record.state in IN_BED_STATES
         return False
 
     def _transition(self, target: BodyState, ts_ms: int, explanation: Explanation) -> None:
