@@ -1,8 +1,9 @@
 """F13 AC4, AC5 + ca âm tính: cổng chất lượng trong `Engine.process`.
 
-Chưa có F14 nên `StateMachine` của F10 luôn trả `NO_OBSERVATION`. Để kiểm cổng chất lượng, các
-test thay nó bằng `FakeStateMachine`: trả `LYING` khi hông trong ROI, `OUT_OF_BED` khi ngoài ROI.
-Nhờ đó mọi frame kém lọt tới bước phân loại (vi phạm R7/R8) sẽ lộ ra.
+Để kiểm riêng cổng chất lượng (không phụ thuộc min_duration của F14), các test thay state machine
+bằng `FakeStateMachine`: trả `LYING` khi hông trong ROI, `OUT_OF_BED` khi ngoài ROI, ngay lập tức.
+Nhờ đó mọi frame kém lọt tới bước phân loại (vi phạm R7/R8) sẽ lộ ra. Ca tương ứng với state
+machine thật nằm ở `test_state_machine.py` (F14).
 """
 
 from collections.abc import Iterator
@@ -33,10 +34,22 @@ class FakeStateMachine:
         self.received: list[FrameAssessment] = []
         FakeStateMachine.instances.append(self)
 
+        self.explanation = None
+        self.history = ()
+        self._state = S.NO_OBSERVATION
+
     def update(self, assessment: FrameAssessment, ts_ms: int) -> S:
         self.received.append(assessment)
         assert assessment.features is not None
-        return S.LYING if assessment.features.inside_roi else S.OUT_OF_BED
+        self._state = S.LYING if assessment.features.inside_roi else S.OUT_OF_BED
+        return self._state
+
+    def interrupt(self, ts_ms: int) -> S:
+        return self._state
+
+    def lose_observation(self, quality: Q, ts_ms: int) -> S:
+        self._state = S.NO_OBSERVATION
+        return self._state
 
 
 @pytest.fixture

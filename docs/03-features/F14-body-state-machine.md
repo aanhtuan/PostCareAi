@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F14 |
-| Trạng thái | Todo |
+| Trạng thái | Done |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -73,11 +73,11 @@ Feature này biến đặc trưng đã làm mượt (F13) thành **trạng thái
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** Đạt được đủ 7 trạng thái `LYING`, `RAISING`, `SITTING`, `AT_EDGE`, `STANDING`, `OUT_OF_BED`, `NO_OBSERVATION` bằng chuỗi tổng hợp nằm → ngồi → mép → đứng → ra ngoài → mất quan sát *(PDF §7 (tr.8); HS §5.1)*. — *Kiểm chứng:* `server/tests/engine/test_state_machine.py::test_full_sequence_reaches_all_seven_states`.
-- [ ] **AC2.** Chỉ chuyển trạng thái khi ứng viên giữ đủ `min_duration_s.<STATE>`. Nhiễu 1–3 frame không làm đổi trạng thái *(PDF §5 (tr.6), §7 (tr.8); HS §5.4)*. — *Kiểm chứng:* `test_transition_only_after_min_duration`, `test_noise_1_to_3_frames_no_transition`.
-- [ ] **AC3.** Hysteresis: góc thân dao động quanh `posture.lying_exit_deg` / `posture.sitting_enter_deg` không làm trạng thái nhảy qua lại *(PDF §7 (tr.8))*. — *Kiểm chứng:* `test_trunk_angle_oscillating_near_threshold_no_flapping` (góc dao động ± vài độ quanh ngưỡng trong nhiều giây, đếm số lần `state_changed` ≤ 1).
-- [ ] **AC4.** Mỗi lần chuyển trạng thái có `explanation` gồm `rule_id`, `from_state`, `to_state`, `held_ms` và giá trị đặc trưng chính *(HS §6.2; event-engine.md mục 1)*. — *Kiểm chứng:* `test_every_transition_has_explanation`.
-- [ ] **AC5.** Mất landmark hoặc bị che khi đang ở mép giường dẫn tới `NO_OBSERVATION`, **không** dẫn tới `OUT_OF_BED`. Đi thẳng từ `LYING` ra ngoài được đánh dấu `anomaly = "skipped_edge"` *(HS §5.2; event-engine.md mục 4)*. — *Kiểm chứng:* `test_landmark_loss_at_edge_goes_no_observation_not_out_of_bed`, `test_lying_to_out_of_bed_marks_skipped_edge`.
+- [x] **AC1.** Đạt được đủ 7 trạng thái `LYING`, `RAISING`, `SITTING`, `AT_EDGE`, `STANDING`, `OUT_OF_BED`, `NO_OBSERVATION` bằng chuỗi tổng hợp nằm → ngồi → mép → đứng → ra ngoài → mất quan sát *(PDF §7 (tr.8); HS §5.1)*. — *Kiểm chứng:* `server/tests/engine/test_state_machine.py::test_full_sequence_reaches_all_seven_states`.
+- [x] **AC2.** Chỉ chuyển trạng thái khi ứng viên giữ đủ `min_duration_s.<STATE>`. Nhiễu 1–3 frame không làm đổi trạng thái *(PDF §5 (tr.6), §7 (tr.8); HS §5.4)*. — *Kiểm chứng:* `test_transition_only_after_min_duration`, `test_noise_1_to_3_frames_no_transition`.
+- [x] **AC3.** Hysteresis: góc thân dao động quanh `posture.lying_exit_deg` / `posture.sitting_enter_deg` không làm trạng thái nhảy qua lại *(PDF §7 (tr.8))*. — *Kiểm chứng:* `test_trunk_angle_oscillating_near_threshold_no_flapping` (góc dao động ± vài độ quanh ngưỡng trong nhiều giây, đếm số lần `state_changed` ≤ 1).
+- [x] **AC4.** Mỗi lần chuyển trạng thái có `explanation` gồm `rule_id`, `from_state`, `to_state`, `held_ms` và giá trị đặc trưng chính *(HS §6.2; event-engine.md mục 1)*. — *Kiểm chứng:* `test_every_transition_has_explanation`.
+- [x] **AC5.** Mất landmark hoặc bị che khi đang ở mép giường dẫn tới `NO_OBSERVATION`, **không** dẫn tới `OUT_OF_BED`. Đi thẳng từ `LYING` ra ngoài được đánh dấu `anomaly = "skipped_edge"` *(HS §5.2; event-engine.md mục 4)*. — *Kiểm chứng:* `test_landmark_loss_at_edge_goes_no_observation_not_out_of_bed`, `test_lying_to_out_of_bed_marks_skipped_edge`.
 
 ## 6. Kế hoạch test
 
@@ -111,6 +111,12 @@ Các ca trở mình, debounce, khuôn mặt được kiểm ở F15, F23, F26, F
 - *(giả định)* Tư thế `UNKNOWN` khi chất lượng tốt thì giữ trạng thái hiện tại (R5).
 - *(giả định)* Từ `NO_OBSERVATION` phải qua cả cổng phục hồi lẫn min duration của trạng thái đích (R7).
 - *(giả định)* State machine lưu lịch sử trạng thái ổn định cho F15 (R11).
+- *(giả định)* Rời `LYING` luôn qua `RAISING`; góc vùng giữa chỉ là `RAISING` khi đi lên từ nằm (hoặc từ `NO_OBSERVATION`).
+- *(giả định)* Hysteresis góc "thân thẳng" áp dụng cho mọi trạng thái thân thẳng (`SITTING`, `AT_EDGE`, `STANDING`, `OUT_OF_BED`), không chỉ `SITTING`.
+- *(giả định)* Đứng cần thêm vector hông → cổ chân thẳng theo cùng ngưỡng góc của thân.
+- *(giả định)* Tỷ lệ `torso_length` chỉ dùng khi góc báo vùng nằm.
+- *(giả định)* Frame kém (cổng chưa đóng) xen giữa làm ứng viên đếm lại từ đầu.
+- *(giả định)* `skipped_edge` chỉ đánh dấu khi vào `OUT_OF_BED` thẳng từ `LYING`/`RAISING`/`SITTING` (bỏ qua `NO_OBSERVATION`), không qua `AT_EDGE` hay `STANDING`. Điều kiện trước BED_EXIT cho F15: `AT_EDGE` hoặc `STANDING` ngay trước `OUT_OF_BED`.
 
 ## 8. Câu hỏi mở
 
@@ -118,11 +124,54 @@ Các ca trở mình, debounce, khuôn mặt được kiểm ở F15, F23, F26, F
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+**Khảo sát:** `engine/pipeline.py` có `StateMachine` rỗng (F10) và `FrameAssessment`; `engine/engine.py` chỉ gọi `StateMachine.update` khi cổng chất lượng mở và frame `GOOD` (F13); `BodyFeatures` (`engine/features.py`) đã có `trunk_angle_deg`, `torso_length`, `dist_to_roi_edge`, `ankles_outside_roi`, `knees`, `ankles`, `hip_center`, `shoulder_center`. Builder `tests/engine/builders.py` (F13).
+
+**Thiết kế chốt:**
+- `engine/posture.py`: enum `Posture` (`LYING/RAISING/SITTING/STANDING/UNKNOWN`), `Location` (`IN_BED/EDGE/OUT`); hàm thuần `classify_posture(features, current, ref_torso, config)`, `classify_location(features, current, config)`, `candidate_state(posture, location)`.
+  - Thân "thẳng" theo góc: đang ở trạng thái thân thẳng (`SITTING/AT_EDGE/STANDING/OUT_OF_BED`) cần góc ≥ `sitting_exit_deg`, ngược lại cần góc > `sitting_enter_deg` *(giả định: mở rộng hysteresis của SITTING cho mọi trạng thái thân thẳng)*.
+  - Vùng nằm: đang `LYING` cần góc ≤ `lying_exit_deg`, ngược lại < `lying_enter_deg`.
+  - Tỷ lệ `torso_length` chỉ dùng khi góc nằm trong vùng nằm (góc 2D không phân biệt được): `|torso/ref − 1| ≥ 1 − torso_length_ratio_sitting` → coi là thân thẳng. `ref` cập nhật khi trạng thái ổn định `LYING` và tư thế nằm; xóa khi vào `NO_OBSERVATION` *(giả định)*.
+  - Thân thẳng nhưng vai không cao hơn hông → `UNKNOWN`.
+  - Vùng giữa: `RAISING` nếu trạng thái hiện tại là `LYING`, `RAISING` hoặc `NO_OBSERVATION` ("đi lên từ nằm"); ngược lại `UNKNOWN` (giữ trạng thái) *(giả định)*. Vì vậy nằm lại từ `SITTING` đi thẳng `SITTING → LYING`.
+  - Đang `LYING` thì mọi góc ngoài vùng nằm (kể cả đã thẳng) là `RAISING`: rời nằm luôn qua `RAISING` (`LYING → RAISING → SITTING`, PDF §7.1) *(giả định; bổ sung khi cài đặt: với góc tăng đều, vùng 35°–55° quá ngắn so với `min_duration_s.RAISING`)*.
+  - `STANDING`: thân thẳng + có gối và cổ chân nhìn thấy, gối thấp hơn hông, cổ chân thấp hơn gối, `(knee_y − hip_y) ≥ standing_hip_above_knee_ratio × (ankle_y − knee_y)` **và** vector hông → cổ chân cũng thẳng theo cùng ngưỡng góc của thân (chân duỗi, không nằm ngang) *(giả định: chặn ca suy biến khi chân nằm ngang trên giường, knee_y ≈ hip_y ≈ ankle_y)*. Thêm trường `BodyFeatures.leg_angle_deg`.
+- `engine/state_machine.py`: `BodyStateMachine` với `update(assessment, ts_ms)` (frame GOOD), `interrupt(ts_ms)` (frame kém khi cổng còn mở: xóa ứng viên, giữ trạng thái), `lose_observation(quality, ts_ms)` (cổng đóng → `NO_OBSERVATION`). Ứng viên + mốc bắt đầu; xác lập khi `ts − start ≥ min_duration_s.<đích>`. `explanation` (dict JSON) và `history` (tối đa 32 bản ghi `StateRecord(state, since_ms, explanation)`, hằng số không phải ngưỡng).
+  - `skipped_edge`: khi vào `OUT_OF_BED`, duyệt lùi lịch sử bỏ qua `NO_OBSERVATION`; gặp `AT_EDGE`/`STANDING` → hợp lệ; gặp `LYING/RAISING/SITTING` → `anomaly = "skipped_edge"` (sửa sau review, xem mục 10).
+- `BodyStateSnapshot` thêm `explanation: dict[str, JsonValue] | None = None` (explanation của lần chuyển gần nhất; `None` ở trạng thái khởi tạo) — event-engine.md mục 4 yêu cầu ghi `anomaly` "vào state". `Engine.state_history` trả lịch sử cho F15.
+- `pipeline.StateMachine` = `BodyStateMachine` (giữ tên để Engine/F13 test không đổi).
+
+**Các bước:**
+1. Commit plan (spec).
+2. Test trước: `tests/engine/test_posture.py` (phân loại, hysteresis góc, tỷ lệ torso, đứng vs mép, vị trí EDGE/OUT + hysteresis), `tests/engine/test_state_machine.py` (AC1–AC5, ca âm tính mục 6 qua `PoseSequence` + `run_engine`; ca min-duration chính xác từng frame bằng `BodyFeatures` tổng hợp). Builder: `raise_to_sitting` nội suy vector vai theo góc (giữ chiều dài thân, giống camera nhìn ngang), `AT_EDGE` đùi gần nằm ngang (ngồi thật). Xác nhận test fail vì chưa có module.
+3. Cài `posture.py`, `state_machine.py`, nối `engine.py`; cập nhật `FakeStateMachine` (F13) thêm `interrupt`/`lose_observation`; sửa `test_persons_without_f14_stay_no_observation`.
+4. Doc: event-engine.md mục 2 (snapshot có `explanation`), mục 4/6 (công thức đứng, tỷ lệ torso, RAISING chỉ khi đi lên). Không thêm khóa config.
+5. `make check`, `scripts\dev.ps1 check`; ghi bằng chứng mục 10.
+
+**Rủi ro:** ngưỡng góc/tỷ lệ phụ thuộc vị trí camera, hiệu chỉnh ở F16; F11/F17 nhận thêm trường `explanation` trong snapshot (tùy chọn, mặc định `None`).
 
 ## 10. Ghi chú bàn giao
 
-> Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+**Bằng chứng (2026-11-18, nhánh `feat/F14-body-state-machine`):**
+- AC1: `test_full_sequence_reaches_all_seven_states`, `test_state_history_records_established_states`.
+- AC2: `test_initial_state_needs_min_duration`, `test_transition_only_after_min_duration[RAISING/SITTING]` (ngắn hơn 1 frame: chưa đổi; đúng min_duration: đổi), `test_candidate_change_restarts_hold`, `test_noise_1_to_3_frames_no_transition[1-3]`, `test_noise_1_to_3_frames_unit[1-3]`, `test_brief_sit_up_spike_shorter_than_min_duration`.
+- AC3: `test_trunk_angle_oscillating_near_threshold_no_flapping` (±4° quanh `lying_exit_deg`, `sitting_enter_deg`, `sitting_exit_deg`, `lying_enter_deg`, 12 s; ≤ 1 lần đổi) + hysteresis ở `test_posture.py`.
+- AC4: `test_every_transition_has_explanation` (7 lần chuyển, đủ khóa, `held_ms ≥ min_duration`).
+- AC5: `test_landmark_loss_at_edge_goes_no_observation_not_out_of_bed[low_visibility/missing]`, `test_lying_to_out_of_bed_marks_skipped_edge`, `test_lying_to_out_skipped_edge_ignores_no_observation_gap`, `test_occlusion_mid_transition_restarts_min_duration`.
+- Ca âm tính mục 6: `test_sit_up_then_lie_back_never_edge_or_out`, `test_nurse_outside_roi_does_not_change_state`, `test_two_people_in_roi_state_no_observation`, `test_standing_at_edge_is_standing_not_at_edge`, `test_sitting_at_edge_is_at_edge`, `test_hip_dithering_at_roi_margin_no_edge_out_flapping`, `test_return_into_roi_leaves_out_of_bed`.
+- `make check` exit 0 (311 passed, 1 deselected); `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0.
+
+**Cho người sau:**
+- Không thêm khóa config. `BodyStateSnapshot.explanation` (tùy chọn, mặc định `None`) là trường mới: worker/API (F11, F17) có thể bỏ qua hoặc lưu.
+- `Engine.state_history` → `tuple[StateRecord(state, since_ms, explanation)]` cho F15. `BodyFeatures.leg_angle_deg` mới.
+- Builder: `raise_to_sitting`/`move_to` xoay vector vai (giữ chiều dài thân); `AT_EDGE` đổi chân thành tư thế ngồi thật (đùi gần ngang); thêm `PoseSequence.frames(bodies)`.
+- Rời `LYING` luôn qua `RAISING`, nên `raise_to_sitting(seconds=1.5)` vẫn cho `RAISING`. Ví dụ ở testing.md mục 2 (`move_to_edge(1)` rồi `standing`) không giữ `AT_EDGE` đủ 1.5 s; F15 cần chuỗi dài hơn khi viết test.
+- `FakeStateMachine` (F13) giữ lại cho test cổng chất lượng, thêm `interrupt`/`lose_observation`.
+
+**Review (2026-11-18): Cần sửa → đã sửa.**
+1. `skipped_edge` quá rộng: `SITTING → STANDING → OUT_OF_BED` (ngồi mép < 1.5 s rồi đứng dậy) bị đánh dấu, F15 có thể bỏ sót BED_EXIT thật. Sửa: chỉ đánh dấu khi không qua `AT_EDGE` hay `STANDING` (R9). Test: `test_sitting_to_standing_to_out_of_bed_is_valid_exit_path` (không anomaly), `test_lying_to_out_of_bed_marks_skipped_edge` (có anomaly). event-engine.md mục 4 ghi điều kiện trước BED_EXIT cho F15: `AT_EDGE` hoặc `STANDING` ngay trước `OUT_OF_BED`.
+2. Ví dụ ở testing.md mục 2 không đạt được (`AT_EDGE` không giữ đủ 1.5 s): sửa thời lượng theo `min_duration_s`.
+3. event-engine.md mục 4 ghi ngoại lệ "rời LYING luôn qua RAISING" (đứng ở mép từ LYING cho `AT_EDGE` trước) và hành vi giữ trạng thái ở 25°–45° khi ngả lưng từ trạng thái thân thẳng, là mục hiệu chỉnh của F16.
+- Đã merge `main` (F02, F11) vào nhánh; `make check` và `scripts\dev.ps1 check` exit 0 sau khi sửa.
 
 ## 11. Definition of Done
 
