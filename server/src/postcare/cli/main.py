@@ -130,13 +130,33 @@ def openapi(
     out: Annotated[Path, typer.Option(help="File JSON đầu ra")] = Path(
         "../web/src/api/openapi.json"
     ),
+    check: Annotated[
+        bool, typer.Option("--check", help="Chỉ so file với OpenAPI hiện tại, không ghi")
+    ] = False,
 ) -> None:
     """Xuất OpenAPI của API ra file (dùng sinh type TypeScript)."""
     from postcare.api.main import create_app
 
     spec = create_app(watch_cameras=False).openapi()
+    if check:
+        # So nội dung JSON đã parse (không so văn bản): CRLF/LF không làm lệch kết quả.
+        try:
+            current = json.loads(out.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            typer.echo(f"Không đọc được {out} ({exc}). Chạy `make gen-api-types`.", err=True)
+            raise typer.Exit(1) from exc
+        if current != spec:
+            typer.echo(
+                f"{out} không khớp OpenAPI hiện tại. Chạy `make gen-api-types` rồi commit.",
+                err=True,
+            )
+            raise typer.Exit(1)
+        typer.echo(f"{out} khớp OpenAPI hiện tại.")
+        return
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    text = json.dumps(spec, ensure_ascii=False, indent=2) + "\n"
+    with out.open("w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
     typer.echo(f"Đã ghi {out}")
 
 

@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "gen-api-types": "openapi-typescript src/api/openapi.json -o src/api/schema.d.ts"
+    "gen-api-types": "openapi-typescript src/api/openapi.json -o src/api/schema.d.ts",
+    "check-api-types": "openapi-typescript src/api/openapi.json -o src/api/schema.d.ts --check"
   },
   "dependencies": {
     "@mantine/core": "^8.3.18",
