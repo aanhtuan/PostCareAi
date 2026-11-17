@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F11 |
-| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -78,9 +78,9 @@ Tích hợp MediaPipe Pose Landmarker đã huấn luyện sẵn (không train, k
 ## 5. Acceptance criteria
 
 - [ ] **AC1.** `make models` tải model pose `.task` vào `models/` (gitignore) và kiểm tra checksum; chạy lại không tải lại; sai checksum → lỗi và exit khác 0. *(ADR-0003)* — *Kiểm chứng:* test `test_models_skip_when_checksum_ok`, `test_models_checksum_mismatch_fails` (không cần mạng); chạy tay `make models` trên Windows và Linux.
-- [ ] **AC2.** Adapter dùng chế độ VIDEO, `num_poses = 2` (lấy từ cấu hình), trả `FrameObservation` theo schema chung; kiểu dữ liệu MediaPipe không lộ ra ngoài adapter. *(A04; PDF §10)* — *Kiểm chứng:* unit test `test_mapping_mediapipe_to_keypoint_names`, `test_mapping_clamps_coordinates`; `make lint-imports` có contract "chỉ `vision.inference` import `mediapipe`"; test vision `test_adapter_returns_schema_types_only`.
-- [ ] **AC3.** Có test `@pytest.mark.vision` chạy bằng `make test-vision` trên ảnh hoặc video trong `data/`; thiếu file thì skip; CI không chạy. *(testing.md §1)* — *Kiểm chứng:* `make test-vision` trên máy có model và dữ liệu (ghi kết quả vào mục 10); trên máy không có model, `make test-vision` báo skip và exit 0; `make check` không thu test `vision`.
-- [ ] **AC4.** Đo FPS ở 720p trên CPU máy dev (biến thể `full` và `lite`), ghi vào bảng "Kết quả đo hiệu năng" của tech-stack.md, kèm CPU % và RAM MB. *(HS §8.2; A07)* — *Kiểm chứng:* chạy `postcare probe --source <video 720p> --pose`; tech-stack.md có ít nhất một dòng đo của F11.
+- [x] **AC2.** Adapter dùng chế độ VIDEO, `num_poses = 2` (lấy từ cấu hình), trả `FrameObservation` theo schema chung; kiểu dữ liệu MediaPipe không lộ ra ngoài adapter. *(A04; PDF §10)* — *Kiểm chứng:* unit test `test_mapping_mediapipe_to_keypoint_names`, `test_mapping_clamps_coordinates`; `make lint-imports` có contract "chỉ `vision.inference` import `mediapipe`"; test vision `test_adapter_returns_schema_types_only`.
+- [x] **AC3.** Có test `@pytest.mark.vision` chạy bằng `make test-vision` trên ảnh hoặc video trong `data/`; thiếu file thì skip; CI không chạy. *(testing.md §1)* — *Kiểm chứng:* `make test-vision` trên máy có model và dữ liệu (ghi kết quả vào mục 10); trên máy không có model, `make test-vision` báo skip và exit 0; `make check` không thu test `vision`.
+- [x] **AC4.** Đo FPS ở 720p trên CPU máy dev (biến thể `full` và `lite`), ghi vào bảng "Kết quả đo hiệu năng" của tech-stack.md, kèm CPU % và RAM MB. *(HS §8.2; A07)* — *Kiểm chứng:* chạy `postcare probe --source <video 720p> --pose`; tech-stack.md có ít nhất một dòng đo của F11.
 
 ## 6. Kế hoạch test
 
@@ -97,7 +97,7 @@ Tích hợp MediaPipe Pose Landmarker đã huấn luyện sẵn (không train, k
 ## 7. Giả định
 
 - *(giả định)* Manifest model ở `config/models.yaml`, URL có số phiên bản cố định.
-- *(giả định)* Biến thể mặc định `pose_landmarker_full`; có thêm `lite` để so sánh.
+- *(giả định)* Biến thể mặc định `pose_landmarker_full`; có thêm `lite` để so sánh. Đã kiểm bằng benchmark (QA#35, mục 10): `full` vẫn là mặc định, manifest có thêm `heavy`.
 - *(giả định)* Toạ độ landmark được kẹp vào [0, 1]; visibility giữ nguyên giá trị model.
 - *(giả định)* Contract import-linter mới: chỉ `postcare.vision.inference` import `mediapipe`.
 - *(giả định)* Dữ liệu thử cho test vision ở `data/vision/`.
@@ -106,6 +106,7 @@ Tích hợp MediaPipe Pose Landmarker đã huấn luyện sẵn (không train, k
 ## 8. Câu hỏi mở
 
 - Nhóm cần cung cấp ít nhất một ảnh hoặc video 720p có người (đã đồng ý quay, HS §6.3) đặt ở `data/vision/` để chạy AC3, AC4. Chưa có dữ liệu thì AC3 chỉ kiểm chứng được nhánh skip. **Chặn** việc tick AC3 và AC4, không chặn code.
+  - *Cập nhật 2026-11-17:* tạm dùng dữ liệu ngoài đã có giấy phép (QA#33): clip stock và dataset trong `data/external/`. `data/vision/` vẫn trống, test vision tự dùng clip Pexels. Khi nhóm có video tự quay thì đặt vào `data/vision/` và chạy lại `make test-vision`.
 
 ## 9. Kế hoạch triển khai
 
@@ -131,6 +132,40 @@ Lập ngày 2026-11-17 (builder F11). Bổ sung so với mục 3: QA#35 yêu c�
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+Ngày 2026-11-17, nhánh `feat/F11-pose-adapter`, máy Windows 11, i5-10300H, 16 GB.
+
+**AC1** (chưa tick, còn thiếu bước chạy tay trên Linux):
+- `tests/inference/test_models_download.py` xanh (URL `file://`, không cần mạng): `test_models_skip_when_checksum_ok`, `test_models_checksum_mismatch_fails`, `test_models_cli_checksum_mismatch_exits_nonzero` (exit ≠ 0, đã xóa file tải dở), tải lại khi file hỏng, URL `latest` bị từ chối, manifest thật đủ `lite`/`full`/`heavy` với URL có số phiên bản.
+- Windows: `make models` lần đầu tải cả 3 file `.task` và báo sha256 khớp. Chạy lần hai thì in "đã có, sha256 khớp, bỏ qua". `scripts\dev.ps1 models` gọi cùng lệnh `postcare models` (`test_models_target_calls_postcare_models`).
+- **Còn thiếu:** chạy tay `make models` trên Linux (CI Ubuntu chỉ chạy unit test).
+
+**AC2:**
+- `test_mapping.py`: `test_mapping_mediapipe_to_keypoint_names`, `test_mapping_clamps_coordinates`, sai số landmark hoặc NaN báo lỗi.
+- `test_adapter_unit.py`: landmarker giả. Kiểm VIDEO `detect_for_video(image, ts_ms)`, BGR→RGB, `num_poses` lấy từ `EngineConfig` (= 2), `ts_ms` không tăng thì báo lỗi trước khi gọi model, thiếu model hoặc model hỏng thì báo lỗi gợi ý `make models`.
+- Test vision `test_adapter_returns_schema_types_only` xanh.
+- `make lint-imports`: contract `mediapipe-only-in-inference` là KEPT. Ca âm tính: thêm tạm `import mediapipe` vào `postcare/vision/camera.py` thì contract BROKEN (đã hoàn tác).
+
+**AC3:**
+- `make test-vision` (với `POSTCARE_DATA_DIR=D:/PostCareAi/data`, vì worktree không có `data/`): 4 passed. Model `full` thật chạy trên `pexels-8090735.mp4` và trên khung đen.
+- Khi thiếu model (`POSTCARE_MODELS_DIR` trỏ vào thư mục không tồn tại): 4 skipped, exit 0.
+- `make check` chỉ chạy `-m "not vision"` (4 test vision bị bỏ chọn).
+
+**AC4:** bảng "Kết quả đo hiệu năng" trong tech-stack.md có 18 dòng: 6 clip × lite/full/heavy, gồm 5 clip 720p (Pexels giường, Mixkit, 2 clip GMDCSA24) và 1 clip CAUCAFall 720×480.
+- FPS xử lý ở 720p: lite 26.7–33.6, full 16.1–27.9, heavy 9.1–13.7.
+- CPU 105–135 % một luồng (≈ 12–17 % tổng máy). RAM 235–350 MB.
+- Mặc định là `full`: heavy không ổn định ≥ 10 FPS (A07) khi chưa tính engine, face và chạy hai worker.
+
+**Kiểm tra cuối:**
+- `make check` xanh: 227 passed, 9 contract KEPT, web build xong. `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0.
+- Hai lệnh trên chạy với `TEST_DATABASE_URL=.../postcare_f11_test` vì nhiều builder dùng chung PostgreSQL. Không ghi giá trị này vào `.env.example`.
+
+**Người sau cần biết:**
+- Phụ thuộc mới: `mediapipe` 1.2.3 (kéo theo matplotlib, sounddevice), `psutil` 7.2.2. Đã ghi lý do trong tech-stack.md.
+- `vision/inference/stats.py` (`PoseCoverage`) dùng cho `probe --pose`. F13 có thể dùng lại để báo cáo chất lượng quan sát.
+- MediaPipe in nhiều log INFO/WARNING ra stderr (LiteRT, "Sparsity tensors…", "NORM_RECT without IMAGE_DIMENSIONS"). Các log này vô hại; F17 có thể tắt bớt nếu cần.
+- Thay `test_placeholder.py` bằng `tests/vision/test_pose_adapter.py`.
+- Không sửa `postcare.engine`, `docs/progress/*`, `docs/03-features/README.md`.
 
 ## 11. Definition of Done
 
