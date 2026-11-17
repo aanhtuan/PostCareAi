@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F10 |
-| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -87,10 +87,10 @@
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** `postcare/schemas` có `FrameObservation`, `PersonPose` (keypoint có tên trung lập, toạ độ chuẩn hóa, visibility), `FaceObservation`, `FaceSignals`, `EngineOutput`, `EventCode`, `Priority`; mọi schema JSON round-trip đúng. *(PDF §10)* — *Kiểm chứng:* test `test_frame_observation_roundtrip`, `test_engine_output_roundtrip`, `test_keypoint_rejects_out_of_range`.
-- [ ] **AC2.** `EngineConfig.load()` đọc `config/engine.default.yaml` và override theo camera; sai kiểu hoặc khóa lạ → lỗi rõ ràng có đường dẫn khóa; `config_hash` ổn định. *(QA#22)* — *Kiểm chứng:* test `test_load_default_config`, `test_override_deep_merge`, `test_wrong_type_error_mentions_key`, `test_unknown_key_rejected`, `test_config_hash_stable_and_changes_with_override`.
-- [ ] **AC3.** `Engine.process(obs)` với observation không có người → trạng thái `NO_OBSERVATION`, chất lượng `NO_PERSON`, không có sự kiện. *(PDF §4.3 (tr.6))* — *Kiểm chứng:* test `test_empty_observation_gives_no_observation`, `test_source_not_ok_gives_camera_issue`, `test_engine_is_deterministic`, `test_non_increasing_ts_raises`.
-- [ ] **AC4.** Catalog `EventCode → Priority` khớp bảng §5 của event-engine.md (có test). mypy strict xanh cho `schemas` và `engine`. *(event-engine.md §5; coding-standards.md §2)* — *Kiểm chứng:* test `test_catalog_matches_event_engine_doc`, `test_creates_alert_only_medium_high`; lệnh `make typecheck`.
+- [x] **AC1.** `postcare/schemas` có `FrameObservation`, `PersonPose` (keypoint có tên trung lập, toạ độ chuẩn hóa, visibility), `FaceObservation`, `FaceSignals`, `EngineOutput`, `EventCode`, `Priority`; mọi schema JSON round-trip đúng. *(PDF §10)* — *Kiểm chứng:* test `test_frame_observation_roundtrip`, `test_engine_output_roundtrip`, `test_keypoint_rejects_out_of_range`.
+- [x] **AC2.** `EngineConfig.load()` đọc `config/engine.default.yaml` và override theo camera; sai kiểu hoặc khóa lạ → lỗi rõ ràng có đường dẫn khóa; `config_hash` ổn định. *(QA#22)* — *Kiểm chứng:* test `test_load_default_config`, `test_override_deep_merge`, `test_wrong_type_error_mentions_key`, `test_unknown_key_rejected`, `test_config_hash_stable_and_changes_with_override`.
+- [x] **AC3.** `Engine.process(obs)` với observation không có người → trạng thái `NO_OBSERVATION`, chất lượng `NO_PERSON`, không có sự kiện. *(PDF §4.3 (tr.6))* — *Kiểm chứng:* test `test_empty_observation_gives_no_observation`, `test_source_not_ok_gives_camera_issue`, `test_engine_is_deterministic`, `test_non_increasing_ts_raises`.
+- [x] **AC4.** Catalog `EventCode → Priority` khớp bảng §5 của event-engine.md (có test). mypy strict xanh cho `schemas` và `engine`. *(event-engine.md §5; coding-standards.md §2)* — *Kiểm chứng:* test `test_catalog_matches_event_engine_doc`, `test_creates_alert_only_medium_high`; lệnh `make typecheck`.
 
 ## 6. Kế hoạch test
 
@@ -142,6 +142,23 @@ Không có migration, endpoint, `make gen-api-types`. Rủi ro: mypy strict vớ
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+**Bằng chứng (17/11/2026, nhánh `feat/F10-engine-core`):**
+- AC1: `server/tests/schemas/test_roundtrip.py` (19 test, xanh): `test_frame_observation_roundtrip`, `test_engine_output_roundtrip`, `test_other_schemas_roundtrip`, `test_keypoint_names_are_model_neutral`; âm tính `test_keypoint_rejects_out_of_range` (5 ca), `test_unknown_keypoint_name_rejected`, `test_frame_observation_rejects_bad_values`, `test_face_observation_rejects_bad_values`, `test_event_requires_rule_id`, `test_event_priority_must_be_allowed_for_code`, `test_event_rejects_bad_times_and_confidence`, `test_roi_polygon_rejects_bad_points`, `test_schemas_are_frozen`.
+- AC2: `server/tests/schemas/test_engine_config.py` (10 test, xanh): `test_load_default_config`, `test_dump_covers_every_yaml_key`, `test_override_deep_merge` (dict và file YAML), `test_override_does_not_mutate_input`, `test_wrong_type_error_mentions_key` (gồm `"55"` bị từ chối nhờ strict), `test_unknown_key_rejected`, `test_missing_key_rejected`, `test_invalid_files_rejected`, `test_config_hash_stable_and_changes_with_override` (override rỗng/trùng mặc định/đổi thứ tự khóa giữ hash), `test_config_hash_ignores_privacy`.
+- AC3: `server/tests/engine/test_engine_core.py` (10 test, xanh): `test_empty_observation_gives_no_observation`, `test_source_not_ok_gives_camera_issue`, `test_engine_is_deterministic`, `test_non_increasing_ts_raises`, `test_engine_does_not_read_clock` (monkeypatch `time.*`, `datetime.now` ném lỗi), `test_persons_without_f13_stay_no_observation`, `test_state_changed_only_when_snapshot_changes`, `test_camera_id_mismatch_raises`, `test_initial_state_is_no_observation`, `test_engine_exposes_config_hash`.
+- AC4: `server/tests/schemas/test_catalog_matches_doc.py` (5 test, xanh): `test_catalog_matches_event_engine_doc` (đọc bảng §5 event-engine.md: Code, mức đầu tiên của Priority, cột "Tạo cảnh báo?"), `test_creates_alert_only_medium_high`, `test_catalog_covers_every_event_code`, âm tính `test_catalog_check_detects_drift` (thêm `FAKE_CODE` hoặc đổi mức `BED_EXIT` → lệch). `make typecheck`: mypy strict "no issues found in 11 source files" (`postcare.schemas`, `postcare.engine`).
+- Test trước: lần chạy đầu `pytest tests/schemas tests/engine` đỏ vì `ModuleNotFoundError: postcare.schemas.engine_config`, `postcare.schemas.context`, `ImportError: Engine`; `test_catalog_matches_doc.py` đỏ vì `EventSpec` chưa có `default_priority`/`creates_alert`.
+- `make check` exit 0 (ruff, prettier, mypy, tsc, lint-imports 8 contract kept, check-api-types, pytest 124 passed, vitest 30 passed, build web). `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0, cùng kết quả.
+
+**Ghi chú cho người sau:**
+- `pyyaml` đã là phụ thuộc chính; mypy bỏ qua stub thiếu của `yaml` (override trong `pyproject.toml`), không thêm `types-PyYAML`. Chưa thêm numpy (F10 chưa cần; F13 thêm kèm lý do).
+- Enum vẫn ở `schemas/enums.py`; `schemas/state.py` xuất lại. `EventSpec` có thêm `default_priority`, `creates_alert`; `default_priority(code)` cũ giữ nguyên chữ ký.
+- `Engine(config, context: EngineContext)` theo event-engine.md §2 (R9 ghi `roi: RoiPolygon`; ROI nằm trong `context.roi_polygon`).
+- `RoiPolygon(points=[(x, y), …])` mới kiểm tra ≥3 điểm và miền [0, 1]; F08 thêm `validate_roi_polygon` (tự cắt) vào cùng file.
+- F11: adapter phải kẹp toạ độ landmark ngoài khung về [0, 1], vì `Keypoint` từ chối giá trị ngoài miền.
+- F13 thay `TargetSelector.select` và `QualityAssessor.assess` trong `engine/pipeline.py` (hiện có người → `LOW_CONFIDENCE`, trạng thái giữ `NO_OBSERVATION`); F14 thay `StateMachine.update`; F15+ thay `RuleSet.evaluate`.
+- Test có sẵn `tests/test_timeline_handover.py::test_session_timeline_order` chập chờn (khoảng 1/6 lần trên Windows: `alert.resolve` và `RETURN_TO_BED` cùng mốc thời gian), không liên quan F10; nên sửa ở feature F22.
 
 ## 11. Definition of Done
 
