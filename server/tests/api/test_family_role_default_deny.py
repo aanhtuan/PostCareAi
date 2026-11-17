@@ -24,6 +24,7 @@ STAFF_READ_ENDPOINTS = [
     "/api/v1/patients",
     "/api/v1/cameras",
     "/api/v1/shifts",
+    "/api/v1/areas",
     "/api/v1/sessions",
     "/api/v1/sessions/1",
     "/api/v1/sessions/1/timeline",

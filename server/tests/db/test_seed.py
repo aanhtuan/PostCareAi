@@ -5,7 +5,7 @@ from datetime import time
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from postcare.db.models import Bed, Camera, ShiftDefinition, User
+from postcare.db.models import Area, Bed, Camera, ShiftDefinition, User
 from postcare.domain.security import verify_password
 from postcare.domain.seed import seed_base, seed_demo
 from postcare.schemas.enums import CameraSourceType, UserRole
@@ -16,7 +16,7 @@ PW = "seed-pass"
 def _counts(db: Session) -> dict[str, int]:
     return {
         m.__tablename__: db.scalar(select(func.count()).select_from(m)) or 0
-        for m in (User, Bed, Camera, ShiftDefinition)
+        for m in (User, Area, Bed, Camera, ShiftDefinition)
     }
 
 
@@ -24,7 +24,7 @@ def test_seed_creates_sample_data(db_session: Session) -> None:
     seed_base(db_session, PW)
     beds = db_session.scalars(select(Bed).order_by(Bed.code)).all()
     assert [b.code for b in beds] == ["A01", "A02", "A03"]
-    assert {b.area for b in beds} == {"Khu hậu phẫu"}
+    assert {(b.area.code, b.area.name) for b in beds} == {("KV01", "Khu hậu phẫu")}
     cams = db_session.scalars(select(Camera)).all()
     assert len(cams) == 1
     cam = cams[0]
@@ -64,12 +64,13 @@ def test_seed_is_idempotent(db_session: Session) -> None:
         == before
         == {
             "users": 4,
+            "areas": 1,
             "beds": 3,
             "cameras": 1,
             "shift_definitions": 3,
         }
     )
-    assert sum(first.values()) == 11
+    assert sum(first.values()) == 12
     assert sum(second.values()) == 0
 
 
@@ -80,7 +81,7 @@ def test_seed_does_not_overwrite_edited_data(db_session: Session) -> None:
     nurse.full_name = "Tên đã sửa"
     nurse.password_hash = "hash-da-doi"
     bed = db_session.scalars(select(Bed).where(Bed.code == "A02")).one()
-    bed.area = "Khu khác"
+    bed.area = Area(code="KV-X", name="Khu khác")
     cam = db_session.scalars(select(Camera)).one()
     cam.source = "http://10.0.0.5:4747/video"
     db_session.commit()
@@ -89,7 +90,7 @@ def test_seed_does_not_overwrite_edited_data(db_session: Session) -> None:
     db_session.expire_all()
     assert db_session.get(User, nurse.id).full_name == "Tên đã sửa"  # type: ignore[union-attr]
     assert db_session.get(User, nurse.id).password_hash == "hash-da-doi"  # type: ignore[union-attr]
-    assert db_session.get(Bed, bed.id).area == "Khu khác"  # type: ignore[union-attr]
+    assert db_session.get(Bed, bed.id).area.name == "Khu khác"  # type: ignore[union-attr]
     assert db_session.get(Camera, cam.id).source == "http://10.0.0.5:4747/video"  # type: ignore[union-attr]
 
 

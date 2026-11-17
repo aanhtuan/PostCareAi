@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from postcare.db.base import Base
 from postcare.db.migrate import downgrade, upgrade
-from postcare.db.models import Bed, Camera, MonitoringSession, Patient, User
+from postcare.db.models import Area, Bed, Camera, MonitoringSession, Patient, User
 from postcare.schemas.enums import CameraSourceType, UserRole
 
 TS = "TIMESTAMP WITH TIME ZONE"
@@ -25,6 +25,7 @@ FOUNDATION_TABLES = {
     "monitoring_sessions",
     "audit_logs",
     "shift_definitions",
+    "areas",  # F37, migration 0005
 }
 
 # (kiểu, nullable, server default chứa chuỗi này hoặc None) theo data-model.md.
@@ -49,7 +50,7 @@ EXPECTED: dict[str, dict[str, tuple[str, bool, str | None]]] = {
     "beds": {
         "id": ("BIGINT", False, None),
         "code": ("TEXT", False, None),
-        "area": ("TEXT", False, None),
+        "area_id": ("BIGINT", False, None),  # F37, migration 0005
         "is_active": ("BOOLEAN", False, "true"),
         "created_at": (TS, False, "now()"),
     },
@@ -92,6 +93,15 @@ EXPECTED: dict[str, dict[str, tuple[str, bool, str | None]]] = {
         "name": ("TEXT", False, None),
         "start_time": ("TIME WITHOUT TIME ZONE", False, None),
         "end_time": ("TIME WITHOUT TIME ZONE", False, None),
+        "is_active": ("BOOLEAN", False, "true"),  # F37
+        "created_at": (TS, False, "now()"),  # F37
+    },
+    "areas": {
+        "id": ("BIGINT", False, None),
+        "code": ("TEXT", False, None),
+        "name": ("TEXT", False, None),
+        "is_active": ("BOOLEAN", False, "true"),
+        "created_at": (TS, False, "now()"),
     },
 }
 # Cột prototype (ADR-0010) ngoài data-model.md, tạo ở migration 0002 (xem spec F01 mục 7).
@@ -99,6 +109,7 @@ PROTOTYPE_EXTRA_COLUMNS = {"cameras": {"last_config_hash"}}
 
 EXPECTED_FKS = {
     ("cameras", "bed_id", "beds"),
+    ("beds", "area_id", "areas"),
     ("monitoring_sessions", "patient_id", "patients"),
     ("monitoring_sessions", "bed_id", "beds"),
     ("monitoring_sessions", "camera_id", "cameras"),
@@ -110,6 +121,7 @@ EXPECTED_UNIQUE = {
     ("users", "username"),
     ("patients", "code"),
     ("beds", "code"),
+    ("areas", "code"),
     ("cameras", "bed_id"),
 }
 
@@ -194,7 +206,8 @@ def test_models_match_migrations(test_engine: Engine) -> None:
 
 def _catalog(db: Session) -> tuple[User, Bed, Bed, Patient, Patient]:
     user = User(username="u-mig", full_name="Người thử", password_hash="x", role=UserRole.NURSE)
-    b1, b2 = Bed(code="T-MIG-1", area="Khu thử"), Bed(code="T-MIG-2", area="Khu thử")
+    area = Area(code="T-MIG", name="Khu thử")
+    b1, b2 = Bed(code="T-MIG-1", area=area), Bed(code="T-MIG-2", area=area)
     p1, p2 = Patient(code="T-MIG-P1"), Patient(code="T-MIG-P2")
     db.add_all([user, b1, b2, p1, p2])
     db.flush()
