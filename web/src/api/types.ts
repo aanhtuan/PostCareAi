@@ -28,6 +28,7 @@ export type ShiftCreate = S['ShiftCreate'];
 export type BedOut = S['BedOut'];
 export type PatientOut = S['PatientOut'];
 export type CameraOut = S['CameraOut'];
+export type CameraDetailOut = S['CameraDetailOut'];
 export type BedCreate = S['BedCreate'];
 export type BedUpdate = S['BedUpdate'];
 export type PatientCreate = S['PatientCreate'];

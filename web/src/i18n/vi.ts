@@ -243,10 +243,13 @@ export const vi = {
   live: {
     title: 'Theo dõi trực tiếp',
     chooseBed: 'Chọn giường',
-    simulatedMode: 'Chế độ chỉ hiển thị skeleton (mô phỏng)',
-    simulatedHint:
-      'Chưa kết nối camera và AI. Hình người que được vẽ lại từ trạng thái do bộ giả lập gửi lên, không phải hình ảnh thật.',
     roi: 'Vùng giường',
+    roiNotConfigured: 'Chưa cấu hình vùng giường',
+    streamAlt: 'Giường {code}',
+    monitoring: 'Đang theo dõi',
+    noSession: 'Không theo dõi',
+    sessionDetail: 'Bệnh nhân {patient} · bắt đầu {time}',
+    offlineHint: 'Không nhận được hình ảnh mới. Màn hình sẽ tự hiện lại khi camera kết nối lại.',
     noState: 'Chưa nhận được trạng thái của giường này',
     updatedAt: 'Cập nhật lúc {time}',
     latestEvent: 'Sự kiện gần nhất',
