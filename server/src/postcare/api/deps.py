@@ -14,13 +14,12 @@ from postcare.domain.errors import DomainError
 from postcare.domain.notifications import Publisher
 from postcare.domain.runtime import RuntimeStore
 from postcare.domain.users import get_active_user
-from postcare.schemas.enums import UserRole
+from postcare.schemas.enums import STAFF_ROLES, UserRole
 from postcare.settings import Settings
 
 _bearer = HTTPBearer(auto_error=False)
 
 # Ma trận quyền (api-conventions.md; QA#18, QA#31). DOCTOR chỉ đọc; FAMILY không phải nhân viên.
-STAFF_ROLES = (UserRole.NURSE, UserRole.CHARGE_NURSE, UserRole.DOCTOR, UserRole.ADMIN)
 WRITE_ROLES = (UserRole.NURSE, UserRole.CHARGE_NURSE, UserRole.ADMIN)
 
 
@@ -50,6 +49,7 @@ def create_token(user: User, settings: Settings, now: datetime | None = None) ->
     payload = {
         "sub": str(user.id),
         "role": user.role.value,
+        "tv": user.token_version,
         "iat": now,
         "exp": now + timedelta(hours=settings.jwt_expire_hours),
     }
@@ -64,10 +64,12 @@ def user_from_token(db: Session, token: str, settings: Settings) -> User:
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
         user_id = int(payload["sub"])
-    except (jwt.PyJWTError, KeyError, ValueError) as exc:
+        token_version = int(payload.get("tv", 0))
+    except (jwt.PyJWTError, KeyError, ValueError, TypeError) as exc:
         raise _unauthorized() from exc
     user = get_active_user(db, user_id)
-    if user is None:
+    # Đặt lại mật khẩu tăng `token_version`: mọi token cấp trước đó bị từ chối (F35).
+    if user is None or user.token_version != token_version:
         raise _unauthorized()
     return user
 

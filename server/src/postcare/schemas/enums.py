@@ -11,6 +11,15 @@ class UserRole(StrEnum):
     FAMILY = "FAMILY"  # QA#31: người nhà; bị chặn mặc định ở API nhân viên (F35), F36 mở phần riêng
 
 
+# Vai trò nhân viên (api-conventions.md; F35 R2). FAMILY không thuộc nhóm này.
+STAFF_ROLES: tuple[UserRole, ...] = (
+    UserRole.NURSE,
+    UserRole.CHARGE_NURSE,
+    UserRole.DOCTOR,
+    UserRole.ADMIN,
+)
+
+
 class BodyState(StrEnum):
     LYING = "LYING"
     RAISING = "RAISING"

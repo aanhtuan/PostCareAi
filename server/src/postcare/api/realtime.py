@@ -59,8 +59,8 @@ class WsHub:
                 logger.warning("Loại client WebSocket gửi chậm")
                 self._clients.pop(queue, None)
 
-    def disconnect_user(self, user_id: int) -> None:
-        """Đóng mọi kết nối của `user_id` với mã 4401 (tài khoản bị khóa, F35 R7)."""
+    def disconnect_user(self, user_id: int, code: int = CLOSE_UNAUTHORIZED) -> None:
+        """Đóng kết nối của user: 4401 (khóa, đặt lại mật khẩu), 4403 (không còn là nhân viên)."""
         loop = self._loop
         if loop is None or loop.is_closed():
             return
@@ -69,18 +69,18 @@ class WsHub:
         except RuntimeError:
             running = None
         if running is loop:
-            self._close_user(user_id)
+            self._close_user(user_id, code)
         else:
-            loop.call_soon_threadsafe(self._close_user, user_id)
+            loop.call_soon_threadsafe(self._close_user, user_id, code)
 
-    def _close_user(self, user_id: int) -> None:
+    def _close_user(self, user_id: int, code: int) -> None:
         for queue, owner in list(self._clients.items()):
             if owner != user_id:
                 continue
             self._clients.pop(queue, None)
             while not queue.empty():  # bỏ message chưa gửi: không gửi thêm gì cho người bị khóa
                 queue.get_nowait()
-            queue.put_nowait({"type": _CLOSE, "code": CLOSE_UNAUTHORIZED})
+            queue.put_nowait({"type": _CLOSE, "code": code})
 
     def register(self, user_id: int | None = None) -> asyncio.Queue[dict[str, Any]]:
         queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=QUEUE_SIZE)

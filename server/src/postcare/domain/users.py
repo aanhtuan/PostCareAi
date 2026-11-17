@@ -12,7 +12,7 @@ from postcare.domain.audit import record_audit
 from postcare.domain.dto import Page, UserCreate, UserOut, user_out
 from postcare.domain.errors import DomainError, not_found
 from postcare.domain.security import hash_password, verify_password
-from postcare.schemas.enums import UserRole
+from postcare.schemas.enums import STAFF_ROLES, UserRole
 
 # Hash bcrypt của chuỗi ngẫu nhiên, tạo một lần khi import: dùng khi không có tài khoản để
 # thời gian kiểm tra gần như nhau (không lộ tài khoản có tồn tại hay không).
@@ -136,8 +136,11 @@ def update_user(
     actor: User,
     full_name: str | None = None,
     role: UserRole | None = None,
-) -> UserOut:
+) -> tuple[UserOut, bool]:
+    """Trả `(user, left_staff)`: `left_staff` khi vai trò đổi từ nhân viên sang vai trò khác
+    (ví dụ FAMILY); người gọi đóng luồng realtime nhân viên của người đó sau commit."""
     user = _get(db, user_id, for_update=True)
+    was_staff = user.role in STAFF_ROLES
     before = _snapshot(user)
     if role is not None and role != user.role and user.role == UserRole.ADMIN:
         _guard_admin_loss(db, user, actor)
@@ -157,7 +160,7 @@ def update_user(
             after=after,
         )
     db.commit()
-    return user_out(user)
+    return user_out(user), was_staff and user.role not in STAFF_ROLES
 
 
 def _set_active(db: Session, user_id: int, actor: User, active: bool) -> tuple[UserOut, bool]:
@@ -194,6 +197,7 @@ def unlock_user(db: Session, *, user_id: int, actor: User) -> UserOut:
 def reset_password(db: Session, *, user_id: int, actor: User, new_password: str) -> None:
     user = _get(db, user_id, for_update=True)
     user.password_hash = hash_password(new_password)
+    user.token_version += 1  # token cũ hết hiệu lực; người gọi đóng WS sau commit
     record_audit(
         db,
         actor_user_id=actor.id,

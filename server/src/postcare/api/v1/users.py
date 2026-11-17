@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from postcare.api.deps import get_publisher, require_admin
 from postcare.api.deps import get_session as db_session
+from postcare.api.realtime import CLOSE_FORBIDDEN, CLOSE_UNAUTHORIZED
 from postcare.db.models import User
 from postcare.domain import users as svc
 from postcare.domain.dto import Page, PasswordReset, UserCreate, UserOut, UserUpdate
@@ -47,10 +48,14 @@ def update_user(
     body: UserUpdate,
     actor: User = Depends(require_admin),
     db: Session = Depends(db_session),
+    publisher: Publisher = Depends(get_publisher),
 ) -> UserOut:
-    return svc.update_user(
+    out, left_staff = svc.update_user(
         db, user_id=user_id, actor=actor, full_name=body.full_name, role=body.role
     )
+    if left_staff:  # sau commit: không còn quyền vào luồng nhân viên (api-conventions.md, 4403)
+        disconnect_user(publisher, user_id, CLOSE_FORBIDDEN)
+    return out
 
 
 @router.post("/{user_id}/lock", response_model=UserOut)
@@ -62,7 +67,7 @@ def lock_user(
 ) -> UserOut:
     out, changed = svc.lock_user(db, user_id=user_id, actor=actor)
     if changed:  # sau commit (AGENTS.md quy tắc 7)
-        disconnect_user(publisher, user_id)
+        disconnect_user(publisher, user_id, CLOSE_UNAUTHORIZED)
     return out
 
 
@@ -81,6 +86,8 @@ def reset_password(
     body: PasswordReset,
     actor: User = Depends(require_admin),
     db: Session = Depends(db_session),
+    publisher: Publisher = Depends(get_publisher),
 ) -> Response:
     svc.reset_password(db, user_id=user_id, actor=actor, new_password=body.new_password)
+    disconnect_user(publisher, user_id, CLOSE_UNAUTHORIZED)  # token cũ đã hết hiệu lực
     return Response(status_code=204)
