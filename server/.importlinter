@@ -1,0 +1,101 @@
+# Ranh giới module của postcare (docs/02-architecture/overview.md §3; AGENTS.md quy tắc 5).
+# Chạy: make lint-imports (uv --directory server run lint-imports).
+
+[importlinter]
+root_packages =
+    postcare
+include_external_packages = True
+
+[importlinter:contract:engine-schemas-no-io]
+name = engine va schemas khong import thu vien I/O (cv2, mediapipe, fastapi, sqlalchemy, httpx)
+type = forbidden
+source_modules =
+    postcare.engine
+    postcare.schemas
+forbidden_modules =
+    cv2
+    mediapipe
+    fastapi
+    sqlalchemy
+    httpx
+
+[importlinter:contract:schemas-standalone]
+name = schemas khong import module postcare nao khac
+type = forbidden
+source_modules =
+    postcare.schemas
+forbidden_modules =
+    postcare.engine
+    postcare.vision
+    postcare.pipeline
+    postcare.worker
+    postcare.replay
+    postcare.eval
+    postcare.db
+    postcare.domain
+    postcare.api
+    postcare.settings
+    postcare.cli
+
+[importlinter:contract:engine-pure]
+name = engine khong import vision, api, db, worker, pipeline
+type = forbidden
+source_modules =
+    postcare.engine
+forbidden_modules =
+    postcare.vision
+    postcare.api
+    postcare.db
+    postcare.worker
+    postcare.pipeline
+
+[importlinter:contract:vision-boundary]
+name = vision khong import api, db, engine
+type = forbidden
+source_modules =
+    postcare.vision
+forbidden_modules =
+    postcare.api
+    postcare.db
+    postcare.engine
+
+[importlinter:contract:offline-no-api-db]
+name = pipeline, worker, replay, eval khong import api, db
+type = forbidden
+source_modules =
+    postcare.pipeline
+    postcare.worker
+    postcare.replay
+    postcare.eval
+forbidden_modules =
+    postcare.api
+    postcare.db
+
+[importlinter:contract:db-boundary]
+name = db khong import api, vision, engine
+type = forbidden
+source_modules =
+    postcare.db
+forbidden_modules =
+    postcare.api
+    postcare.vision
+    postcare.engine
+
+[importlinter:contract:domain-boundary]
+name = domain khong import api, vision, engine
+type = forbidden
+source_modules =
+    postcare.domain
+forbidden_modules =
+    postcare.api
+    postcare.vision
+    postcare.engine
+
+[importlinter:contract:api-boundary]
+name = api khong import vision, engine
+type = forbidden
+source_modules =
+    postcare.api
+forbidden_modules =
+    postcare.vision
+    postcare.engine
