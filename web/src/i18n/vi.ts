@@ -321,6 +321,7 @@ export const vi = {
     restore: 'Khôi phục',
     save: 'Lưu',
     deleted: 'Đã xóa',
+    deletedBed: 'Giường {code} (Đã xóa)',
     inUse: 'Đang dùng',
     usage: 'Trạng thái dùng',
     showDeleted: 'Hiện mục đã xóa',

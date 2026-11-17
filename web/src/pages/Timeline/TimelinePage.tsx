@@ -19,6 +19,7 @@ import { PRIORITIES, type Priority, type TimelineItemOut } from '../../api/types
 import { AlertActions } from '../../components/AlertActions';
 import { AlertStatusBadge, OutcomeText, PriorityBadge } from '../../components/Badges';
 import { fmt, vi } from '../../i18n/vi';
+import { bedOptionLabel } from '../../utils/bedLabel';
 import {
   formatDate,
   formatDateTime,
@@ -91,10 +92,12 @@ function TimelineRow({ item }: { item: TimelineItemOut }) {
 
 export function TimelinePage() {
   const [params] = useSearchParams();
-  const beds = useBeds();
+  // Gồm cả giường đã xóa để xem lại lịch sử (F03 R17).
+  const beds = useBeds(true);
   const bedList = beds.data ?? [];
   const [bedId, setBedId] = useState<string | null>(params.get('bed'));
-  const effectiveBed = bedId ?? (bedList[0] ? String(bedList[0].id) : null);
+  const firstBed = bedList.find((b) => b.is_active) ?? bedList[0];
+  const effectiveBed = bedId ?? (firstBed ? String(firstBed.id) : null);
   const sessions = useSessions(
     { bed_id: effectiveBed ? Number(effectiveBed) : undefined, limit: 20 },
     effectiveBed !== null,
@@ -134,7 +137,7 @@ export function TimelinePage() {
           label={vi.common.bed}
           data={bedList.map((b) => ({
             value: String(b.id),
-            label: fmt(vi.bed.title, { code: b.code }),
+            label: bedOptionLabel(b),
           }))}
           value={effectiveBed}
           onChange={(v) => {

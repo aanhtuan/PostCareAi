@@ -370,6 +370,17 @@ def _bed_has_camera(camera_id: int, code: str) -> DomainError:
     )
 
 
+def _camera_in_session(camera: Camera, session: MonitoringSession, action: str) -> DomainError:
+    """Camera là `camera_id` của phiên đang mở: không xóa, không đổi giường/nguồn (R14)."""
+    return DomainError(
+        "CAMERA_IN_ACTIVE_SESSION",
+        f'Camera "{camera.name}" đang dùng cho một phiên theo dõi. '
+        f"Kết thúc phiên trước khi {action}.",
+        409,
+        {"session_id": session.id},
+    )
+
+
 def _check_bed_free(db: Session, bed_id: int, own_id: int | None) -> Bed:
     bed = db.get(Bed, bed_id)
     if bed is None:
@@ -430,6 +441,10 @@ def update_camera(db: Session, camera_id: int, data: CameraUpdate, user: User) -
             bed_code = _check_bed_free(db, data.bed_id, camera.id).code
         camera.bed_id = data.bed_id
     if any(before[f] != _camera_snapshot(camera)[f] for f in _CAMERA_CONFIG_FIELDS):
+        session = _open_session(db, camera_id=camera.id)
+        if session is not None:
+            db.rollback()  # bỏ thay đổi trong bộ nhớ, nhả khóa hàng
+            raise _camera_in_session(camera, session, "sửa giường hoặc nguồn")
         camera.config_version += 1
     after = _camera_snapshot(camera)
     if after != before:
@@ -444,13 +459,7 @@ def delete_camera(db: Session, camera_id: int, user: User) -> CameraOut:
     if camera.is_active:
         session = _open_session(db, camera_id=camera.id)
         if session is not None:
-            raise DomainError(
-                "CAMERA_IN_ACTIVE_SESSION",
-                f'Camera "{camera.name}" đang dùng cho một phiên theo dõi. '
-                "Kết thúc phiên trước khi xóa.",
-                409,
-                {"session_id": session.id},
-            )
+            raise _camera_in_session(camera, session, "xóa")
         before = _camera_snapshot(camera)
         camera.is_active = False
         if camera.bed_id is not None:

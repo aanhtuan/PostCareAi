@@ -45,10 +45,11 @@ def _snapshot(s: MonitoringSession) -> dict[str, object]:
 def start_session(
     db: Session, *, bed_id: int, patient_id: int, user: User, publisher: Publisher
 ) -> SessionOut:
-    bed = db.get(Bed, bed_id)
+    # Khóa hàng giường và bệnh nhân tới hết transaction: không tranh chấp với xóa mềm (F03 R14).
+    bed = db.get(Bed, bed_id, with_for_update=True)
     if bed is None:
         raise not_found("Không tìm thấy giường")
-    patient = db.get(Patient, patient_id)
+    patient = db.get(Patient, patient_id, with_for_update=True)
     if patient is None:
         raise not_found("Không tìm thấy bệnh nhân")
     if not bed.is_active or not patient.is_active:

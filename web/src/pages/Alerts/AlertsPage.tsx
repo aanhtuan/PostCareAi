@@ -6,10 +6,12 @@ import { ALERT_STATUSES, PRIORITIES, type AlertStatus, type Priority } from '../
 import { AlertCard } from '../../components/AlertCard';
 import { AlertDetailModal } from '../../components/AlertDetailModal';
 import { fmt, vi } from '../../i18n/vi';
+import { bedOptionLabel } from '../../utils/bedLabel';
 import { fromLocalInput } from '../../utils/time';
 
 export function AlertsPage() {
-  const beds = useBeds();
+  // Gồm cả giường đã xóa để xem lại lịch sử (F03 R17).
+  const beds = useBeds(true);
   const [status, setStatus] = useState<AlertStatus[]>([]);
   const [priority, setPriority] = useState<Priority[]>([]);
   const [bedId, setBedId] = useState<string | null>(null);
@@ -64,7 +66,7 @@ export function AlertsPage() {
           placeholder={vi.common.all}
           data={(beds.data ?? []).map((b) => ({
             value: String(b.id),
-            label: fmt(vi.bed.title, { code: b.code }),
+            label: bedOptionLabel(b),
           }))}
           value={bedId}
           onChange={setBedId}
