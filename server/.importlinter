@@ -110,3 +110,14 @@ forbidden_modules =
 ignore_imports =
     postcare.vision.inference.** -> mediapipe
 allow_indirect_imports = True
+
+[importlinter:contract:engine-no-clock]
+name = engine khong doc dong ho, sinh ngau nhien hay import dong (time, datetime, random, importlib)
+type = forbidden
+source_modules =
+    postcare.engine
+forbidden_modules =
+    time
+    datetime
+    random
+    importlib

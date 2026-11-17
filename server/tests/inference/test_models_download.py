@@ -9,16 +9,17 @@ from pathlib import Path
 
 import pytest
 import yaml
-from postcare.vision.models import (
-    ChecksumMismatchError,
-    ManifestError,
-    ensure_model,
-    load_manifest,
-)
 from typer.testing import CliRunner
 
 from postcare.cli.main import app
 from postcare.settings import REPO_ROOT
+from postcare.vision.models import (
+    ChecksumMismatchError,
+    DownloadError,
+    ManifestError,
+    ensure_model,
+    load_manifest,
+)
 
 runner = CliRunner()
 CONTENT = {"lite": b"lite-model-bytes", "full": b"full-model-bytes-xx"}
@@ -173,3 +174,27 @@ def test_repo_manifest_is_pinned_and_complete() -> None:
         assert v.filename == f"pose_landmarker_{v.name}.task"
         assert v.url.endswith("/" + v.filename)
         assert re.fullmatch(r"[0-9a-f]{64}", v.sha256)
+
+
+@pytest.mark.parametrize(
+    "url", ["http://example.com/1/pose.task", "ftp://example.com/1/pose.task", "pose.task"]
+)
+def test_models_rejects_non_https_or_file_scheme(tmp_path: Path, url: str) -> None:
+    """Chỉ tải qua https (hoặc file:// cho test); http/ftp bị từ chối trước khi mở kết nối."""
+    path = _manifest(tmp_path)
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["pose"]["variants"][0]["url"] = url
+    path.write_text(yaml.safe_dump(data), encoding="utf-8")
+    manifest = load_manifest(path)
+    dest = tmp_path / "models"
+    with pytest.raises(DownloadError, match="https"):
+        ensure_model(manifest.pose_entry("lite"), dest)
+    assert not dest.exists() or list(dest.iterdir()) == []
+
+
+def test_repo_manifest_quotes_sha256() -> None:
+    """sha256 phải là chuỗi có nháy: YAML có thể đọc hash toàn chữ số thành số nguyên."""
+    text = (REPO_ROOT / "config" / "models.yaml").read_text(encoding="utf-8")
+    hashes = re.findall(r"^\s*sha256:\s*(\S+)\s*$", text, re.M)
+    assert len(hashes) == 3
+    assert all(h.startswith('"') and h.endswith('"') for h in hashes), hashes

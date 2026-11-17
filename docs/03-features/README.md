@@ -8,7 +8,7 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | Mã | Tên | Milestone | Ưu tiên | Nhánh | Phụ thuộc | Nguồn chính | Trạng thái |
 |---|---|---|---|---|---|---|---|
 | [F00](F00-project-skeleton.md) | Khung xương dự án | M0 | MVP | A+B+C | — | Yêu cầu người dùng; HS §6.1 | Done |
-| [F01](F01-database-foundation.md) | CSDL và migration nền | M0 | MVP | B | F00 | PDF §10, §10.1; HS §6.2 | In review |
+| [F01](F01-database-foundation.md) | CSDL và migration nền | M0 | MVP | B | F00 | PDF §10, §10.1; HS §6.2 | Done |
 | [F02](F02-auth-roles.md) | Đăng nhập và phân quyền | M0 | MVP | B+C | F01 | PDF §3; HS §2.2; QA#18 | Todo |
 | [F03](F03-bed-patient-camera-management.md) | Quản lý giường, bệnh nhân, camera | M0 | MVP | B+C | F02 | PDF §4.2, §9.1, §10.1 | Todo |
 | [F04](F04-monitoring-sessions.md) | Phiên theo dõi | M0 | MVP | B+C | F03 | PDF §4.2, §10.1; HS §6.2 | Todo |
@@ -20,7 +20,7 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F10](F10-observation-schema-engine-core.md) | Schema quan sát chung và khung Event Engine | M1 | MVP | A | F00 | PDF §10; HS §6.1 | Done |
 | [F11](F11-pose-adapter.md) | Pose adapter MediaPipe | M1 | MVP | A | F05, F10 | PDF §6.1; HS §5.2, §5.5 | Todo |
 | [F12](F12-replay-cli.md) | Replay CLI và fixture | M1 | MVP | A | F11 | PDF §12, §13; HS §8.1 | Todo |
-| [F13](F13-body-features-target-quality.md) | Đặc trưng cơ thể, người mục tiêu, chất lượng quan sát | M1 | MVP | A | F10 | PDF §6.1, §13.4; HS §5.2 | Todo |
+| [F13](F13-body-features-target-quality.md) | Đặc trưng cơ thể, người mục tiêu, chất lượng quan sát | M1 | MVP | A | F10 | PDF §6.1, §13.4; HS §5.2 | Done |
 | [F14](F14-body-state-machine.md) | State machine tư thế và vị trí | M1 | MVP | A | F13 | PDF §7; HS §5.4 | Todo |
 | [F15](F15-body-events.md) | Sự kiện cơ thể và vị trí | M1 | MVP | A | F14 | PDF §7.1–7.2; HS §5.1–5.4 | Todo |
 | [F16](F16-dev-evaluation-tool.md) | Công cụ đánh giá trên tập phát triển | M1 | MVP | A | F12, F15 | PDF §13; HS §8.1–8.2 | Todo |

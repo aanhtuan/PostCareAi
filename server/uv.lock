@@ -777,7 +777,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.13" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.27" },
-    { name = "mediapipe", specifier = ">=1.2.3" },
+    { name = "mediapipe", specifier = ">=1.2.3,<2" },
     { name = "opencv-contrib-python", specifier = ">=4.10,<5" },
     { name = "psutil", specifier = ">=7.2.2" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },

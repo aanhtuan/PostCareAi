@@ -111,8 +111,9 @@ Opener = Callable[[str], IO[bytes]]
 
 
 def _default_opener(url: str) -> IO[bytes]:
-    if not url.startswith(("https://", "http://", "file:")):
-        raise DownloadError(f"Chỉ hỗ trợ URL https/http/file: {url}")
+    # Chỉ https (model chính thức) và file (test, bản sao cục bộ); không http, ftp...
+    if not url.startswith(("https://", "file:")):
+        raise DownloadError(f"Chỉ hỗ trợ URL https hoặc file: {url}")
     return urllib.request.urlopen(url, timeout=DOWNLOAD_TIMEOUT_S)  # type: ignore[no-any-return]
 
 

@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F11 |
-| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | Done <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -77,7 +77,7 @@ Tích hợp MediaPipe Pose Landmarker đã huấn luyện sẵn (không train, k
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** `make models` tải model pose `.task` vào `models/` (gitignore) và kiểm tra checksum; chạy lại không tải lại; sai checksum → lỗi và exit khác 0. *(ADR-0003)* — *Kiểm chứng:* test `test_models_skip_when_checksum_ok`, `test_models_checksum_mismatch_fails` (không cần mạng); chạy tay `make models` trên Windows và Linux.
+- [x] **AC1.** `make models` tải model pose `.task` vào `models/` (gitignore) và kiểm tra checksum; chạy lại không tải lại; sai checksum → lỗi và exit khác 0. *(ADR-0003)* — *Kiểm chứng:* test `test_models_skip_when_checksum_ok`, `test_models_checksum_mismatch_fails` (không cần mạng); chạy tay `make models` trên Windows và Linux.
 - [x] **AC2.** Adapter dùng chế độ VIDEO, `num_poses = 2` (lấy từ cấu hình), trả `FrameObservation` theo schema chung; kiểu dữ liệu MediaPipe không lộ ra ngoài adapter. *(A04; PDF §10)* — *Kiểm chứng:* unit test `test_mapping_mediapipe_to_keypoint_names`, `test_mapping_clamps_coordinates`; `make lint-imports` có contract "chỉ `vision.inference` import `mediapipe`"; test vision `test_adapter_returns_schema_types_only`.
 - [x] **AC3.** Có test `@pytest.mark.vision` chạy bằng `make test-vision` trên ảnh hoặc video trong `data/`; thiếu file thì skip; CI không chạy. *(testing.md §1)* — *Kiểm chứng:* `make test-vision` trên máy có model và dữ liệu (ghi kết quả vào mục 10); trên máy không có model, `make test-vision` báo skip và exit 0; `make check` không thu test `vision`.
 - [x] **AC4.** Đo FPS ở 720p trên CPU máy dev (biến thể `full` và `lite`), ghi vào bảng "Kết quả đo hiệu năng" của tech-stack.md, kèm CPU % và RAM MB. *(HS §8.2; A07)* — *Kiểm chứng:* chạy `postcare probe --source <video 720p> --pose`; tech-stack.md có ít nhất một dòng đo của F11.
@@ -135,10 +135,13 @@ Lập ngày 2026-11-17 (builder F11). Bổ sung so với mục 3: QA#35 yêu c�
 
 Ngày 2026-11-17, nhánh `feat/F11-pose-adapter`, máy Windows 11, i5-10300H, 16 GB.
 
-**AC1** (chưa tick, còn thiếu bước chạy tay trên Linux):
+**AC1:**
 - `tests/inference/test_models_download.py` xanh (URL `file://`, không cần mạng): `test_models_skip_when_checksum_ok`, `test_models_checksum_mismatch_fails`, `test_models_cli_checksum_mismatch_exits_nonzero` (exit ≠ 0, đã xóa file tải dở), tải lại khi file hỏng, URL `latest` bị từ chối, manifest thật đủ `lite`/`full`/`heavy` với URL có số phiên bản.
 - Windows: `make models` lần đầu tải cả 3 file `.task` và báo sha256 khớp. Chạy lần hai thì in "đã có, sha256 khớp, bỏ qua". `scripts\dev.ps1 models` gọi cùng lệnh `postcare models` (`test_models_target_calls_postcare_models`).
-- **Còn thiếu:** chạy tay `make models` trên Linux (CI Ubuntu chỉ chạy unit test).
+- Linux (reviewer chạy, 2026-11-18): container `python:3.12-slim`, worktree mount chỉ đọc, chạy `make models` trên bản sao ở `/tmp/repo`.
+  - Lần 1: tải 3 file `.task`, sha256 khớp, exit 0.
+  - Lần 2: "đã có, sha256 khớp, bỏ qua", exit 0.
+  - Sửa sha256 cho sai: báo không khớp và xóa file tải về.
 
 **AC2:**
 - `test_mapping.py`: `test_mapping_mediapipe_to_keypoint_names`, `test_mapping_clamps_coordinates`, sai số landmark hoặc NaN báo lỗi.
@@ -159,6 +162,15 @@ Ngày 2026-11-17, nhánh `feat/F11-pose-adapter`, máy Windows 11, i5-10300H, 16
 **Kiểm tra cuối:**
 - `make check` xanh: 227 passed, 9 contract KEPT, web build xong. `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0.
 - Hai lệnh trên chạy với `TEST_DATABASE_URL=.../postcare_f11_test` vì nhiều builder dùng chung PostgreSQL. Không ghi giá trị này vào `.env.example`.
+
+**Review (2026-11-18): Chưa đạt, chỉ vì conflict khi merge.** Đã sửa:
+1. Merge `main` (có F13). Giữ cả contract `engine-no-clock` và `mediapipe-only-in-inference`: `.importlinter` có 10 contract, tất cả KEPT.
+2. `pyproject.toml`: `mediapipe>=1.2.3,<2`. Dòng mediapipe trong tech-stack.md: mục tiêu 1.x, đã khóa 1.2.3.
+3. `config/models.yaml`: sha256 đặt trong dấu nháy, vì YAML có thể đọc hash toàn chữ số thành số nguyên. Test `test_repo_manifest_quotes_sha256`.
+4. `vision/models.py` `_default_opener`: chỉ nhận `https://` và `file:`. Test `test_models_rejects_non_https_or_file_scheme`: http, ftp, đường dẫn trần đều bị từ chối.
+5. AC1 đã tick với bằng chứng Linux ở trên.
+
+Kiểm tra lại sau khi sửa: `make check`, `scripts\dev.ps1 check` (với `TEST_DATABASE_URL=.../postcare_f11_test`) và `make test-vision` đều exit 0.
 
 **Người sau cần biết:**
 - Phụ thuộc mới: `mediapipe` 1.2.3 (kéo theo matplotlib, sounddevice), `psutil` 7.2.2. Đã ghi lý do trong tech-stack.md.
