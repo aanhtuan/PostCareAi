@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F10 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -111,6 +111,15 @@
 - *(giả định)* `source_ok = false` → `CAMERA_ISSUE`.
 - *(giả định)* `ts_ms` không tăng ngặt → `ValueError`.
 - *(giả định)* Test catalog đọc trực tiếp bảng Markdown trong `docs/02-architecture/event-engine.md`.
+- *(giả định, F10 plan)* Engine nhận `EngineContext(camera_id, roi_polygon)` lúc khởi tạo, đúng tên ở event-engine.md §2 (R9 gọi là `roi: RoiPolygon`). `obs.camera_id` khác `context.camera_id` → `ValueError`.
+- *(giả định, F10 plan)* `RoiPolygon` ở F10 chỉ kiểm tra ≥3 điểm, toạ độ ∈ [0, 1]. Kiểm tra tự cắt (`validate_roi_polygon`) là của F08.
+- *(giả định, F10 plan)* Enum giữ ở `schemas/enums.py` (đã có từ prototype, nhiều module đang import); `schemas/state.py` import lại để không có hai nguồn. `ActivityLevel` giữ thêm `UNKNOWN` theo event-engine.md §5.
+- *(giả định, F10 plan)* Giá trị `KeypointName` viết thường (`left_shoulder`), khớp R3 và `pose.required_keypoints` trong YAML; ngoại lệ so với quy ước enum IN HOA.
+- *(giả định, F10 plan)* `EngineEvent` kiểm tra `priority` thuộc các mức cho phép của mã trong catalog, `occurred_at_ms ≤ detected_at_ms`, `explanation.rule_id` là chuỗi không rỗng.
+- *(giả định, F10 plan)* Khi có người trong khung hình mà chưa có F13, chất lượng tạm là `LOW_CONFIDENCE` và trạng thái giữ `NO_OBSERVATION` (không bao giờ kết luận khi chưa đủ căn cứ). F13 thay bước này.
+- *(giả định, F10 plan)* `state_changed = true` ở output đầu tiên của một instance `Engine` (để worker gửi trạng thái ban đầu), sau đó `true` khi `BodyStateSnapshot` khác lần trước.
+- *(giả định, F10 plan)* `EngineConfig` dùng chế độ strict của Pydantic (không ép `"55"` thành số); lỗi gói trong `EngineConfigError(ValueError)` có đường dẫn khóa dạng `posture.sitting_enter_deg`.
+- *(giả định, F10 plan)* F10 chưa cần numpy nên chưa thêm; F13 thêm khi tính đặc trưng.
 
 ## 8. Câu hỏi mở
 
@@ -118,9 +127,17 @@
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+Khảo sát: `schemas/enums.py` đã có `BodyState`, `ObservationQuality`, `ActivityLevel`, `RestStatus`, `FaceStatus`, `Priority`; `schemas/events.py` đã có `EventCode`, `EVENT_CATALOG` (`EventSpec.allowed_priorities`, `api_generated`), `ALERT_PRIORITIES`, `default_priority()` và đang được `domain`, `db`, `api`, `cli` import. Giữ nguyên API cũ, chỉ thêm. `config/engine.default.yaml` đã khớp event-engine.md §6 (`test_tooling.py` kiểm tra). overview.md §3 đã ghi `schemas` được import pyyaml.
 
-1. …
+1. **Phụ thuộc:** chuyển `pyyaml` từ nhóm dev sang `dependencies` trong `server/pyproject.toml`, `uv lock`; cập nhật tech-stack.md. Commit `build(F10): move pyyaml to main dependencies`.
+2. **Test trước (đỏ):** `server/tests/schemas/__init__.py`, `test_roundtrip.py` (`test_frame_observation_roundtrip`, `test_engine_output_roundtrip`, round-trip `FaceObservation`/`FaceSignals`/`BodyStateSnapshot`/`EngineEvent`/`RoiPolygon`/`EngineContext`; âm tính: `test_keypoint_rejects_out_of_range`, tên keypoint lạ, visibility âm, blendshape > 1, priority không hợp lệ cho mã, thiếu `rule_id`, schema frozen); `test_engine_config.py` (`test_load_default_config`, `test_override_deep_merge`, `test_wrong_type_error_mentions_key`, `test_unknown_key_rejected`, `test_missing_key_rejected`, `test_config_hash_stable_and_changes_with_override`, hash bỏ qua `privacy.*`, override rỗng giữ hash, override từ file YAML); `test_catalog_matches_doc.py` (`test_catalog_matches_event_engine_doc`, `test_creates_alert_only_medium_high`, đủ 14 mã); `server/tests/engine/__init__.py`, `test_engine_core.py` (`test_empty_observation_gives_no_observation`, `test_source_not_ok_gives_camera_issue`, `test_engine_is_deterministic`, `test_non_increasing_ts_raises`, `test_engine_does_not_read_clock`, `test_persons_without_f13_stay_no_observation`, `test_state_changed_only_when_snapshot_changes`, `test_camera_id_mismatch_raises`). Chạy pytest, xác nhận đỏ vì thiếu module/kiểu. Commit `test(F10): add failing tests for schemas, config and engine core`.
+3. **Schema:** `schemas/observation.py` (`KeypointName`, `Keypoint`, `PersonPose`, `FaceObservation`, `FrameObservation`), `schemas/state.py` (`FaceSignals`, `BodyStateSnapshot`, import lại enum), `schemas/roi.py` (`RoiPolygon`), `schemas/events.py` (thêm `EventSpec.default_priority`, `creates_alert`, `EngineEvent`, `EngineOutput`), `schemas/context.py` (`EngineContext`). Commit `feat(F10): add observation, state and event schemas`.
+4. **Cấu hình:** `schemas/engine_config.py` (`EngineConfig` + model con theo từng khối YAML, `extra="forbid"`, strict; `load(path, overrides)` với deep merge, `EngineConfigError`, `config_hash()` bỏ `privacy`). Commit `feat(F10): load and hash engine config`.
+5. **Engine:** `engine/pipeline.py` (bước rỗng có chữ ký: `TargetSelector` F13, `QualityAssessor` F13, `StateMachine` F14, `RuleSet` F15+), `engine/engine.py` (`Engine(config, context)`, `process(obs)`, kiểm tra `ts_ms` tăng ngặt và `camera_id`), `engine/__init__.py` xuất `Engine`. Commit `feat(F10): add engine skeleton with process()`.
+6. **Doc:** event-engine.md §2 (tên kiểu, `RoiPolygon`, quy tắc `ts_ms`, `state_changed`, `EngineConfigError`), §3 (`engine/pipeline.py`); overview.md §3 nếu lệch. Commit `docs(F10): …`.
+7. **Kiểm chứng:** `make check` và `scripts\dev.ps1 check` exit 0; ghi bằng chứng §10, tick AC.
+
+Không có migration, endpoint, `make gen-api-types`. Rủi ro: mypy strict với plugin pydantic cho model frozen chứa dict; khóa `min_duration_s` IN HOA (tên trường trùng tên trạng thái) có thể vướng ruff `N815` — dùng alias nếu cần.
 
 ## 10. Ghi chú bàn giao
 
