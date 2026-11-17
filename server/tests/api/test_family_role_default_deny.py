@@ -154,3 +154,33 @@ def test_ws_closed_when_user_locked(app: Any, client: TestClient, login: Login) 
         with pytest.raises(WebSocketDisconnect) as exc:
             ws.receive_json()
     assert exc.value.code == 4401
+
+
+def test_ws_closed_when_role_changed_to_family(app: Any, client: TestClient, login: Login) -> None:
+    """Review F35: nhân viên đang kết nối bị đổi sang FAMILY → đóng luồng nhân viên (4403)."""
+    hub = WsHub()
+    hub.bind_loop(client.portal.call(_get_loop))  # type: ignore[union-attr]
+    app.state.hub = hub
+    nurse_token = login("nurse")["Authorization"].split(" ", 1)[1]
+    nurse_id = client.get("/api/v1/auth/me", headers=login("nurse")).json()["id"]
+    with client.websocket_connect(f"/api/v1/ws?token={nurse_token}") as ws:
+        for _ in range(100):
+            if hub.client_count:
+                break
+            time.sleep(0.02)
+        assert hub.client_count == 1
+        r = client.patch(
+            f"/api/v1/users/{nurse_id}", json={"role": "FAMILY"}, headers=login("admin")
+        )
+        assert r.status_code == 200, r.text
+        with pytest.raises(WebSocketDisconnect) as exc:
+            ws.receive_json()
+    assert exc.value.code == 4403
+
+
+def test_staff_role_change_keeps_ws(publisher: Any, client: TestClient, login: Login) -> None:
+    """Ca âm tính: đổi giữa các vai trò nhân viên không đóng kết nối."""
+    nurse_id = client.get("/api/v1/auth/me", headers=login("nurse")).json()["id"]
+    r = client.patch(f"/api/v1/users/{nurse_id}", json={"role": "DOCTOR"}, headers=login("admin"))
+    assert r.status_code == 200
+    assert publisher.disconnected == []

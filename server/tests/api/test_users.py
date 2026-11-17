@@ -384,3 +384,33 @@ def test_user_out_has_no_password_hash(client: TestClient, login: Login) -> None
     ]
     for body in bodies:
         assert set(body) == {"id", "username", "full_name", "role", "is_active", "created_at"}
+
+
+def _reset(client: TestClient, login: Login, uid: int) -> Any:
+    return client.post(
+        f"{URL}/{uid}/reset-password", json={"new_password": NEW_PASSWORD}, headers=login("admin")
+    )
+
+
+def test_reset_password_revokes_old_tokens(client: TestClient, login: Login) -> None:
+    """Review F35: đặt lại mật khẩu làm token cũ hết hiệu lực; token mới dùng được."""
+    old = login("nurse")
+    uid = _id(client, login, "nurse")
+    assert _reset(client, login, uid).status_code == 204
+    r = client.get("/api/v1/auth/me", headers=old)
+    assert r.status_code == 401
+    assert r.json()["error"]["code"] == "UNAUTHORIZED"
+    fresh = _bearer(client, "nurse", NEW_PASSWORD)
+    assert client.get("/api/v1/auth/me", headers=fresh).status_code == 200
+
+
+def test_reset_password_closes_ws(publisher: Any, client: TestClient, login: Login) -> None:
+    uid = _id(client, login, "nurse")
+    _reset(client, login, uid)
+    assert publisher.disconnected == [uid]
+
+
+def test_other_users_tokens_survive_reset(client: TestClient, login: Login) -> None:
+    doctor = login("doctor")
+    _reset(client, login, _id(client, login, "nurse"))
+    assert client.get("/api/v1/auth/me", headers=doctor).status_code == 200
