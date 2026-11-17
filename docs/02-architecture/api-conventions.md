@@ -26,7 +26,7 @@
 | Xem tổng quan, cảnh báo, timeline, bàn giao ca, theo dõi trực tiếp (MJPEG), danh mục (giường, bệnh nhân, camera, khu vực, ca, phiên) | ✓ | ✓ | ✓ | ✓ | ✗ |
 | Tiếp nhận, ghi kết quả, xử lý cảnh báo | ✓ | ✓ | ✗ | ✓ | ✗ |
 | Mở/đóng phiên theo dõi, chuyển giường (F04) | ✓ | ✓ | ✗ | ✓ | ✗ |
-| Tạm dừng / tiếp tục thu hình (F36) | ✓ | ✓ | ✗ | ✓ | ✗ |
+| Tạm dừng / tiếp tục thu hình (F04, F36) | ✓ | ✓ | ✗ | ✓ | ✗ |
 | Đổi chế độ hiển thị | ✗ | ✓ | ✗ | ✓ | ✗ |
 | Cấp / thu hồi quyền xem của người nhà (F36) | ✗ | ✓ | ✗ | ✓ | ✗ |
 | Quản lý (thêm, sửa, xóa mềm, khôi phục) giường, bệnh nhân, camera, ROI, ngưỡng (F03, F08) | ✗ | ✗ | ✗ | ✓ | ✗ |
@@ -70,8 +70,8 @@ Mã 409 thêm ngày 17/11/2026 (đều *(giả định)*):
 | `LAST_ADMIN` | F35 | Khóa hoặc hạ vai trò ADMIN cuối cùng đang hoạt động |
 | `FAMILY_GRANT_ALREADY_ACTIVE` | F36 | Đã có quyền xem đang hiệu lực cho cùng người nhà, cùng phiên |
 | `FAMILY_GRANT_NOT_ACTIVE` | F36 | Thu hồi quyền đã thu hồi hoặc đã hết hiệu lực |
-| `SESSION_ALREADY_PAUSED` / `SESSION_NOT_PAUSED` | F36 | Tạm dừng khi đang tạm dừng / tiếp tục khi không tạm dừng |
-| `CAPTURE_PAUSED` | F36 | Worker gửi sự kiện engine cho phiên đang tạm dừng thu hình |
+| `SESSION_ALREADY_PAUSED` / `SESSION_NOT_PAUSED` | F04 | Tạm dừng khi đang tạm dừng / tiếp tục khi không tạm dừng |
+| `CAPTURE_PAUSED` | F04 | Worker gửi sự kiện engine (xảy ra từ lúc `paused_at`) cho phiên đang tạm dừng thu hình |
 
 Trùng `username` (F35) dùng lại `DUPLICATE_CODE` với `details.field = "username"`. Sai định dạng `username` (3–64 ký tự `[a-z0-9._-]` sau khi bỏ khoảng trắng và chuyển chữ thường), mật khẩu dưới 8 ký tự, vai trò lạ hoặc trường thừa → 422 `VALIDATION_ERROR`. Khi một thao tác vừa là tự khóa vừa là khóa ADMIN cuối cùng, trả `LAST_ADMIN`.
 
@@ -90,8 +90,8 @@ Trùng `username` (F35) dùng lại `DUPLICATE_CODE` với `details.field = "use
 | `GET /api/v1/cameras/{id}` | F03, F06 | Có khối `runtime` (`status`, `fps`, `brightness`, `last_seen_at`) cho màn hình trước khi có WebSocket |
 | `PUT /api/v1/cameras/{id}/roi`, `GET/PUT /api/v1/cameras/{id}/thresholds` (GET trả cả mặc định và override), `PUT /api/v1/cameras/{id}/display-mode` | F08, F28 | Cấu hình camera |
 | `POST /api/v1/sessions`, `POST /api/v1/sessions/{id}/end`, `GET /api/v1/sessions?active=true`, `GET /api/v1/sessions/{id}` | F04 | Phiên theo dõi |
-| `POST /api/v1/sessions/{id}/transfer` `{target_bed_id, reason}`, `GET /api/v1/sessions/{id}/chain` | F04 | Chuyển giường trong một transaction; chuỗi phiên liên kết qua `previous_session_id` |
-| `POST /api/v1/sessions/{id}/pause` `{reason?}`, `POST /api/v1/sessions/{id}/resume` | F36 | Tạm dừng / tiếp tục thu hình |
+| `POST /api/v1/sessions/{id}/transfer` `{target_bed_id, reason}` → 201 phiên mới, `GET /api/v1/sessions/{id}/chain` → `{items:[{id, bed_id, bed_code, started_at, ended_at, previous_session_id, transfer_reason}], total}` | F04 | Chuyển giường trong một transaction; chuỗi phiên liên kết qua `previous_session_id`. `SessionOut` có `previous_session_id`, `previous_bed_code`, `next_session_id`, `transfer_reason`, `paused_at`, `paused_by` |
+| `POST /api/v1/sessions/{id}/pause` `{reason?}`, `POST /api/v1/sessions/{id}/resume` | F04 | Tạm dừng / tiếp tục thu hình theo phiên (phần người nhà và worker ở F36) |
 | `GET/POST /api/v1/sessions/{id}/family-grants`, `POST /api/v1/family-grants/{id}/revoke` | F36 | Cấp / thu hồi quyền xem của người nhà |
 | `GET /api/v1/family/grants`, `GET /api/v1/family/grants/{id}/view`, `GET /api/v1/family/grants/{id}/timeline` | F36 | Chỉ `FAMILY`; dữ liệu đã lọc theo mức chia sẻ |
 | `GET /api/v1/cameras/{id}/stream.mjpeg?token=` | F07 | Xem trực tiếp |
@@ -140,10 +140,10 @@ Các loại trên chỉ gửi cho kết nối của **vai trò nhân viên**. K�
 
 | Method + path | Body / trả về |
 |---|---|
-| `GET /internal/v1/cameras/{id}/config` | → `{camera_id, bed_id, source_type, source, roi_polygon, thresholds, display_mode, config_version, active_session_id, capture_paused}`. `capture_paused = true` (F36): worker dừng đọc khung và dừng engine, chỉ gửi heartbeat |
+| `GET /internal/v1/cameras/{id}/config` | → `{camera_id, bed_id, source_type, source, roi_polygon, thresholds, display_mode, config_version, active_session_id, capture_paused}`. `capture_paused = true` (F04; worker xử lý ở F36): worker dừng đọc khung và dừng engine, chỉ gửi heartbeat |
 | `POST /internal/v1/cameras/{id}/heartbeat` | `{fps, brightness, dropped_frames, source_status}` → `{config_version}` (worker so sánh để tải lại cấu hình) |
 | `POST /internal/v1/cameras/{id}/state` | `{body_state, observation_quality, activity_level, rest_status, face_status, face_signals, ts, target_keypoints?}`. `target_keypoints` (F36): keypoint 2D chuẩn hóa của người mục tiêu hoặc `null`; API chỉ giữ bản mới nhất trong RAM. Khi phiên đang tạm dừng thu hình, API bỏ qua |
-| `POST /internal/v1/events` | `{event_uid, camera_id, code, priority, occurred_at, detected_at, confidence, observation_quality, explanation, config_hash}` → `{id, created: bool}`; **201** khi tạo mới, **200** khi `event_uid` đã có (idempotent). Sự kiện engine mà không có phiên mở → 409 `NO_ACTIVE_SESSION`; phiên đang tạm dừng thu hình → 409 `CAPTURE_PAUSED` (F36) |
+| `POST /internal/v1/events` | `{event_uid, camera_id, code, priority, occurred_at, detected_at, confidence, observation_quality, explanation, config_hash}` → `{id, created: bool}`; **201** khi tạo mới, **200** khi `event_uid` đã có (idempotent). Sự kiện engine mà không có phiên mở → 409 `NO_ACTIVE_SESSION`; phiên đang tạm dừng thu hình → 409 `CAPTURE_PAUSED` (F04) |
 | `POST /internal/v1/cameras/{id}/frame` | body `image/jpeg` (đã render theo `display_mode`) → 204. Khi phiên đang tạm dừng thu hình, API bỏ khung (F36). Khung JPEG không bao giờ được gửi cho `FAMILY` |
 
 ## Quy ước code backend

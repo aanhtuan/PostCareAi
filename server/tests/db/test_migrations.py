@@ -76,6 +76,10 @@ EXPECTED: dict[str, dict[str, tuple[str, bool, str | None]]] = {
         "started_by": ("BIGINT", False, None),
         "ended_at": (TS, True, None),
         "ended_by": ("BIGINT", True, None),
+        "previous_session_id": ("BIGINT", True, None),  # F04, migration 0005_f04
+        "transfer_reason": ("TEXT", True, None),
+        "paused_at": (TS, True, None),
+        "paused_by": ("BIGINT", True, None),
     },
     "audit_logs": {
         "id": ("BIGINT", False, None),
@@ -104,6 +108,8 @@ EXPECTED_FKS = {
     ("monitoring_sessions", "camera_id", "cameras"),
     ("monitoring_sessions", "started_by", "users"),
     ("monitoring_sessions", "ended_by", "users"),
+    ("monitoring_sessions", "previous_session_id", "monitoring_sessions"),
+    ("monitoring_sessions", "paused_by", "users"),
     ("audit_logs", "actor_user_id", "users"),
 }
 EXPECTED_UNIQUE = {
@@ -111,6 +117,7 @@ EXPECTED_UNIQUE = {
     ("patients", "code"),
     ("beds", "code"),
     ("cameras", "bed_id"),
+    ("monitoring_sessions", "previous_session_id"),
 }
 
 

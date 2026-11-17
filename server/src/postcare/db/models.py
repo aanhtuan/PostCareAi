@@ -158,11 +158,28 @@ class MonitoringSession(Base):
     started_by: Mapped[int] = _fk("users.id")
     ended_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     ended_by: Mapped[int | None] = _fk("users.id", nullable=True)
+    # Chuyển giường (F04): phiên trước trong chuỗi; unique nên chuỗi tuyến tính.
+    previous_session_id: Mapped[int | None] = _fk(
+        "monitoring_sessions.id", nullable=True, unique=True
+    )
+    transfer_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Tạm dừng thu hình (F04/F36): null = không tạm dừng; lịch sử nằm trong audit.
+    paused_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    paused_by: Mapped[int | None] = _fk("users.id", nullable=True)
 
     patient: Mapped[Patient] = relationship()
     bed: Mapped[Bed] = relationship()
     starter: Mapped[User] = relationship(foreign_keys=[started_by])
     ender: Mapped[User | None] = relationship(foreign_keys=[ended_by])
+    pauser: Mapped[User | None] = relationship(foreign_keys=[paused_by])
+    previous_session: Mapped["MonitoringSession | None"] = relationship(
+        foreign_keys=[previous_session_id],
+        remote_side="MonitoringSession.id",
+        back_populates="next_session",
+    )
+    next_session: Mapped["MonitoringSession | None"] = relationship(
+        foreign_keys=[previous_session_id], back_populates="previous_session", uselist=False
+    )
 
 
 class Event(Base):

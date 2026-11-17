@@ -8,7 +8,6 @@ import {
   Card,
   Group,
   Modal,
-  Select,
   Stack,
   Switch,
   Table,
@@ -22,76 +21,24 @@ import {
   useBeds,
   useCameras,
   useCatalogLifecycle,
-  useEndSession,
   usePatients,
-  useStartSession,
   type CatalogResource,
 } from '../../api/hooks';
 import { CATALOG_ADMIN_ROLES, type BedOut, type CameraOut, type PatientOut } from '../../api/types';
 import { useAuth } from '../../auth/useAuth';
 import { fmt, vi } from '../../i18n/vi';
-import { formatDateTime } from '../../utils/time';
+import { formatTime } from '../../utils/time';
 import { BedForm } from './BedForm';
 import { CameraForm } from './CameraForm';
+import { EndSessionButton } from './EndSessionButton';
 import { apiErrorMessage } from './errorMessage';
 import { PatientForm } from './PatientForm';
+import { PauseCaptureButton } from './PauseCaptureButton';
+import { StartSessionDialog } from './StartSessionDialog';
+import { TransferSessionDialog } from './TransferSessionDialog';
 
 function showError(err: unknown) {
   notifications.show({ color: 'red', message: apiErrorMessage(err) ?? vi.common.genericError });
-}
-
-function StartSessionDialog({ bed, onClose }: { bed: BedOut | null; onClose: () => void }) {
-  const patients = usePatients();
-  const start = useStartSession();
-  const [patientId, setPatientId] = useState<string | null>(null);
-  const free = (patients.data ?? []).filter((p) => p.active_session_id === null);
-
-  return (
-    <Modal
-      opened={bed !== null}
-      onClose={onClose}
-      title={`${vi.session.start} - ${bed?.code ?? ''}`}
-    >
-      <Stack>
-        {free.length === 0 ? (
-          <Text c="dimmed">{vi.session.noFreePatient}</Text>
-        ) : (
-          <Select
-            label={vi.session.choosePatient}
-            data={free.map((p) => ({ value: String(p.id), label: p.code }))}
-            value={patientId}
-            onChange={setPatientId}
-          />
-        )}
-        <Group justify="flex-end">
-          <Button variant="default" onClick={onClose}>
-            {vi.common.cancel}
-          </Button>
-          <Button
-            disabled={!patientId || !bed}
-            loading={start.isPending}
-            onClick={() =>
-              bed &&
-              patientId &&
-              start.mutate(
-                { bed_id: bed.id, patient_id: Number(patientId) },
-                {
-                  onSuccess: () => {
-                    notifications.show({ color: 'teal', message: vi.session.started });
-                    setPatientId(null);
-                    onClose();
-                  },
-                  onError: showError,
-                },
-              )
-            }
-          >
-            {vi.common.confirm}
-          </Button>
-        </Group>
-      </Stack>
-    </Modal>
-  );
 }
 
 type DeleteTarget = { resource: CatalogResource; id: number; name: string };
@@ -150,6 +97,27 @@ function ConfirmDeleteDialog({
         </Group>
       </Stack>
     </Modal>
+  );
+}
+
+/** Bệnh nhân của phiên đang mở, kèm "Chuyển từ giường …" và nhãn tạm dừng thu hình. */
+function SessionCell({ bed }: { bed: BedOut }) {
+  const s = bed.active_session;
+  if (!s) return <>{vi.common.none}</>;
+  return (
+    <Stack gap={2}>
+      <Text size="sm">{s.patient_code}</Text>
+      {s.previous_bed_code && (
+        <Text size="xs" c="dimmed">
+          {fmt(vi.session.transferredFrom, { bed: s.previous_bed_code })}
+        </Text>
+      )}
+      {s.paused_at && (
+        <Badge color="orange" variant="light" title={vi.capture.paused}>
+          {vi.capture.pausedShort}
+        </Badge>
+      )}
+    </Stack>
   );
 }
 
@@ -231,10 +199,9 @@ export function ManagementPage() {
   const beds = useBeds(showDeleted);
   const patients = usePatients(showDeleted);
   const cameras = useCameras(showDeleted);
-  const end = useEndSession();
   const lifecycle = useCatalogLifecycle();
   const [startFor, setStartFor] = useState<BedOut | null>(null);
-  const [endFor, setEndFor] = useState<BedOut | null>(null);
+  const [transferFor, setTransferFor] = useState<BedOut | null>(null);
   const [form, setForm] = useState<FormState>(null);
   const [toDelete, setToDelete] = useState<DeleteTarget | null>(null);
 
@@ -287,9 +254,11 @@ export function ManagementPage() {
                     ? `${b.camera.name} · ${vi.cameraStatus[b.camera.status]}`
                     : vi.camera.notAssigned}
                 </Table.Td>
-                <Table.Td>{b.active_session?.patient_code ?? vi.common.none}</Table.Td>
                 <Table.Td>
-                  {b.active_session ? formatDateTime(b.active_session.started_at) : vi.common.none}
+                  <SessionCell bed={b} />
+                </Table.Td>
+                <Table.Td>
+                  {b.active_session ? formatTime(b.active_session.started_at) : vi.common.none}
                 </Table.Td>
                 <Table.Td>
                   <UsageBadge active={b.is_active} />
@@ -300,9 +269,13 @@ export function ManagementPage() {
                       {canWrite &&
                         b.is_active &&
                         (b.active_session ? (
-                          <Button size="xs" color="gray" onClick={() => setEndFor(b)}>
-                            {vi.session.end}
-                          </Button>
+                          <>
+                            <EndSessionButton session={b.active_session} />
+                            <Button size="xs" variant="light" onClick={() => setTransferFor(b)}>
+                              {vi.session.transfer}
+                            </Button>
+                            <PauseCaptureButton session={b.active_session} />
+                          </>
                         ) : (
                           <Button size="xs" onClick={() => setStartFor(b)}>
                             {vi.session.start}
@@ -446,32 +419,11 @@ export function ManagementPage() {
       )}
       <ConfirmDeleteDialog target={toDelete} onClose={() => setToDelete(null)} />
       <StartSessionDialog bed={startFor} onClose={() => setStartFor(null)} />
-      <Modal opened={endFor !== null} onClose={() => setEndFor(null)} title={vi.session.end}>
-        <Stack>
-          <Text>{vi.session.confirmEnd}</Text>
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setEndFor(null)}>
-              {vi.common.cancel}
-            </Button>
-            <Button
-              color="red"
-              loading={end.isPending}
-              onClick={() =>
-                endFor?.active_session &&
-                end.mutate(endFor.active_session.id, {
-                  onSuccess: () => {
-                    notifications.show({ color: 'teal', message: vi.session.ended });
-                    setEndFor(null);
-                  },
-                  onError: showError,
-                })
-              }
-            >
-              {vi.common.confirm}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+      <TransferSessionDialog
+        bed={transferFor}
+        beds={beds.data ?? []}
+        onClose={() => setTransferFor(null)}
+      />
     </Stack>
   );
 }
