@@ -4,6 +4,7 @@ Engine thuần và xác định: cùng chuỗi `FrameObservation` + cùng cấu 
 chỉ lấy từ `obs.ts_ms` (AGENTS.md quy tắc 5; event-engine.md mục 1).
 """
 
+from postcare.engine.activity import ActivityMeter, ActivityReading
 from postcare.engine.features import FeatureExtractor
 from postcare.engine.pipeline import FrameAssessment
 from postcare.engine.quality import QualityGate, assess_quality
@@ -37,6 +38,7 @@ class Engine:
         self._features = FeatureExtractor(config, context.roi_polygon)
         self._gate = QualityGate(config)
         self._state_machine = StateMachine(config)
+        self._activity = ActivityMeter(config)
         self._rules = RuleSet(config, self.config_hash)
         self._last_ts_ms: int | None = None
         self._last_snapshot: BodyStateSnapshot | None = None
@@ -46,6 +48,11 @@ class Engine:
     def state_history(self) -> tuple[StateRecord, ...]:
         """Các trạng thái ổn định gần nhất (cũ → mới) kèm explanation, cho F15 (F14 R11)."""
         return self._state_machine.history
+
+    @property
+    def activity_index(self) -> float | None:
+        """Chỉ số vận động hiện tại (torso/s, F23 R2); None khi `activity_level = UNKNOWN`."""
+        return self._activity.reading.index
 
     @property
     def state(self) -> BodyStateSnapshot:
@@ -68,16 +75,30 @@ class Engine:
         else:
             body_state = self._state_machine.update(assessment, obs.ts_ms)
         self._body_state = body_state
-        snapshot = _snapshot(body_state, assessment.quality, self._state_machine.explanation)
-        # Bước 6–9: sự kiện từ chuỗi trạng thái ổn định + debounce (F15)
+        activity = self._update_activity(obs.ts_ms, assessment)
+        snapshot = _snapshot(
+            body_state, assessment.quality, self._state_machine.explanation, activity
+        )
+        # Bước 6–9: sự kiện từ chuỗi trạng thái ổn định, vận động (F23) + debounce (F15)
         events = self._rules.evaluate(
-            obs.ts_ms, assessment, body_state, self._state_machine.history
+            obs.ts_ms, assessment, body_state, self._state_machine.history, activity
         )
         # Output đầu tiên luôn là "đổi" để worker gửi trạng thái ban đầu (giả định F10).
         changed = snapshot != self._last_snapshot
         self._last_ts_ms = obs.ts_ms
         self._last_snapshot = snapshot
         return EngineOutput(state=snapshot, state_changed=changed, events=events)
+
+    def _update_activity(self, ts_ms: int, assessment: FrameAssessment) -> ActivityReading:
+        """Bước 7a (F23 R4): reset khi NO_OBSERVATION hoặc đổi mục tiêu; frame kém giữ mức."""
+        if not assessment.observable:
+            self._activity.reset()
+            return self._activity.reading
+        if assessment.target_is_new:
+            self._activity.reset()
+        if assessment.features is None or assessment.target is None:
+            return self._activity.hold()
+        return self._activity.update(ts_ms, assessment.target, assessment.features)
 
     def _assess(self, obs: FrameObservation) -> FrameAssessment:
         """Bước 1–3: mục tiêu, chất lượng frame, cổng chất lượng, đặc trưng đã làm mượt (F13)."""
@@ -100,6 +121,7 @@ class Engine:
             features=features,
             observable=observable,
             persons_in_roi=selection.persons_in_roi,
+            target_is_new=selection.is_new,
         )
 
     def _check_input(self, obs: FrameObservation) -> None:
@@ -115,14 +137,17 @@ class Engine:
 
 
 def _snapshot(
-    body_state: BodyState, quality: ObservationQuality, explanation: Explanation | None = None
+    body_state: BodyState,
+    quality: ObservationQuality,
+    explanation: Explanation | None = None,
+    activity: ActivityReading | None = None,
 ) -> BodyStateSnapshot:
-    # Vận động, nghỉ, khuôn mặt chưa suy ra (F23, F26, F27): luôn UNKNOWN / NOT_VISIBLE,
-    # không bao giờ mặc định là "bình thường" (HS §9.1).
+    # Nghỉ, khuôn mặt chưa suy ra (F26, F27): luôn UNKNOWN / NOT_VISIBLE, không bao giờ mặc định
+    # là "bình thường" (HS §9.1). Vận động (F23): UNKNOWN khi chưa đủ dữ liệu hoặc mất quan sát.
     return BodyStateSnapshot(
         body_state=body_state,
         observation_quality=quality,
-        activity_level=ActivityLevel.UNKNOWN,
+        activity_level=ActivityLevel.UNKNOWN if activity is None else activity.level,
         rest_status=RestStatus.UNKNOWN,
         face_status=FaceStatus.NOT_VISIBLE,
         face_signals=FaceSignals(),

@@ -45,6 +45,8 @@ SETTLE_S = RESTORE + max(FILL_S, AM.window_s) + 1
 AFTER_S = AM.window_s + AM.hold_after_s + 2
 """Sau chuyển động: đủ để cửa sổ trượt qua chuyển động rồi giữ `hold_after_s`."""
 VIGOROUS = 3 * ACT.high_threshold
+FLOOR_IN_ROI = FLOOR.moved_to((700, 560))
+"""Nằm thấp nhưng tâm hông vẫn trong ROI (để người mục tiêu không rời ROI)."""
 
 
 def cfg(overrides: dict[str, Any]) -> EngineConfig:
@@ -326,7 +328,7 @@ def test_keypoint_jump_1_to_3_frames_no_movement_event(n: int) -> None:
 def test_spike_to_floor_1_to_3_frames_no_abnormal_movement(n: int) -> None:
     """Nhiễu gần: 1–3 frame keypoint lệch về tư thế nằm sàn (vẫn trong ngưỡng bám mục tiêu) rồi
     quay lại đứng. Vị trí cuối không đổi → không đủ điều kiện."""
-    seq = upright().frames([FLOOR] * n).hold(seconds=AFTER_S + ACT.increased_hold_s)
+    seq = upright().frames([FLOOR] * n).pose(UPRIGHT, seconds=AFTER_S + ACT.increased_hold_s)
     outs = run_engine(seq.build())
     assert ABNORMAL not in codes(outs)
     assert INCREASED not in codes(outs)
@@ -365,12 +367,15 @@ def test_fast_passerby_outside_roi_no_event() -> None:
 
 
 def test_two_people_in_roi_no_movement_event() -> None:
+    """Người thứ hai trong ROI suốt chuỗi: NO_OBSERVATION, không xét vận động của ai."""
     seq = (
         upright()
         .add_second_person_in_roi()
-        .fast_drop(seconds=0.6)
+        .fast_drop(seconds=0.6, to=FLOOR_IN_ROI)
         .hold(seconds=AFTER_S)
-        .limb_motion(seconds=ACT.increased_hold_s + FILL_S, speed_torso_per_s=VIGOROUS)
+        .limb_motion(
+            seconds=ACT.increased_hold_s + FILL_S, speed_torso_per_s=VIGOROUS, whole_body=True
+        )
     )
     outs = run_engine(seq.build())
     assert movement_codes(outs) == []

@@ -5,20 +5,17 @@ Rule chỉ đọc chuỗi trạng thái ổn định của F14 (`Engine.state_hi
 `RuleSet` lọc bằng `Debouncer` (R8). Thời gian chỉ lấy từ `ts_ms`.
 """
 
-from collections import deque
 from collections.abc import Sequence
-from dataclasses import dataclass
 
 from pydantic import JsonValue
 
 from postcare.engine.pipeline import FrameAssessment
+from postcare.engine.rules.common import MS_PER_S, EventDraft, Explanation, VisibilityBuffer
 from postcare.engine.state_machine import EXIT_PATH_STATES, IN_BED_STATES, StateRecord
 from postcare.schemas.engine_config import EngineConfig
 from postcare.schemas.events import EventCode
-from postcare.schemas.observation import PersonPose
 from postcare.schemas.state import BodyState, ObservationQuality
 
-MS_PER_S = 1000
 _BUFFER_SLACK_MS = 1000
 """Dư cho bộ đệm visibility (một vài frame sau mốc min_duration; không phải ngưỡng)."""
 
@@ -33,19 +30,8 @@ _STATE_FEATURE_KEYS = (
     "torso_length_ratio",
 )
 
-Explanation = dict[str, JsonValue]
-
-
-@dataclass(frozen=True)
-class BodyEventDraft:
-    """Sự kiện cơ thể trước debounce. `RuleSet` gắn `priority` (catalog) và `config_hash`."""
-
-    code: EventCode
-    occurred_at_ms: int
-    detected_at_ms: int
-    confidence: float
-    observation_quality: ObservationQuality
-    explanation: Explanation
+BodyEventDraft = EventDraft
+"""Tên cũ (F15), giữ cho tương thích."""
 
 
 def _angle_diff_deg(a: float, b: float) -> float:
@@ -78,15 +64,15 @@ class BodyRules:
 
     def __init__(self, config: EngineConfig) -> None:
         self._config = config
-        self._required = tuple(config.pose.required_keypoints)
         self._return_hold_ms = config.min_duration_s.RETURN_TO_BED * MS_PER_S
         self._turn_delta_deg = config.posture_change.shoulder_angle_delta_deg
         self._turn_stable_ms = config.posture_change.stable_s * MS_PER_S
         longest_s = max(
             *config.min_duration_s.model_dump().values(), config.posture_change.stable_s
         )
-        self._buffer_ms = longest_s * MS_PER_S + _BUFFER_SLACK_MS
-        self._visibility: deque[tuple[int, float]] = deque()
+        self._visibility = VisibilityBuffer(
+            config.pose.required_keypoints, longest_s * MS_PER_S + _BUFFER_SLACK_MS
+        )
         self._last_record: StateRecord | None = None
         # RETURN_TO_BED (R6)
         self._awaiting_return = False
@@ -102,7 +88,7 @@ class BodyRules:
         body_state: BodyState,
         history: Sequence[StateRecord],
     ) -> list[BodyEventDraft]:
-        self._record_visibility(ts_ms, assessment.target)
+        self._visibility.record(ts_ms, assessment.target)
         drafts: list[BodyEventDraft] = []
         latest = history[-1] if history else None
         if latest is not None and latest is not self._last_record:
@@ -245,23 +231,6 @@ class BodyRules:
 
     # ---- confidence (R9) ----
 
-    def _record_visibility(self, ts_ms: int, target: PersonPose | None) -> None:
-        if target is not None:
-            values = [
-                kp.visibility if (kp := target.keypoints.get(name)) is not None else 0.0
-                for name in self._required
-            ]
-            self._visibility.append((ts_ms, sum(values) / len(values)))
-        while self._visibility and self._visibility[0][0] < ts_ms - self._buffer_ms:
-            self._visibility.popleft()
-
-    def _confidence(self, start_ms: int, end_ms: int) -> float:
-        """Trung bình visibility của `pose.required_keypoints` trong khoảng giữ (giả định R9)."""
-        values = [v for ts, v in self._visibility if start_ms <= ts <= end_ms]
-        if not values:
-            return 0.0
-        return round(min(1.0, max(0.0, sum(values) / len(values))), 3)
-
     def _draft(
         self,
         code: EventCode,
@@ -274,7 +243,7 @@ class BodyRules:
             code=code,
             occurred_at_ms=occurred_ms,
             detected_at_ms=detected_ms,
-            confidence=self._confidence(occurred_ms, detected_ms),
+            confidence=self._visibility.confidence(occurred_ms, detected_ms),
             observation_quality=quality,
             explanation=explanation,
         )
