@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F37 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -114,7 +114,23 @@ Cho ADMIN quản lý danh mục **khu vực** và **ca trực** trên giao diệ
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+> Lập ngày 2026-11-18 (builder F37). Dùng lại pattern F03 (`domain/catalog.py`: `_check_code`, `_flush`, `_locked`, `_audit`, `{items,total}`; `require_admin`/`require_staff`; `ManagementPage` với `Section`, `RowActions`, `ConfirmDeleteDialog`).
+
+1. **Plan** (commit `docs(F37): plan`).
+2. **Test trước** (commit `test(F37): …`), xác nhận đỏ đúng lý do:
+   - `server/tests/domain/test_shift_overlap.py`: bảng ca (thường/thường, qua đêm/thường, qua đêm/qua đêm, kề nhau 14–22 và 22–06 không chồng, trùng hệt, chứa nhau) cho `shifts_overlap`.
+   - `server/tests/db/test_migration_areas.py`: `test_migration_areas_groups_same_area` (2 giường cùng khu vực + 1 giường khác + 1 chuỗi chỉ khác khoảng trắng; downgrade tới `0004`, chèn dữ liệu, upgrade `0005`), `test_migration_areas_downgrade_restores_text`.
+   - `server/tests/api/test_areas.py`: `test_admin_crud_areas`, `test_duplicate_area_code_409`, `test_delete_area_with_active_beds_409`, `test_delete_area_only_deleted_beds_ok`, `test_bed_cannot_use_deleted_area`, `test_beds_list_shows_area_name`, `test_area_shift_writes_admin_only` (tham số hóa NURSE/CHARGE_NURSE/DOCTOR/FAMILY), `test_family_cannot_read_areas_shifts`, `test_repeat_delete_restore_no_audit`.
+   - `server/tests/api/test_shifts_admin.py`: `test_admin_crud_shifts`, `test_shift_overlap_409`, `test_overnight_shift_overlap_detected`, `test_adjacent_shifts_do_not_overlap`, `test_restore_overlapping_shift_409`, `test_shift_equal_start_end_400`, `test_shift_time_with_seconds_400`, `test_deleted_shift_does_not_block_new`, `test_area_shift_writes_audited`, `test_handover_works_for_deleted_shift`, `test_current_shift_ignores_deleted`.
+   - Sửa test cũ dùng `area` chuỗi → `area_id` (`test_beds.py`, `test_cameras.py`, `test_catalog_delete.py`, `test_migrations.py`, `test_isolation.py`, `test_seed.py`).
+3. **Model + migration** `0005_areas_shift_admin.py` (`down_revision = "0004"`): tạo `areas`, chèn từ `DISTINCT btrim(beds.area)` với `code = 'KV' || lpad(row_number, 2, '0')` theo `name`, gán `beds.area_id`, `NOT NULL`, FK, bỏ `beds.area`; `shift_definitions` thêm `is_active`, `created_at`. `downgrade` thêm lại `beds.area` từ `areas.name`.
+4. **Domain**: `domain/areas.py` (CRUD, `AREA_IN_USE`), `domain/shifts.py` (`shifts_overlap`, CRUD, `SHIFT_OVERLAP`, `list_shifts(active_only)`), sửa `domain/catalog.py` (giường nhận `area_id`, 400 nếu khu vực đã xóa/không tồn tại), `dto.py` (`AreaRef`, `AreaOut`, `AreaCreate/Update`, `ShiftCreate/Update`, `ShiftOut.is_active`), `overview.py` (`area` = tên khu vực), `seed.py` (khu vực "Khu hậu phẫu").
+5. **API**: `api/v1/areas.py`, mở rộng `api/v1/catalog.py` (shifts), đăng ký router trong `api/main.py`. `make gen-api-types`.
+6. **Web**: `api/hooks.ts` (`useAreas`, `useShifts(includeInactive)`, resource `areas`/`shifts` trong `useSaveCatalogItem`/`useCatalogLifecycle`), `pages/Management/AreasTab.tsx`, `ShiftsTab.tsx`, `AreaForm.tsx`, `ShiftForm.tsx`, sửa `BedForm.tsx` (Select khu vực), `ManagementPage.tsx`; text trong khối `area`, `shift` của `vi.ts`. Test component `AreasTab.test.tsx`, `ShiftsTab.test.tsx`, `BedForm selects area from list`.
+7. **Doc**: `data-model.md`, `api-conventions.md` (shape `BedOut.area`, mã lỗi, `GET /shifts`).
+8. **Kiểm chứng**: `make check`, `scripts\dev.ps1 check`, curl trên DB `postcare_f37` cổng 8037; ghi §10; trạng thái In review.
+
+**Rủi ro:** F04 song song cũng thêm migration `0005` → khi merge phải nối lại `down_revision`. `OverviewBedOut.area` giữ là chuỗi tên khu vực *(giả định: không đổi F09)*. `GET /shifts` giữ dạng danh sách (không phân trang) vì F24 đang dùng.
 
 ## 10. Ghi chú bàn giao
 
