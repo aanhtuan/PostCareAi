@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from postcare.db.models import Bed, Camera, ShiftDefinition, User
 from postcare.domain.security import verify_password
-from postcare.domain.seed import seed_base
+from postcare.domain.seed import seed_base, seed_demo
 from postcare.schemas.enums import CameraSourceType, UserRole
 
 PW = "seed-pass"
@@ -91,3 +91,27 @@ def test_seed_does_not_overwrite_edited_data(db_session: Session) -> None:
     assert db_session.get(User, nurse.id).password_hash == "hash-da-doi"  # type: ignore[union-attr]
     assert db_session.get(Bed, bed.id).area == "Khu khác"  # type: ignore[union-attr]
     assert db_session.get(Camera, cam.id).source == "http://10.0.0.5:4747/video"  # type: ignore[union-attr]
+
+
+def test_seed_skips_camera_soft_deleted_by_f03(db_session: Session) -> None:
+    """F03 §8: xóa mềm camera đặt `bed_id = null`; chạy lại seed không tạo thêm "Camera A01"."""
+    seed_base(db_session, PW)
+    cam = db_session.scalars(select(Camera)).one()
+    cam.bed_id = None
+    cam.is_active = False
+    db_session.commit()
+
+    assert seed_base(db_session, PW)["cameras"] == 0
+    assert db_session.scalar(select(func.count()).select_from(Camera)) == 1
+
+
+def test_seed_demo_skips_existing_camera_names(db_session: Session) -> None:
+    seed_base(db_session, PW)
+    seed_demo(db_session)
+    for cam in db_session.scalars(select(Camera)):
+        cam.bed_id = None
+    db_session.commit()
+    seed_demo(db_session)
+    seed_base(db_session, PW)
+    names = sorted(db_session.scalars(select(Camera.name)))
+    assert names == ["Camera A01", "Camera A02", "Camera A03"]
