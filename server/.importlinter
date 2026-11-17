@@ -100,6 +100,17 @@ forbidden_modules =
     postcare.vision
     postcare.engine
 
+[importlinter:contract:mediapipe-only-in-inference]
+name = chi vision.inference import truc tiep mediapipe (F11 R5; PDF 10)
+type = forbidden
+source_modules =
+    postcare
+forbidden_modules =
+    mediapipe
+ignore_imports =
+    postcare.vision.inference.** -> mediapipe
+allow_indirect_imports = True
+
 [importlinter:contract:engine-no-clock]
 name = engine khong doc dong ho, sinh ngau nhien hay import dong (time, datetime, random, importlib)
 type = forbidden

@@ -35,7 +35,7 @@ help:
 	@echo gen-api-types: write OpenAPI JSON and generate web/src/api/schema.d.ts
 	@echo db-upgrade: apply Alembic migrations to DATABASE_URL - alembic upgrade head
 	@echo db-seed: add missing sample data - users, shifts, beds A01-A03, camera A01
-	@echo models: placeholder - F11
+	@echo models: download MediaPipe pose models into models/ and verify sha256 - F11
 
 setup:
 	uv --directory server sync
@@ -106,8 +106,7 @@ db-seed:
 	uv --directory server run postcare seed
 
 models:
-	@echo make models: not implemented yet - see F11.
-	@exit 1
+	uv --directory server run postcare models
 
 gen-api-types:
 	uv --directory server run postcare openapi --out ../web/src/api/openapi.json

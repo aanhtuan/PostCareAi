@@ -10,7 +10,7 @@ Mục tiêu: mọi thay đổi đều được kiểm chứng tự động bằn
 | Unit: domain | pytest | `server/tests/domain/` | Có | Dùng DB test |
 | API | pytest + FastAPI TestClient | `server/tests/api/` | Có | DB `postcare_test`, rollback mỗi test |
 | Tích hợp worker ↔ API | pytest | `server/tests/integration/` | Có | Worker chạy với `FakeFrameSource` / `FakePoseAdapter` |
-| Vision (model thật) | pytest marker `vision` | `server/tests/vision/` | **Không**; chạy `make test-vision` | Cần `models/` và video trong `data/`; bỏ qua nếu thiếu. Marker đăng ký trong `pyproject.toml` (`--strict-markers`); F00 có `test_placeholder.py` (luôn skip) để `pytest -m vision` trả exit 0 thay vì 5 cho tới F11 |
+| Vision (model thật) | pytest marker `vision` | `server/tests/vision/` | **Không**; chạy `make test-vision` | Cần `models/` và video trong `data/`; bỏ qua nếu thiếu. Marker đăng ký trong `pyproject.toml` (`--strict-markers`). F11: `test_pose_adapter.py` dùng model trong `models/` (`make models`) và video trong `data/vision/` (nếu trống thì clip stock `data/external/pexels/pexels-8090735.mp4`); đổi thư mục bằng `POSTCARE_DATA_DIR`, `POSTCARE_MODELS_DIR` |
 | Eval | pytest | `server/tests/eval/` | Có | Dữ liệu tổng hợp nhỏ |
 | Frontend unit/component | Vitest + Testing Library | `web/src/**/*.test.tsx` | Có | Mock API |
 | Từ cấm | Vitest | `web/src/i18n/vi.test.ts` (tạo ở F00) | Có | Quét `vi.ts` theo [danh sách](../01-product/glossary.md#từ-cấm-trên-ui) |

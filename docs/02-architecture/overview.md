@@ -71,7 +71,7 @@ flowchart LR
 | `api` | FastAPI routers (`api.v1`, `api.internal`), auth, realtime gateway, frame buffer, kho trạng thái giường trong RAM | `domain`, `db`, `schemas` | `vision`, `engine` |
 | `cli` | Lệnh Typer: `worker`, `probe`, `replay`, `eval`, `seed`, `measure-delivery`, `workflow-report`… | tất cả | — |
 
-Các ranh giới trên được kiểm tra tự động bằng **import-linter** (`server/.importlinter`) trong `make check`.
+Các ranh giới trên được kiểm tra tự động bằng **import-linter** (`server/.importlinter`) trong `make check`. Từ F11 có thêm contract siết hơn: trong cả `postcare`, chỉ `postcare.vision.inference` được import trực tiếp `mediapipe` (`cli` gọi adapter qua `vision.inference` vẫn được phép).
 
 ## 4. Luồng chính: từ khung hình tới timeline
 

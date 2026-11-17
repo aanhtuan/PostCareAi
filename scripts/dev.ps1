@@ -89,7 +89,7 @@ switch ($Task) {
     }
     'db-upgrade' { Invoke-Uv @('run', 'alembic', 'upgrade', 'head') }
     'db-seed' { Invoke-Uv @('run', 'postcare', 'seed') }
-    'models' { Stop-Placeholder 'models: not implemented yet - see F11.' }
+    'models' { Invoke-Uv @('run', 'postcare', 'models') }
     'gen-api-types' {
         Invoke-Uv @('run', 'postcare', 'openapi', '--out', '../web/src/api/openapi.json')
         Invoke-Npm @('run', 'gen-api-types')
