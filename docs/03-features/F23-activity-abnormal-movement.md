@@ -75,7 +75,7 @@ Feature này theo dõi **mức vận động** theo thời gian (ít / bình th�
 - [x] **AC2.** `ACTIVITY_INCREASED` và `ACTIVITY_LOW_PROLONGED` sinh ở mức LOG *(HS §5.1; A11)*. — *Kiểm chứng:* `test_rules_movement.py` (`test_activity_increased_after_hold`, `test_activity_low_prolonged_after_threshold`, `test_activity_events_are_log`).
 - [x] **AC3.** `ABNORMAL_MOVEMENT` (HIGH) sinh khi hạ thấp nhanh, dịch chuyển mạnh hoặc đổi hướng thân đột ngột, với ≥ `abnormal_movement.min_conditions` điều kiện thỏa trong cửa sổ ngắn; `explanation` ghi điều kiện nào thỏa *(HS §5.2, §5.4; PDF §7.3 (tr.9); ADR-0009)*. — *Kiểm chứng:* `test_rules_movement.py` (`test_fast_drop_emits_abnormal_movement_high`, `test_below_min_conditions_no_event`, `test_explanation_lists_conditions`).
 - [x] **AC4.** Trở mình bình thường không sinh `ABNORMAL_MOVEMENT` *(HS §5.2)*. — *Kiểm chứng:* `test_turn_over_no_abnormal_movement`.
-- [ ] **AC5.** Có kết quả đánh giá trên tập dev (F16) cho `ABNORMAL_MOVEMENT`, `ACTIVITY_INCREASED`, `ACTIVITY_LOW_PROLONGED` *(HS §8.2; ADR-0008)*. — *Kiểm chứng:* lệnh `postcare eval --split dev` → `reports/eval-dev-<date>.md` có các dòng này; ghi đường dẫn báo cáo ở mục 10.
+- [x] **AC5.** Có kết quả đánh giá trên tập dev (F16) cho `ABNORMAL_MOVEMENT`, `ACTIVITY_INCREASED`, `ACTIVITY_LOW_PROLONGED` *(HS §8.2; ADR-0008)*. — *Kiểm chứng:* lệnh `postcare eval --split dev` → `reports/eval-dev-<date>.md` có các dòng này; ghi đường dẫn báo cáo ở mục 10.
 
 ## 6. Kế hoạch test
 
@@ -155,8 +155,21 @@ Thêm ca âm tính riêng: nằm xuống chậm từ tư thế ngồi không sin
 - AC4 và ca âm tính mục 6: `test_turn_over_no_abnormal_movement`, `test_keypoint_jump_1_to_3_frames_no_movement_event[1-3]`, `test_spike_to_floor_1_to_3_frames_no_abnormal_movement[1-3]` (nhiễu gần, vẫn bám mục tiêu), `test_occlusion_no_abnormal_movement_no_low_activity[…]`, `test_fast_passerby_outside_roi_no_event`, `test_two_people_in_roi_no_movement_event`, `test_target_switch_no_abnormal_movement`, `test_slow_lie_down_no_abnormal_movement`, `test_sitting_down_quickly_on_chair_no_abnormal_movement`, `test_sitting_down_quickly_on_bed_edge_no_abnormal_movement`, `test_bending_forward_no_abnormal_movement`.
 - Test viết trước, đỏ vì `Engine` chưa có `activity_index`/sự kiện vận động (commit `test(F23)`, 24 test đỏ, test cũ xanh).
 - Fixture từ clip thật (`server/tests/fixtures/`, regression `test_fixtures_regression.py`): `gmd_s1_fall12_abnormal_movement` (GMDCSA24 S1 Fall/12, ngã ngửa từ đứng, nhãn Falling 1,9–6 s → `BED_EXIT`@2,49 s, `ABNORMAL_MOVEMENT`@2,56 s) và `gmd_s1_adl06_sit_read_negative` (ADL/06 ngồi đọc sách → không sự kiện).
-- `make check` exit 0 (536 passed, 5 deselected; web 47 passed); `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0; `make test-vision` exit 0 (5 passed).
-- **AC5 chưa làm:** cần `postcare eval` (F16, đang làm song song) và video dev S02/S15/S16. Thay tạm bằng replay trên dữ liệu ngoài dưới đây.
+- Sau merge `main` (F16): `make check` exit 0 (738 passed, 5 deselected; web 66 passed); `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0; `make test-vision` exit 0 (5 passed).
+- **AC5 (2026-11-18, sau khi merge `main` có F16, commit `79b92b7`):** `uv run postcare eval --split dev --from-observations <runs/eval-dev của F16> --runs-dir ../runs/eval-dev-f23 --report ../reports/eval-dev-f23.local.md` (POSTCARE_DATA_DIR=D:\PostCareAi\data; chỉ engine trên observation đã cache, 189 video dev, 22,4 phút; `config_hash` `209d60d2…`). Báo cáo `reports/eval-dev-f23.local.md` (+ `.local.json`, gitignore).
+
+  | Mã | TP | FP | FN | P | R | F1 | Latency trung vị |
+  |---|---|---|---|---|---|---|---|
+  | `ABNORMAL_MOVEMENT` (tổng) | 2 | 2 | 99 | 0,50 | 0,02 | 0,04 | 4,27 s |
+  | – GMDCSA24 S1–S2 (41 ngã) | 2 | 1 | 39 | 0,67 | 0,05 | 0,09 | |
+  | – URFD cam0 + cam1 (60 ngã) | 0 | 1 | 60 | 0,00 | 0,00 | — | |
+  | `ACTIVITY_INCREASED` | — | — | — | — | — | — | 18 dự đoán, không có truth |
+  | `ACTIVITY_LOW_PROLONGED` | — | — | — | — | — | — | 0 dự đoán (mọi clip < 300 s), không có truth |
+
+  - FP/giờ trên clip ADL (kịch bản NEG, 78 video, 647,6 s): **11,1** (2 FP `ABNORMAL_MOVEMENT`: `urfd_adl11_cam0` @4,27 s, `gmd_s2_adl_09` @3,89 s). Toàn tập: 10,7 false alerts/giờ (thêm 2 FP `BED_EDGE` của F15 trên Pexels).
+  - `ACTIVITY_*` không có P/R/F1: tập dev chưa có video S02/S16 và ground truth cho các mã này (truth chỉ có trong `eval_codes`; 43 dự đoán ngoài `eval_codes` bị bỏ qua, gồm 18 `ACTIVITY_INCREASED`). Cần video dev của nhóm (mục 8).
+  - Manifest không có cột `camera_config` cho URFD nên eval dùng `example.yaml`. Chạy lại 70 video URFD cam0 với `--camera-config config/cameras/urfd-cam0.yaml`: vẫn 0/30 TP, 1 FP (`reports/eval-dev-f23-urfdroi.local.md`). URFD cam1 (camera trần) có coverage 3,5 %.
+  - Lý do recall thấp giống phần replay bên dưới: clip dừng 1–3 s sau khi ngã (rule chấm ≈ `window_s + hold_after_s` sau chuyển động; latency trung vị 4,27 s), frame không `GOOD` lúc ngã hủy cửa sổ (R8), C5 hiếm thỏa với `low_threshold = 0,02`. Ngưỡng giữ nguyên; điều phối hiệu chỉnh sau eval (mục 8).
 
 **Kiểm trên clip thật (`postcare replay --video`, model full, 15 fps; cấu hình `config/cameras/urfd-cam0.yaml`, `caucafall.yaml` (ROI gần trọn khung, giả định), `gmdcsa24-subject1.yaml`):**
 
