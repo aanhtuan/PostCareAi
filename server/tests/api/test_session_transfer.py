@@ -109,7 +109,7 @@ def test_transfer_audited_once(
     t = logs[1]
     assert (t.entity_type, t.entity_id) == ("session", new["id"])
     assert t.actor_user_id == db.scalar(select(User.id).where(User.username == "nurse"))
-    assert t.before == {"session_id": old["id"], "bed_id": 1}
+    assert t.before == {"session_id": old["id"], "bed_id": 1, "paused_at": None}
     assert t.after == {"session_id": new["id"], "bed_id": 2, "reason": "Đổi phòng"}
     msgs = publisher.messages[-2:]
     assert [(m[0], m[1]["id"]) for m in msgs] == [

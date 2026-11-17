@@ -128,10 +128,10 @@ def test_end_while_paused_clears_pause(
 
 
 def test_transfer_while_paused_new_session_not_paused(
-    client: TestClient, login: Login, open_session: dict[str, Any]
+    client: TestClient, login: Login, db: Session, open_session: dict[str, Any]
 ) -> None:
     nurse = login("nurse")
-    _pause(client, nurse, open_session["id"])
+    paused_at = _pause(client, nurse, open_session["id"]).json()["paused_at"]
     r = client.post(
         f"{SESSIONS}/{open_session['id']}/transfer",
         json={"target_bed_id": 2, "reason": "Đổi phòng"},
@@ -141,6 +141,11 @@ def test_transfer_while_paused_new_session_not_paused(
     assert r.json()["paused_at"] is None
     old = client.get(f"{SESSIONS}/{open_session['id']}", headers=nurse).json()
     assert old["paused_at"] is None and old["ended_at"] is not None
+    transfer = _audits(db)[-1]
+    assert transfer.action == "session.transfer"
+    assert transfer.before is not None
+    # R20: giá trị tạm dừng bị xóa của phiên cũ vẫn nằm trong audit
+    assert datetime.fromisoformat(transfer.before["paused_at"]) == datetime.fromisoformat(paused_at)
 
 
 def test_internal_config_reports_capture_paused(
@@ -164,13 +169,18 @@ def test_internal_config_reports_capture_paused(
 def test_engine_event_rejected_while_paused(
     client: TestClient, login: Login, open_session: dict[str, Any], post_event: Callable[..., Any]
 ) -> None:
-    before_pause = datetime.now(UTC)  # sau lúc mở phiên, trước lúc tạm dừng
+    # Sự kiện lúc mở phiên. Đồng hồ Windows có thể thô (~15 ms): chờ tới khi đồng hồ qua mốc đó
+    # để `paused_at` chắc chắn lớn hơn.
+    before_pause = datetime.fromisoformat(open_session["started_at"])
+    while datetime.now(UTC) <= before_pause:
+        pass
     _pause(client, login("nurse"), open_session["id"])
     r = post_event("BED_EXIT", "HIGH")
     assert r.status_code == 409
     assert r.json()["error"]["code"] == "CAPTURE_PAUSED"
     # sự kiện xảy ra trước lúc tạm dừng, gửi muộn: vẫn nhận (R22)
-    assert post_event("SIT_UP", "INFO", occurred_at=before_pause).status_code == 201
+    late = post_event("SIT_UP", "INFO", occurred_at=before_pause)
+    assert late.status_code == 201, late.text
     _resume(client, login("nurse"), open_session["id"])
     assert post_event("BED_EXIT", "HIGH").status_code == 201
 

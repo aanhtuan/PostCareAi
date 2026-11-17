@@ -173,6 +173,12 @@ def transfer_session(
         raise _already_open("bed", target_bed_id)
 
     now = utcnow()
+    # Ghi trước khi _close xóa `paused_at` (R20): audit giữ trạng thái tạm dừng của phiên cũ.
+    before = {
+        "session_id": old.id,
+        "bed_id": old.bed_id,
+        "paused_at": old.paused_at.isoformat() if old.paused_at else None,
+    }
     _close(old, user, now)
     new = MonitoringSession(
         bed_id=target.id,
@@ -196,7 +202,7 @@ def transfer_session(
         action="session.transfer",
         entity_type="session",
         entity_id=new.id,
-        before={"session_id": old.id, "bed_id": old.bed_id},
+        before=before,
         after={"session_id": new.id, "bed_id": new.bed_id, "reason": reason},
     )
     # Phát phiên cũ trước (người nhà của phiên cũ hết quyền ở F36), rồi phiên mới (R17).
