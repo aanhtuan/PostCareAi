@@ -106,10 +106,10 @@ erDiagram
 | started_by | FK → users | not null | |
 | ended_at | timestamptz | null | null = đang mở |
 | ended_by | FK → users | null | |
-| previous_session_id | FK → monitoring_sessions | unique, null | Phiên trước trong chuỗi chuyển giường (F04) |
+| previous_session_id | FK → monitoring_sessions | unique, null | Phiên trước trong chuỗi chuyển giường (F04, migration 0005_f04) |
 | transfer_reason | text | null | Lý do chuyển giường, có khi `previous_session_id` khác null (F04) |
-| paused_at | timestamptz | null | null = không tạm dừng thu hình (F36) |
-| paused_by | FK → users | null | Người tạm dừng (F36); lịch sử tạm dừng/tiếp tục nằm trong audit |
+| paused_at | timestamptz | null | null = không tạm dừng thu hình (F04, migration 0005_f04). Kết thúc hoặc chuyển giường thì xóa về null |
+| paused_by | FK → users | null | Người tạm dừng (F04); lịch sử tạm dừng/tiếp tục nằm trong audit (`session.pause`, `session.resume`) |
 
 Ràng buộc:
 - `UNIQUE (bed_id) WHERE ended_at IS NULL`
