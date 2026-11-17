@@ -8,7 +8,7 @@
 | Định dạng | JSON, khóa `snake_case`, UTF-8 |
 | Thời gian | ISO 8601 có múi giờ, lưu và trả về UTC (ví dụ `2026-10-12T07:38:34Z`) |
 | ID | Số nguyên (`id`). Riêng `event_uid` là UUID |
-| Enum | Chuỗi IN HOA, khớp `postcare.schemas` (ví dụ `"BED_EXIT"`, `"HIGH"`) |
+| Enum | Chuỗi IN HOA, khớp `postcare.schemas` (ví dụ `"BED_EXIT"`, `"HIGH"`). Ngoại lệ: `KeypointName` viết thường (`left_shoulder`…) vì chỉ dùng trong schema quan sát và YAML, không đi qua REST |
 | Phân trang | `?limit=50&offset=0`; trả `{ "items": [...], "total": n }`. `limit` tối đa 200 |
 | Lọc thời gian | `?from=...&to=...` (ISO 8601) |
 | Text hiển thị | API **không** trả câu tiếng Việt cho sự kiện. Frontend ánh xạ mã → câu bằng `web/src/i18n/vi.ts` |

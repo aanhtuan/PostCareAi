@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F10 |
-| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | Done <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -60,7 +60,7 @@
   - sai kiểu, thiếu khóa bắt buộc, hoặc **khóa lạ** → lỗi rõ ràng nêu đường dẫn khóa (ví dụ `posture.sitting_enter_deg`) *(giả định: cấm khóa lạ để bắt lỗi gõ nhầm)*;
   - `config_hash()`: sha256 của cấu hình đã hợp nhất ở dạng JSON chuẩn (khóa sắp xếp, không khoảng trắng thừa) *(event-engine.md §6)*.
 - **R8.** Vị trí `EngineConfig`: `postcare/schemas/engine_config.py`, để `engine`, `worker`, `replay` và `api` (F08 kiểm tra override) cùng dùng *(giả định: `api` không được import `engine`, overview.md §3)*. Việc đọc YAML cần PyYAML trong `schemas`; cập nhật cột "Được import" của `schemas` trong overview.md cùng PR *(giả định)*.
-- **R9.** `Engine(config: EngineConfig, roi: RoiPolygon)` và `Engine.process(obs: FrameObservation) -> EngineOutput` là API duy nhất mà worker và replay gọi *(event-engine.md §3; giả định: ROI truyền vào lúc khởi tạo vì `FrameObservation` không chứa ROI)*.
+- **R9.** `Engine(config: EngineConfig, context: EngineContext)` (context gồm `camera_id`, `roi_polygon`) và `Engine.process(obs: FrameObservation) -> EngineOutput` là API duy nhất mà worker và replay gọi *(event-engine.md §3; giả định: ROI truyền vào lúc khởi tạo vì `FrameObservation` không chứa ROI)*.
 - **R10.** Trạng thái khởi tạo là `NO_OBSERVATION` *(event-engine.md §4)*. Ở F10:
   - observation không có người (`persons = []`) → `body_state = NO_OBSERVATION`, `observation_quality = NO_PERSON`, `events = []`;
   - `source_ok = false` → `NO_OBSERVATION`, `CAMERA_ISSUE` *(giả định)*;
@@ -107,11 +107,11 @@
 - *(giả định)* Tập `KeypointName` ở R3.
 - *(giả định)* `EngineConfig` đặt ở `postcare/schemas/engine_config.py` và dùng PyYAML; cập nhật overview.md cùng PR.
 - *(giả định)* `EngineConfig` cấm khóa lạ.
-- *(giả định)* ROI truyền vào `Engine` lúc khởi tạo; đổi ROI thì worker tạo `Engine` mới.
+- *(giả định)* ROI truyền vào `Engine` lúc khởi tạo qua `EngineContext`; đổi ROI thì worker tạo `Engine` mới.
 - *(giả định)* `source_ok = false` → `CAMERA_ISSUE`.
 - *(giả định)* `ts_ms` không tăng ngặt → `ValueError`.
 - *(giả định)* Test catalog đọc trực tiếp bảng Markdown trong `docs/02-architecture/event-engine.md`.
-- *(giả định, F10 plan)* Engine nhận `EngineContext(camera_id, roi_polygon)` lúc khởi tạo, đúng tên ở event-engine.md §2 (R9 gọi là `roi: RoiPolygon`). `obs.camera_id` khác `context.camera_id` → `ValueError`.
+- *(giả định, F10 plan)* Engine nhận `EngineContext(camera_id, roi_polygon)` lúc khởi tạo, đúng tên ở event-engine.md §2 (R9 đã cập nhật theo tên này). `obs.camera_id` khác `context.camera_id` → `ValueError`.
 - *(giả định, F10 plan)* `RoiPolygon` ở F10 chỉ kiểm tra ≥3 điểm, toạ độ ∈ [0, 1]. Kiểm tra tự cắt (`validate_roi_polygon`) là của F08.
 - *(giả định, F10 plan)* Enum giữ ở `schemas/enums.py` (đã có từ prototype, nhiều module đang import); `schemas/state.py` import lại để không có hai nguồn. `ActivityLevel` giữ thêm `UNKNOWN` theo event-engine.md §5.
 - *(giả định, F10 plan)* Giá trị `KeypointName` viết thường (`left_shoulder`), khớp R3 và `pose.required_keypoints` trong YAML; ngoại lệ so với quy ước enum IN HOA.
@@ -140,6 +140,14 @@ Khảo sát: `schemas/enums.py` đã có `BodyState`, `ObservationQuality`, `Act
 Không có migration, endpoint, `make gen-api-types`. Rủi ro: mypy strict với plugin pydantic cho model frozen chứa dict; khóa `min_duration_s` IN HOA (tên trường trùng tên trạng thái) có thể vướng ruff `N815` — dùng alias nếu cần.
 
 ## 10. Ghi chú bàn giao
+
+### Review (17/11/2026, code-reviewer)
+
+- **Kết luận: Đạt.** `make check` xanh (pytest 124 passed, vitest 30 passed, mypy strict, 8 contract import-linter).
+- AC1–AC4 có bằng chứng test; quy tắc 4–6 của AGENTS đạt. Chấp nhận các thay đổi so với spec: `EngineContext`, `KeypointName` viết thường, `LOW_CONFIDENCE` khi có người trước F13, bỏ `types-PyYAML`.
+- Đã sửa: R9 ghi `EngineContext`; api-conventions ghi ngoại lệ chữ thường cho `KeypointName`.
+- Để sau: test `test_engine_does_not_read_clock` chỉ patch `datetime` cấp module; F13 cân nhắc contract tĩnh cấm `time`/`datetime` trong `postcare.engine`.
+
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
 
