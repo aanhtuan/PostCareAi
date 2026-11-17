@@ -31,24 +31,27 @@ def _audits(db: Session, entity_type: str) -> list[AuditLog]:
 
 def test_admin_crud_beds(client: TestClient, login, db: Session) -> None:
     admin = login("admin")
-    r = client.post(BEDS, json={"code": " B01 ", "area": "Khu hậu phẫu 2"}, headers=admin)
+    r = client.post("/api/v1/areas", json={"code": "HS", "name": "Khu hồi sức"}, headers=admin)
+    assert r.status_code == 201, r.text
+    other_area = r.json()["id"]
+    r = client.post(BEDS, json={"code": " B01 ", "area_id": 1}, headers=admin)
     assert r.status_code == 201, r.text
     bed = r.json()
-    assert bed["code"] == "B01" and bed["area"] == "Khu hậu phẫu 2"
+    assert bed["code"] == "B01" and bed["area"]["name"] == "Khu hậu phẫu"
     assert bed["is_active"] is True and bed["camera"] is None and bed["active_session"] is None
 
     r = client.get(f"{BEDS}/{bed['id']}", headers=login("nurse"))
     assert r.status_code == 200 and r.json()["code"] == "B01"
 
-    r = client.patch(f"{BEDS}/{bed['id']}", json={"area": "Khu hồi sức"}, headers=admin)
+    r = client.patch(f"{BEDS}/{bed['id']}", json={"area_id": other_area}, headers=admin)
     assert r.status_code == 200, r.text
-    assert r.json()["area"] == "Khu hồi sức" and r.json()["code"] == "B01"
+    assert r.json()["area"]["name"] == "Khu hồi sức" and r.json()["code"] == "B01"
 
     logs = _audits(db, "bed")
     assert [log.action for log in logs] == ["bed.create", "bed.update"]
     assert logs[0].after is not None and logs[0].after["code"] == "B01"
-    assert logs[1].before is not None and logs[1].before["area"] == "Khu hậu phẫu 2"
-    assert logs[1].after is not None and logs[1].after["area"] == "Khu hồi sức"
+    assert logs[1].before is not None and logs[1].before["area_id"] == 1
+    assert logs[1].after is not None and logs[1].after["area_id"] == other_area
     assert logs[1].actor_user_id is not None
 
 
@@ -64,7 +67,7 @@ def test_bed_list_is_paginated(client: TestClient, login) -> None:
 
 @pytest.mark.parametrize(
     "body",
-    [{"code": "", "area": "Khu"}, {"code": "   ", "area": "Khu"}, {"code": "B09"}, {"area": "K"}],
+    [{"code": "", "area_id": 1}, {"code": "   ", "area_id": 1}, {"code": "B09"}, {"area_id": 1}],
 )
 def test_bed_create_validation(client: TestClient, login, body: dict[str, Any]) -> None:
     r = client.post(BEDS, json=body, headers=login("admin"))
@@ -74,7 +77,7 @@ def test_bed_create_validation(client: TestClient, login, body: dict[str, Any]) 
 
 def test_duplicate_bed_code_409(client: TestClient, login) -> None:
     admin = login("admin")
-    r = client.post(BEDS, json={"code": "  A01", "area": "Khu"}, headers=admin)
+    r = client.post(BEDS, json={"code": "  A01", "area_id": 1}, headers=admin)
     assert r.status_code == 409
     err = r.json()["error"]
     assert err["code"] == "DUPLICATE_CODE" and err["details"]["field"] == "code"
@@ -91,8 +94,8 @@ def test_duplicate_bed_code_409(client: TestClient, login) -> None:
 def test_write_requires_admin(client: TestClient, login, username: str) -> None:
     h = login(username)
     for method, path, body in [
-        ("post", BEDS, {"code": "Z01", "area": "Khu"}),
-        ("patch", f"{BEDS}/1", {"area": "Khu"}),
+        ("post", BEDS, {"code": "Z01", "area_id": 1}),
+        ("patch", f"{BEDS}/1", {"area_id": 1}),
         ("post", "/api/v1/patients", {"code": "BN-900"}),
         ("patch", "/api/v1/patients/1", {"note": "x"}),
         ("post", "/api/v1/cameras", {"name": "C", "source_type": "WEBCAM", "source": "1"}),
@@ -116,13 +119,13 @@ def test_catalog_requires_login(client: TestClient) -> None:
     for path in (BEDS, "/api/v1/patients", "/api/v1/cameras"):
         r = client.get(path)
         assert r.status_code == 401 and r.json()["error"]["code"] == "UNAUTHORIZED"
-    r = client.post(BEDS, json={"code": "Z01", "area": "Khu"})
+    r = client.post(BEDS, json={"code": "Z01", "area_id": 1})
     assert r.status_code == 401
 
 
 def test_unknown_bed_404(client: TestClient, login) -> None:
     assert client.get(f"{BEDS}/999", headers=login("nurse")).status_code == 404
-    r = client.patch(f"{BEDS}/999", json={"area": "x"}, headers=login("admin"))
+    r = client.patch(f"{BEDS}/999", json={"area_id": 1}, headers=login("admin"))
     assert r.status_code == 404 and r.json()["error"]["code"] == "NOT_FOUND"
 
 

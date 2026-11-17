@@ -13,7 +13,7 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F03](F03-bed-patient-camera-management.md) | Quản lý giường, bệnh nhân, camera | M0 | MVP | B+C | F02 | PDF §4.2, §9.1, §10.1 | Done |
 | [F04](F04-monitoring-sessions.md) | Phiên theo dõi | M0 | MVP | B+C | F03 | PDF §4.2, §10.1; HS §6.2 | Done |
 | [F05](F05-camera-service.md) | Nguồn video (Camera Service) | M0 | MVP | A | F00 | PDF §10, tr.10; HS §4.2 | Done |
-| [F06](F06-worker-backend-link.md) | Kết nối worker với backend | M0 | MVP | B | F04, F05 | PDF §10; HS §4.2, §6.1 | Todo |
+| [F06](F06-worker-backend-link.md) | Kết nối worker với backend | M0 | MVP | B | F04, F05 | PDF §10; HS §4.2, §6.1 | Done |
 | [F07](F07-live-view.md) | Theo dõi trực tiếp cơ bản | M0 | MVP | C | F06 | PDF §9.1; HS §4.3 | Todo |
 | [F08](F08-camera-config-roi.md) | Cấu hình camera và Bed ROI | M0 | MVP | B+C | F07 | PDF §7.2, §9.1; HS §4.1 | Todo |
 | [F09](F09-overview-dashboard-skeleton.md) | Dashboard khung (Tổng quan) | M0 | MVP | B+C | F04, F06 | PDF §9.1; HS §4.3 Hình 3 | Todo |
@@ -44,4 +44,4 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F34](F34-long-term-statistics.md) | Dashboard thống kê dài hạn theo ca | Sau MVP | Sau MVP | B+C | F24 | HS §9.2; PDF §18 | Todo |
 | [F35](F35-user-management.md) | Quản lý người dùng trên UI | M0 | MVP | B+C | F02 | Yêu cầu người dùng (2026-11-17); QA#36 | Done |
 | [F36](F36-family-access.md) | Quyền xem của người nhà theo phiên | M4 | MVP | B+C | F02, F04, F18, F22, F28, F35 | Yêu cầu người dùng (2026-11-17); QA#31 | Todo |
-| [F37](F37-area-shift-management.md) | Quản lý khu vực và ca trực | M0 | MVP | B+C | F03 | Yêu cầu người dùng (2026-11-17); QA#36 | Todo |
+| [F37](F37-area-shift-management.md) | Quản lý khu vực và ca trực | M0 | MVP | B+C | F03 | Yêu cầu người dùng (2026-11-17); QA#36 | Done |

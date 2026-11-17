@@ -206,6 +206,7 @@ Chỉ số vận động: với tốc độ đo giữa hai frame liền nhau, ng
 - **H2 – một frame `LOW_CONFIDENCE` reset cửa sổ:** R8 hủy cả chuyển động khi có một frame không `GOOD` lúc ngã (URFD 01, 04, 05, 07; GMDCSA 01, 02, 13, 14). Thử: cho phép gián đoạn ngắn (≤ vài frame) trong cửa sổ.
 - **H3 – ngưỡng yên 0,02 so với 0,03–0,14 đo được:** C5 (và `ACTIVITY_LOW_PROLONGED`) hiếm khi thỏa vì nhiễu tĩnh MediaPipe; hiệu chỉnh `activity.low_threshold` trên tập dev.
 - **H4 – vị trí thấp theo camera:** C4 là vị trí tuyệt đối trong khung; với camera cao nhìn chéo (CAUCAFall) hông sau ngã ở ~0,55–0,6 chiều cao khung. Đặt `final_low_position_ratio` theo từng camera (override `thresholds`).
+- **Kết quả thử H1–H4 (18/11/2026, chỉ tập dev):** [calibration-2026-11-18.md](../04-guides/calibration-2026-11-18.md). Giữ H1 (`hold_after_s` 1,0) cùng `window_s` 1,0 và H4 dạng ngưỡng chung (`final_low_position_ratio` 0,75); không giữ H2, H3. `ABNORMAL_MOVEMENT` trên 71 ngã: 2/2/69 → 19/1/52 (TP/FP/FN).
 
 ## 11. Definition of Done
 

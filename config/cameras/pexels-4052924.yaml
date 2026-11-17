@@ -1,0 +1,15 @@
+# Clip stock Pexels 4052924 "Man waking up smiling walking away from bed" (Katrin Bolovtsova; datasets.md §3.4).
+# Video ở data/external/pexels/pexels-4052924.mp4 (không commit), 1280×720, 50 fps, 27,9 s.
+# (giả định) ROI ước lượng bằng mắt (hiệu chỉnh dev 2026-11-18, calibration-2026-11-18.md):
+# Camera thấp nhìn ngang giường; nệm chiếm y ≈ 0,55 tới đáy khung, mọi x; mép gần camera nằm
+# ngay dưới đáy khung. ROI gồm cả phần thân người nằm phía trên nệm (khung 0,5, 2, 10, 21 s).
+
+version: 1
+camera_id: 0
+roi_polygon:
+  - [0.0, 0.4]
+  - [1.0, 0.4]
+  - [1.0, 1.0]
+  - [0.0, 1.0]
+thresholds: {}
+notes: "Stock footage - diễn viên. ROI ước lượng (giả định)."

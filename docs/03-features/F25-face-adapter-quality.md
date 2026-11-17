@@ -166,11 +166,13 @@ So sánh `face.head_crop_scale` (căn cứ cho giả định mục 7): số khun
 Kiểm tra: `make check` exit 0, `scripts/dev.ps1 check` exit 0 (lần đầu MemoryError lúc import do máy hết RAM khi nhiều tác vụ song song; chạy lại xanh), `make test-vision` 6 passed (POSTCARE_MODELS_DIR, POSTCARE_DATA_DIR trỏ về checkout chính).
 
 Người sau cần biết:
-- Worker (F06/F17) chưa truyền `face` vào `process_frame`: khi nối, tạo `FaceGate.from_config(config, open_face_adapter(models_dir / manifest.face.filename, config))` nếu `config.face.enabled`, đóng bằng `gate.close()`.
+- Worker (F06) đã nối face (xem đoạn sau merge F06 bên dưới).
 - Engine chưa đọc `obs.face` (`face_status` trong snapshot vẫn `NOT_VISIBLE`): F26 làm.
 - Mặt nằm xoay ngang hay bị bỏ lỡ: F26/F27 cần coi `NOT_VISIBLE` là "không biết", không phải "bình thường" (đã đúng theo event-engine.md mục 8).
 
 **2026-11-18, review: Đạt.** Sửa theo review (cùng nhánh): (1) thêm bảng so sánh `head_crop_scale` ở trên; (2) `cli/main.py`: tạo `FaceGate` bên trong `try/finally`, nên adapter pose luôn được đóng khi tạo cổng face lỗi (`tests/face/test_face_cli.py::test_replay_closes_pose_adapter_when_face_gate_fails`); (3) `FaceGate.observe` bọc toàn bộ phần xử lý người mục tiêu (cả `estimate_head_box`, `side_px`), keypoint NaN → `NOT_VISIBLE` + đếm lỗi thay vì raise (`test_face_gate_nan_keypoints_do_not_raise`); (4) sửa chú thích cũ "× 1.6" trong `test_face_isolation.py`. Trạng thái Done. Còn lại khi F06 vào `main`: thêm `peek_target` vào protocol `FrameEngine`, worker truyền `face` vào `process_frame`.
+
+**2026-11-18, sau khi merge F06 (`main` bccf6af).** `pipeline.process_frame(frame, adapter, engine: Engine | FrameEngine, face=None)`; protocol `FrameEngine` thêm `peek_target`. Worker: tham số `face_factory` (`Worker(..., face_factory=default_face_factory(engine_config, models_dir))` trong `postcare worker`), cổng face tạo cùng engine và đóng khi engine/nguồn đổi (VIDEO cần `ts_ms` tăng ngặt); `face.enabled` đọc sau khi hợp nhất `thresholds` của camera; factory lỗi → WARNING, chạy tiếp không face. Test `tests/worker/test_worker_face.py` (engine giả có `peek_target`, bộ phát hiện giả): face được truyền vào pipeline; detector luôn raise → mọi request tới API (heartbeat, state, frame, event) giống hệt lần không face; factory raise → pose + engine vẫn chạy; `default_face_factory` tôn trọng `face.enabled` và thiếu model.
 
 ## 11. Definition of Done
 

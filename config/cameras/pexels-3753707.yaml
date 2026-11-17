@@ -1,0 +1,16 @@
+# Clip stock Pexels 3753707 "Footage of a man getting out of bed" (Ba Tik; datasets.md §3.4).
+# Video ở data/external/pexels/pexels-3753707.mp4 (không commit), 1280×720, 50 fps, 21,4 s.
+# (giả định) ROI ước lượng bằng mắt (hiệu chỉnh dev 2026-11-18, calibration-2026-11-18.md):
+# Người ngồi mép giường nhìn qua gương, quay mặt về camera; mép nệm người ngồi ở y ≈ 0,74
+# (ngang hông), mặt nệm kéo về phía camera tới đáy khung (khung 5, 12, 20 s). Thân người tiền
+# cảnh ở x < 0,3 nằm ngoài ROI.
+
+version: 1
+camera_id: 0
+roi_polygon:
+  - [0.3, 0.74]
+  - [1.0, 0.74]
+  - [1.0, 1.0]
+  - [0.3, 1.0]
+thresholds: {}
+notes: "Stock footage - diễn viên. ROI ước lượng (giả định)."

@@ -9,6 +9,7 @@ from fastapi import Depends, Header, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from postcare.api.frame_buffer import LatestFrameStore
 from postcare.db.models import User
 from postcare.domain.errors import DomainError
 from postcare.domain.notifications import Publisher
@@ -37,6 +38,10 @@ def get_session(request: Request) -> Iterator[Session]:
 
 def get_store(request: Request) -> RuntimeStore:
     return request.app.state.store
+
+
+def get_frames(request: Request) -> LatestFrameStore:
+    return request.app.state.frames
 
 
 def get_publisher(request: Request) -> Publisher:

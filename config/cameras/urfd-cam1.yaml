@@ -1,0 +1,15 @@
+# URFD (UR Fall Detection, Kępski; CC BY-NC-SA 4.0; datasets.md §3.1), camera cam1 gắn trần nhìn
+# thẳng xuống. Video bản cắt RGB ở data/external/urfd/rgb_crop/<tên>-cam1-rgb.mp4 (không commit),
+# 320×240, 30 fps. Không có giường: chỉ dùng để đo ABNORMAL_MOVEMENT (F23) trên clip ngã.
+# (giả định) ROI gần trọn khung (bỏ 2 % mỗi biên), giống urfd-cam0.yaml. Góc nhìn từ trần nằm ngoài
+# camera-setup.md: pose gần như không thấy người (coverage ~3,5 %), kết quả ghi riêng.
+
+version: 1
+camera_id: 1
+roi_polygon:
+  - [0.02, 0.02]
+  - [0.98, 0.02]
+  - [0.98, 0.98]
+  - [0.02, 0.98]
+thresholds: {}
+notes: "URFD cam1 (trần nhà), không có giường. ROI gần trọn khung (giả định), chỉ dùng cho F23."

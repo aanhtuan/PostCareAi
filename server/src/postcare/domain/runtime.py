@@ -2,6 +2,7 @@
 
 import threading
 from dataclasses import dataclass
+from datetime import datetime
 
 from postcare.domain.dto import BedStateOut
 
@@ -12,6 +13,8 @@ class CameraRuntime:
     brightness: float | None = None
     dropped_frames: int | None = None
     source_status: str | None = None
+    updated_at: datetime | None = None
+    """Lúc API nhận heartbeat gần nhất (F06 R4); None = chưa có heartbeat."""
 
 
 class RuntimeStore:
@@ -35,6 +38,11 @@ class RuntimeStore:
     def get_camera(self, camera_id: int) -> CameraRuntime:
         with self._lock:
             return self._cameras.get(camera_id, CameraRuntime())
+
+    def find_camera(self, camera_id: int) -> CameraRuntime | None:
+        """Số liệu runtime hoặc None nếu camera chưa gửi heartbeat nào (F06 R9)."""
+        with self._lock:
+            return self._cameras.get(camera_id)
 
     def clear(self) -> None:
         with self._lock:

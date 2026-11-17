@@ -1,4 +1,4 @@
-"""Danh mục giường, bệnh nhân (mã thử nghiệm), camera (F03).
+"""Danh mục giường, bệnh nhân (mã thử nghiệm), camera (F03); hàm dùng chung cho F37.
 
 - Thêm, sửa, xóa mềm (`is_active = false`), khôi phục; không có xóa cứng (QA#36).
 - Mã (`code`) duy nhất kể cả bản ghi đã xóa (data-model.md "Quy ước").
@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from postcare.db.models import Bed, Camera, MonitoringSession, Patient, User
+from postcare.db.models import Area, Bed, Camera, MonitoringSession, Patient, ShiftDefinition, User
 from postcare.domain.audit import record_audit
 from postcare.domain.dto import (
     BedCreate,
@@ -67,7 +67,7 @@ def _page[T](db: Session, q: Any, limit: int, offset: int, out: Any) -> Page[T]:
     return Page(items=[out(x) for x in db.scalars(q.limit(limit).offset(offset))], total=total)
 
 
-def _duplicate_code(label: str, code: str, existing: Bed | Patient) -> DomainError:
+def _duplicate_code(label: str, code: str, existing: Bed | Patient | Area) -> DomainError:
     if existing.is_active:
         message = f"{label} {code} đã tồn tại"
     else:
@@ -81,7 +81,11 @@ def _duplicate_code(label: str, code: str, existing: Bed | Patient) -> DomainErr
 
 
 def _check_code(
-    db: Session, model: type[Bed] | type[Patient], label: str, code: str, own_id: int | None
+    db: Session,
+    model: type[Bed] | type[Patient] | type[Area],
+    label: str,
+    code: str,
+    own_id: int | None,
 ) -> None:
     existing = db.scalar(select(model).where(model.code == code))
     if existing is not None and existing.id != own_id:
@@ -101,7 +105,7 @@ def _audit(
     db: Session,
     user: User,
     action: str,
-    entity: Bed | Patient | Camera,
+    entity: Bed | Patient | Camera | Area | ShiftDefinition,
     before: dict[str, Any] | None,
     after: dict[str, Any] | None,
 ) -> None:
@@ -117,7 +121,9 @@ def _audit(
     )
 
 
-def _locked[M: (Bed, Patient, Camera)](db: Session, model: type[M], entity_id: int, msg: str) -> M:
+def _locked[M: (Bed, Patient, Camera, Area, ShiftDefinition)](
+    db: Session, model: type[M], entity_id: int, msg: str
+) -> M:
     """Khóa hàng tới hết transaction: kiểm tra phiên mở và xóa là một bước (R14)."""
     entity = db.get(model, entity_id, with_for_update=True)
     if entity is None:
@@ -132,7 +138,21 @@ _BED_NOT_FOUND = "Không tìm thấy giường"
 
 
 def _bed_snapshot(b: Bed) -> dict[str, Any]:
-    return {"code": b.code, "area": b.area, "is_active": b.is_active}
+    return {"code": b.code, "area_id": b.area_id, "is_active": b.is_active}
+
+
+def _usable_area(db: Session, area_id: int) -> Area:
+    """Giường chỉ gán vào khu vực có thật và đang dùng → nếu không: 400 (F37 R3, giả định)."""
+    # FOR SHARE: chặn xóa khu vực đồng thời cho tới hết transaction (R5).
+    area = db.get(Area, area_id, with_for_update={"read": True})
+    if area is None:
+        raise validation_error("Không tìm thấy khu vực", {"field": "area_id"})
+    if not area.is_active:
+        raise validation_error(
+            f"Khu vực {area.name} đã bị xóa. Chọn khu vực khác hoặc khôi phục khu vực đó.",
+            {"field": "area_id"},
+        )
+    return area
 
 
 def _bed_out(db: Session, b: Bed) -> BedOut:
@@ -142,7 +162,7 @@ def _bed_out(db: Session, b: Bed) -> BedOut:
 def list_beds(
     db: Session, include_inactive: bool = False, limit: int = 50, offset: int = 0
 ) -> Page[BedOut]:
-    q = select(Bed).options(selectinload(Bed.camera)).order_by(Bed.code)
+    q = select(Bed).options(selectinload(Bed.camera), selectinload(Bed.area)).order_by(Bed.code)
     if not include_inactive:
         q = q.where(Bed.is_active.is_(True))
     by_bed = {s.bed_id: s for s in _active_sessions(db)}
@@ -158,7 +178,8 @@ def get_bed(db: Session, bed_id: int) -> BedOut:
 
 def create_bed(db: Session, data: BedCreate, user: User) -> BedOut:
     _check_code(db, Bed, _BED_LABEL, data.code, None)
-    bed = Bed(code=data.code, area=data.area)
+    area = _usable_area(db, data.area_id)
+    bed = Bed(code=data.code, area_id=area.id, area=area)
     db.add(bed)
     _flush(
         db,
@@ -177,8 +198,9 @@ def update_bed(db: Session, bed_id: int, data: BedUpdate, user: User) -> BedOut:
     if data.code is not None and data.code != bed.code:
         _check_code(db, Bed, _BED_LABEL, data.code, bed.id)
         bed.code = data.code
-    if data.area is not None:
-        bed.area = data.area
+    if data.area_id is not None and data.area_id != bed.area_id:
+        area = _usable_area(db, data.area_id)
+        bed.area_id, bed.area = area.id, area
     after = _bed_snapshot(bed)
     if after != before:
         _flush(
@@ -213,6 +235,7 @@ def delete_bed(db: Session, bed_id: int, user: User) -> BedOut:
 def restore_bed(db: Session, bed_id: int, user: User) -> BedOut:
     bed = _locked(db, Bed, bed_id, _BED_NOT_FOUND)
     if not bed.is_active:
+        _usable_area(db, bed.area_id)  # không có giường đang dùng trong khu vực đã xóa
         before = _bed_snapshot(bed)
         bed.is_active = True
         _audit(db, user, "bed.restore", bed, before, _bed_snapshot(bed))

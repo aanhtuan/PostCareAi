@@ -42,7 +42,7 @@ function bed(id: number, code: string, extra: Partial<BedOut> = {}): BedOut {
   return {
     id,
     code,
-    area: 'Khu hậu phẫu',
+    area: { id: 1, code: 'KV01', name: 'Khu hậu phẫu' },
     is_active: true,
     camera: null,
     active_session: null,

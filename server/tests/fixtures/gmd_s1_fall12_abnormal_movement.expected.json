@@ -26,7 +26,7 @@
     0.0,
     7.0
   ],
-  "config_hash": "209d60d22e16de6783bcdd230666e573c7c900487178e89812efd757d0491dda",
+  "config_hash": "cb7a5ed7043e14946de01cefba39d75c023706282e9bbea66776980e48ae44ec",
   "events": [
     {
       "code": "BED_EXIT",
@@ -34,7 +34,7 @@
     },
     {
       "code": "ABNORMAL_MOVEMENT",
-      "occurred_at_ms": 2563
+      "occurred_at_ms": 2358
     }
   ]
 }

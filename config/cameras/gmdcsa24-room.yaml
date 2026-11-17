@@ -1,0 +1,17 @@
+# GMDCSA24 (Alam et al., MIT; datasets.md §3.2): clip ngã và ADL quay trong phòng, camera cố định
+# nhìn ngang phòng, 1280×720, 15–30 fps. Dùng cho mọi clip GMDCSA24 chỉ chấm ABNORMAL_MOVEMENT
+# (dev và test), trừ Subject 1 ADL 01–06 (cảnh có giường, dùng gmdcsa24-subject1.yaml); quy tắc
+# gán ở datasets.md §3.5.
+# (giả định) ROI gần trọn khung (bỏ 2 % mỗi biên), giống urfd-cam0.yaml và caucafall.yaml: các clip
+# này chỉ chấm ABNORMAL_MOVEMENT (rule không xét ROI, chỉ cần nhận được người mục tiêu); Subject 2
+# đổi vị trí camera nhiều lần nên không vẽ ROI giường theo từng cảnh.
+
+version: 1
+camera_id: 0
+roi_polygon:
+  - [0.02, 0.02]
+  - [0.98, 0.02]
+  - [0.98, 0.98]
+  - [0.02, 0.98]
+thresholds: {}
+notes: "GMDCSA24, ROI gần trọn khung (giả định), chỉ dùng cho F23."

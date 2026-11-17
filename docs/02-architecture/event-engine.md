@@ -151,7 +151,7 @@ Nguồn sự thật trong code là `postcare/schemas/events.py`. Bảng dưới 
   1. Frame `t` có mốc `ref` = mẫu cách ≥ `abnormal_movement.window_s` về trước. Dấu hiệu nhanh: vận tốc đi xuống lớn nhất của `hip_center` trong cửa sổ ≥ `hip_drop_speed_torso_per_s` (chia torso lớn hơn giữa frame và mốc); `|hip(t) − hip(ref)| / torso(ref)` ≥ `displacement_torso`; `|trunk(t) − trunk(ref)|` ≥ `trunk_angle_change_deg`.
   2. Có dấu hiệu → một "chuyển động"; mẫu "trước" = `ref` của frame có nhiều dấu hiệu nhất. Hết dấu hiệu liên tục `hold_after_s` → chấm C1–C5 với vị trí **cuối**: C1 vận tốc đi xuống lớn nhất; C2, C3 so vị trí/góc thân cuối với mẫu "trước" (nhiễu nhảy rồi quay về không tính); C4 `hip_y / chiều cao khung hình` ≥ `final_low_position_ratio`; C5 trung vị tốc độ mẫu vận động trong khoảng giữ < `activity.low_threshold`. Đủ `min_conditions` **và** có ít nhất một điều kiện hạ thấp (C1 hoặc C4) → phát *(giả định, chốt 18/11/2026)*; `explanation.lowering_required = true`.
   3. `occurred_at_ms` = mẫu đầu trong cửa sổ có tốc độ hông ≥ `hip_drop_speed_torso_per_s` (không có thì frame đầu có dấu hiệu); `detected_at_ms` = lúc chấm (≈ `window_s + hold_after_s` sau khi hết chuyển động). Chuyển động còn đang chờ (chưa đủ `hold_after_s`) khi luồng kết thúc thì **không** được chấm, không phát sự kiện. `explanation`: `conditions_met` (`hip_drop_speed`, `displacement`, `trunk_angle_change`, `final_low_position`, `still_after`), giá trị đo từng điều kiện, `min_conditions`, `window_s`, `hold_after_s`, `held_ms`.
-  4. Điều kiện hạ thấp bắt buộc để đứng dậy nhanh từ sàn rồi đứng yên (C2 + C3 + C5) hoặc đi rồi dừng không cảnh báo (HS §8.1 "chuyển động nhanh xuống nệm"; ADR-0009). Giới hạn còn lại: C4 là vị trí tuyệt đối trong khung, nên đi rồi dừng khi hông đã ở thấp trong khung (≥ `final_low_position_ratio`) vẫn có thể đủ điều kiện; ngưỡng C4 cần đặt theo góc camera. Trên clip thật C5 hiếm khi thỏa với `low_threshold = 0,02` (nhiễu tĩnh ~0,02–0,07): xem F23 mục 10.
+  4. Điều kiện hạ thấp bắt buộc để đứng dậy nhanh từ sàn rồi đứng yên (C2 + C3 + C5) hoặc đi rồi dừng không cảnh báo (HS §8.1 "chuyển động nhanh xuống nệm"; ADR-0009). Giới hạn còn lại: C4 là vị trí tuyệt đối trong khung, nên đi rồi dừng khi hông đã ở thấp trong khung (≥ `final_low_position_ratio`) vẫn có thể đủ điều kiện; ngưỡng C4 cần đặt theo góc camera. Trên clip thật C5 hiếm khi thỏa với `low_threshold = 0,02` (nhiễu tĩnh ~0,02–0,07): xem F23 mục 10. Từ hiệu chỉnh dev 18/11/2026 (`window_s` 1,0, `hold_after_s` 1,0, C4 0,75; [calibration-2026-11-18.md](../04-guides/calibration-2026-11-18.md)), khoảng giữ bằng `activity.sample_interval_s` nên C5 còn thấy đuôi chuyển động và càng khó thỏa.
 - Mọi mã vận động qua cùng `Debouncer` với rule cơ thể.
 
 Các sự kiện mức LOG/INFO chỉ vào timeline. MEDIUM/HIGH tạo cảnh báo PENDING *(giả định QA#17)*. Mức ưu tiên là ưu tiên **workflow**, không phải phân tầng nguy cơ lâm sàng (PDF §7).
@@ -167,7 +167,7 @@ Các sự kiện mức LOG/INFO chỉ vào timeline. MEDIUM/HIGH tạo cảnh b�
 
 ## 6. Cấu hình và ngưỡng mặc định
 
-File `config/engine.default.yaml`. Mọi giá trị dưới đây là ***giả định khởi điểm***: hiệu chỉnh trên tập dev (F16), **chốt** bằng `config_hash` trước khi chạy tập test (F29; HS §8.2). Thời gian tính bằng giây, khoảng cách chuẩn hóa theo chiều dài thân (`torso_length`) trừ khi ghi khác.
+File `config/engine.default.yaml`. Mọi giá trị dưới đây là ***giả định khởi điểm***: hiệu chỉnh trên tập dev (F16), **chốt** bằng `config_hash` trước khi chạy tập test (F29; HS §8.2). Lần hiệu chỉnh dev 18/11/2026 chỉ đổi `abnormal_movement.window_s`, `hold_after_s`, `final_low_position_ratio`; các ngưỡng tư thế/vị trí/thời gian giữ vẫn là giá trị khởi điểm vì chưa có video rời giường quay theo camera-setup.md ([calibration-2026-11-18.md](../04-guides/calibration-2026-11-18.md)). Thời gian tính bằng giây, khoảng cách chuẩn hóa theo chiều dài thân (`torso_length`) trừ khi ghi khác.
 
 ```yaml
 version: 1
@@ -214,12 +214,12 @@ activity:
   low_prolonged_s: 300
   increased_hold_s: 3.0
 abnormal_movement:
-  window_s: 1.5
+  window_s: 1.0                     # hiệu chỉnh dev 18/11/2026 (1,5 → 1,0)
   hip_drop_speed_torso_per_s: 1.5
   displacement_torso: 1.0
   trunk_angle_change_deg: 50
-  final_low_position_ratio: 0.8     # hip_y ≥ 0.8 × chiều cao khung hình
-  hold_after_s: 2.0
+  final_low_position_ratio: 0.75    # hip_y ≥ 0.75 × chiều cao khung hình (hiệu chỉnh dev 18/11/2026, 0,8 → 0,75)
+  hold_after_s: 1.0                 # hiệu chỉnh dev 18/11/2026 (2,0 → 1,0)
   min_conditions: 3
 face:
   enabled: true                    # tắt để đo FPS hoặc khi thu hẹp M3 (F25)

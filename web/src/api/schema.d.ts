@@ -62,10 +62,112 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Shifts */
+        /**
+         * Shifts
+         * @description Mặc định chỉ ca đang dùng, sắp theo `start_time` (không phân trang: tối đa vài ca).
+         */
         get: operations["shifts_api_v1_shifts_get"];
         put?: never;
+        /** Create Shift */
+        post: operations["create_shift_api_v1_shifts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shifts/{shift_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         post?: never;
+        /**
+         * Delete Shift
+         * @description Xóa mềm. Bàn giao theo ca đã xóa vẫn tra cứu được (F37 R9).
+         */
+        delete: operations["delete_shift_api_v1_shifts__shift_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Shift */
+        patch: operations["update_shift_api_v1_shifts__shift_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/shifts/{shift_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Shift
+         * @description Khôi phục gây chồng giờ hoặc trùng tên với ca đang dùng → 409.
+         */
+        post: operations["restore_shift_api_v1_shifts__shift_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Areas */
+        get: operations["list_areas_api_v1_areas_get"];
+        put?: never;
+        /** Create Area */
+        post: operations["create_area_api_v1_areas_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/areas/{area_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Area */
+        get: operations["get_area_api_v1_areas__area_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Area
+         * @description Xóa mềm. Còn giường đang dùng → 409 `AREA_IN_USE`. Lặp lại trả 200, không audit.
+         */
+        delete: operations["delete_area_api_v1_areas__area_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Area */
+        patch: operations["update_area_api_v1_areas__area_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/areas/{area_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Area */
+        post: operations["restore_area_api_v1_areas__area_id__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -211,7 +313,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Camera */
+        /**
+         * Get Camera
+         * @description Kèm `runtime` (FPS, độ sáng, khung bỏ, trạng thái nguồn) từ heartbeat trong RAM (F06 R9).
+         */
         get: operations["get_camera_api_v1_cameras__camera_id__get"];
         put?: never;
         post?: never;
@@ -694,6 +799,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v1/cameras/{camera_id}/frame": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Frame
+         * @description Khung JPEG xem trực tiếp (F06 R7, R8): chỉ giữ khung mới nhất trong RAM, không ghi đĩa.
+         */
+        post: operations["frame_internal_v1_cameras__camera_id__frame_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -752,12 +877,53 @@ export interface components {
          * @enum {string}
          */
         AlertStatus: "PENDING" | "ACKNOWLEDGED" | "RESOLVED";
+        /** AreaCreate */
+        AreaCreate: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+        };
+        /** AreaOut */
+        AreaOut: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Is Active */
+            is_active: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Bed Count */
+            bed_count: number;
+        };
+        /** AreaRef */
+        AreaRef: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+        };
+        /** AreaUpdate */
+        AreaUpdate: {
+            /** Code */
+            code?: string | null;
+            /** Name */
+            name?: string | null;
+        };
         /** BedCreate */
         BedCreate: {
             /** Code */
             code: string;
-            /** Area */
-            area: string;
+            /** Area Id */
+            area_id: number;
         };
         /** BedOut */
         BedOut: {
@@ -765,8 +931,7 @@ export interface components {
             id: number;
             /** Code */
             code: string;
-            /** Area */
-            area: string;
+            area: components["schemas"]["AreaRef"];
             /** Is Active */
             is_active: boolean;
             camera: components["schemas"]["CameraRef"] | null;
@@ -816,8 +981,8 @@ export interface components {
         BedUpdate: {
             /** Code */
             code?: string | null;
-            /** Area */
-            area?: string | null;
+            /** Area Id */
+            area_id?: number | null;
         };
         /**
          * BodyState
@@ -860,6 +1025,32 @@ export interface components {
             /** Bed Id */
             bed_id?: number | null;
         };
+        /**
+         * CameraDetailOut
+         * @description `GET /cameras/{id}`: thêm `runtime` (null khi chưa có heartbeat từ lúc API khởi động).
+         */
+        CameraDetailOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Bed Id */
+            bed_id: number | null;
+            /** Bed Code */
+            bed_code: string | null;
+            source_type: components["schemas"]["CameraSourceType"];
+            /** Source */
+            source: string;
+            display_mode: components["schemas"]["DisplayMode"];
+            status: components["schemas"]["CameraStatus"];
+            /** Last Seen At */
+            last_seen_at: string | null;
+            /** Config Version */
+            config_version: number;
+            /** Is Active */
+            is_active: boolean;
+            runtime?: components["schemas"]["CameraRuntimeOut"] | null;
+        };
         /** CameraOut */
         CameraOut: {
             /** Id */
@@ -889,6 +1080,25 @@ export interface components {
             /** Name */
             name: string;
             status: components["schemas"]["CameraStatus"];
+        };
+        /**
+         * CameraRuntimeOut
+         * @description Số liệu worker báo qua heartbeat, chỉ trong RAM của API (F06 R4, R9).
+         */
+        CameraRuntimeOut: {
+            /** Fps */
+            fps: number | null;
+            /** Brightness */
+            brightness: number | null;
+            /** Dropped Frames */
+            dropped_frames: number | null;
+            /** Source Status */
+            source_status: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /**
          * CameraSourceType
@@ -1169,6 +1379,13 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[AreaOut] */
+        Page_AreaOut_: {
+            /** Items */
+            items: components["schemas"]["AreaOut"][];
+            /** Total */
+            total: number;
+        };
         /** Page[BedOut] */
         Page_BedOut_: {
             /** Items */
@@ -1359,7 +1576,28 @@ export interface components {
             /** Reason */
             reason: string;
         };
-        /** ShiftOut */
+        /**
+         * ShiftCreate
+         * @description Giờ `HH:mm` (giây = 0) và `start_time ≠ end_time` kiểm tra ở domain để trả 400 (R8).
+         */
+        ShiftCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Start Time
+             * Format: time
+             */
+            start_time: string;
+            /**
+             * End Time
+             * Format: time
+             */
+            end_time: string;
+        };
+        /**
+         * ShiftOut
+         * @description `end_time < start_time`: ca vắt qua nửa đêm (data-model.md).
+         */
         ShiftOut: {
             /** Id */
             id: number;
@@ -1375,6 +1613,17 @@ export interface components {
              * Format: time
              */
             end_time: string;
+            /** Is Active */
+            is_active: boolean;
+        };
+        /** ShiftUpdate */
+        ShiftUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Start Time */
+            start_time?: string | null;
+            /** End Time */
+            end_time?: string | null;
         };
         /** TimelineAlertRef */
         TimelineAlertRef: {
@@ -1560,7 +1809,9 @@ export interface operations {
     };
     shifts_api_v1_shifts_get: {
         parameters: {
-            query?: never;
+            query?: {
+                include_inactive?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1574,6 +1825,339 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShiftOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_shift_api_v1_shifts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShiftCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShiftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_shift_api_v1_shifts__shift_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shift_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShiftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_shift_api_v1_shifts__shift_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shift_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShiftUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShiftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_shift_api_v1_shifts__shift_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shift_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShiftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_areas_api_v1_areas_get: {
+        parameters: {
+            query?: {
+                include_inactive?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_AreaOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_area_api_v1_areas_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AreaCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_area_api_v1_areas__area_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_area_api_v1_areas__area_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_area_api_v1_areas__area_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AreaUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_area_api_v1_areas__area_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2049,7 +2633,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CameraOut"];
+                    "application/json": components["schemas"]["CameraDetailOut"];
                 };
             };
             /** @description Validation Error */
@@ -3112,6 +3696,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EventIngestOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    frame_internal_v1_cameras__camera_id__frame_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-worker-token"?: string | null;
+            };
+            path: {
+                camera_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

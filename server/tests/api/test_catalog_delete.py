@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from postcare.db.models import AuditLog, Camera
 
 RESOURCES = {
-    "beds": ("bed", {"code": "Z01", "area": "Khu"}),
+    "beds": ("bed", {"code": "Z01", "area_id": 1}),
     "patients": ("patient", {"code": "BN-900"}),
     "cameras": ("camera", {"name": "Cam Z", "source_type": "WEBCAM", "source": "5"}),
 }
@@ -271,7 +271,7 @@ def test_update_camera_in_active_session_409(
     """Review F03 #4: không đổi giường hoặc nguồn của camera đang dùng cho phiên mở."""
     admin = login("admin")
     if patch.get("bed_id") == "NEW_BED":
-        r = client.post("/api/v1/beds", json={"code": "Z09", "area": "Khu"}, headers=admin)
+        r = client.post("/api/v1/beds", json={"code": "Z09", "area_id": 1}, headers=admin)
         patch = {"bed_id": r.json()["id"]}
     before = client.get("/api/v1/cameras/1", headers=admin).json()
     r = client.patch("/api/v1/cameras/1", json=patch, headers=admin)

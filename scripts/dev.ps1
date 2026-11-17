@@ -5,7 +5,7 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 setup
 #   powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check
 #   powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 simulate -Bed A01 -Scenario bed-exit -Speed 1
-#   powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 worker -Camera 1
+#   powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 worker -Camera 1 [-Video D:\clip.mp4]
 param(
     [Parameter(Position = 0)]
     [ValidateSet('help', 'setup', 'dev', 'dev-api', 'dev-web', 'worker', 'seed', 'simulate',
@@ -17,6 +17,7 @@ param(
     [string]$Scenario = 'bed-exit',
     [double]$Speed = 1,
     [string]$Camera = '',
+    [string]$Video = '',
     [int]$Port = 8000
 )
 
@@ -35,9 +36,11 @@ function Invoke-Step {
 function Invoke-Uv([string[]]$ArgList) { Invoke-Step 'uv' (@('--directory', $Server) + $ArgList) }
 function Invoke-Npm([string[]]$ArgList) { Invoke-Step 'npm' (@('--prefix', $Web) + $ArgList) }
 
-function Stop-Placeholder([string]$Message) {
-    Write-Host $Message -ForegroundColor Yellow
-    exit 1
+function Invoke-Worker {
+    if (-not $Camera) { Write-Host 'Missing -Camera <id>' -ForegroundColor Yellow; exit 2 }
+    $argList = @('run', 'postcare', 'worker', '--camera-id', $Camera)
+    if ($Video) { $argList += @('--video', $Video) }
+    Invoke-Uv $argList
 }
 
 function Invoke-FormatCheck {
@@ -65,7 +68,7 @@ switch ($Task) {
     }
     'dev-api' { Invoke-Uv @('run', 'uvicorn', 'postcare.api.main:app', '--host', '0.0.0.0', '--port', "$Port", '--reload') }
     'dev-web' { Invoke-Npm @('run', 'dev') }
-    'worker' { Stop-Placeholder "worker -Camera ${Camera}: not implemented yet - see F06. Use simulate meanwhile." }
+    'worker' { Invoke-Worker }
     'seed' { Invoke-Uv @('run', 'postcare', 'seed', '--reset') }
     'simulate' { Invoke-Uv @('run', 'postcare', 'simulate', '--bed', $Bed, '--scenario', $Scenario, '--speed', "$Speed") }
     'format' { Invoke-Uv @('run', 'ruff', 'check', '--fix', '.'); Invoke-Uv @('run', 'ruff', 'format', '.'); Invoke-Npm @('run', 'format') }

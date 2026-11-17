@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
-import type { BedOut, CameraOut, PatientOut, UserOut } from '../../api/types';
+import type { AreaOut, BedOut, CameraOut, PatientOut, UserOut } from '../../api/types';
 import { server } from '../../test/msw';
 import { renderWithProviders } from '../../test/render';
 import { ManagementPage } from './ManagementPage';
@@ -38,7 +38,7 @@ const T = '2026-10-12T07:38:34Z';
 const a01: BedOut = {
   id: 1,
   code: 'A01',
-  area: 'Khu hậu phẫu',
+  area: { id: 1, code: 'KV01', name: 'Khu hậu phẫu' },
   is_active: true,
   camera: { id: 1, name: 'Camera A01', status: 'ONLINE' },
   active_session: {
@@ -63,12 +63,24 @@ const a01: BedOut = {
 const a02: BedOut = {
   id: 2,
   code: 'A02',
-  area: 'Khu hậu phẫu',
+  area: { id: 1, code: 'KV01', name: 'Khu hậu phẫu' },
   is_active: true,
   camera: null,
   active_session: null,
 };
 const a09: BedOut = { ...a02, id: 9, code: 'A09', is_active: false };
+
+const areas: AreaOut[] = [
+  {
+    id: 1,
+    code: 'KV01',
+    name: 'Khu hậu phẫu',
+    is_active: true,
+    created_at: T,
+    bed_count: 2,
+  },
+  { id: 2, code: 'HS', name: 'Khu hồi sức', is_active: true, created_at: T, bed_count: 0 },
+];
 
 const patients: PatientOut[] = [
   { id: 1, code: 'BN-001', note: null, is_active: true, active_session_id: 10 },
@@ -120,6 +132,14 @@ function setup(user: UserOut, overrides: { deleteBed?: () => Response } = {}) {
       await record(request);
       return HttpResponse.json({ items: cameras, total: cameras.length });
     }),
+    http.get('*/api/v1/areas', async ({ request }) => {
+      await record(request);
+      return HttpResponse.json({ items: areas, total: areas.length });
+    }),
+    http.get('*/api/v1/shifts', async ({ request }) => {
+      await record(request);
+      return HttpResponse.json([]);
+    }),
     http.post('*/api/v1/beds', async ({ request }) => {
       await record(request);
       return HttpResponse.json(
@@ -135,7 +155,7 @@ function setup(user: UserOut, overrides: { deleteBed?: () => Response } = {}) {
     }),
     http.patch('*/api/v1/beds/:id', async ({ request }) => {
       await record(request);
-      return HttpResponse.json({ ...a02, area: 'Khu hồi sức' });
+      return HttpResponse.json({ ...a02, area: { id: 2, code: 'HS', name: 'Khu hồi sức' } });
     }),
     http.delete('*/api/v1/beds/:id', async ({ request }) => {
       await record(request);
@@ -150,6 +170,16 @@ function setup(user: UserOut, overrides: { deleteBed?: () => Response } = {}) {
   );
   renderWithProviders(<ManagementPage />, user);
   return calls;
+}
+
+/** Chọn một mục trong Mantine Select (danh sách tải bất đồng bộ, dropdown rỗng không mở). */
+async function chooseOption(input: HTMLElement, name: string) {
+  const user = userEvent.setup();
+  await waitFor(async () => {
+    if (!screen.queryByRole('option', { name, hidden: true })) await user.click(input);
+    expect(screen.getByRole('option', { name, hidden: true })).toBeInTheDocument();
+  });
+  await user.click(screen.getByRole('option', { name, hidden: true }));
 }
 
 async function bedRow(code: string) {
@@ -184,7 +214,7 @@ describe('ManagementPage', () => {
   it('admin sees add, edit and delete buttons', async () => {
     setup(admin);
     await bedRow('A01');
-    for (const region of ['Giường', 'Bệnh nhân', 'Camera']) {
+    for (const region of ['Giường', 'Bệnh nhân', 'Camera', 'Khu vực', 'Ca trực']) {
       const r = screen.getByRole('region', { name: region });
       expect(within(r).getByRole('button', { name: 'Thêm' })).toBeInTheDocument();
     }
@@ -254,7 +284,7 @@ describe('ManagementPage', () => {
     );
   });
 
-  it('add bed form sends code and area and shows duplicate message', async () => {
+  it('BedForm selects area from list and shows duplicate message', async () => {
     const calls = setup(admin);
     const user = userEvent.setup();
     await bedRow('A01');
@@ -262,13 +292,13 @@ describe('ManagementPage', () => {
     await user.click(within(region).getByRole('button', { name: 'Thêm' }));
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText(/Mã giường/), 'A01');
-    await user.type(within(dialog).getByLabelText(/Khu vực/), 'Khu hậu phẫu');
+    await user.click(within(dialog).getByRole('button', { name: 'Lưu' }));
+    expect(await within(dialog).findByText('Cần nhập thông tin này')).toBeInTheDocument();
+    expect(calls.some((c) => c.method === 'POST')).toBe(false);
+    await chooseOption(within(dialog).getByRole('textbox', { name: /Khu vực/ }), 'Khu hậu phẫu');
     await user.click(within(dialog).getByRole('button', { name: 'Lưu' }));
     expect(await within(dialog).findByText('Mã giường A01 đã tồn tại')).toBeInTheDocument();
-    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
-      code: 'A01',
-      area: 'Khu hậu phẫu',
-    });
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ code: 'A01', area_id: 1 });
   });
 
   it('edit bed sends form values via PATCH', async () => {
@@ -276,15 +306,14 @@ describe('ManagementPage', () => {
     const user = userEvent.setup();
     await user.click(within(await bedRow('A02')).getByRole('button', { name: 'Sửa' }));
     const dialog = await screen.findByRole('dialog');
-    const area = within(dialog).getByLabelText(/Khu vực/);
-    expect(area).toHaveValue('Khu hậu phẫu');
-    await user.clear(area);
-    await user.type(area, 'Khu hồi sức');
+    const area = within(dialog).getByRole('textbox', { name: /Khu vực/ });
+    await waitFor(() => expect(area).toHaveValue('Khu hậu phẫu'));
+    await chooseOption(area, 'Khu hồi sức');
     await user.click(within(dialog).getByRole('button', { name: 'Lưu' }));
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PATCH')).toMatchObject({
         path: '/api/v1/beds/2',
-        body: { code: 'A02', area: 'Khu hồi sức' },
+        body: { code: 'A02', area_id: 2 },
       }),
     );
   });

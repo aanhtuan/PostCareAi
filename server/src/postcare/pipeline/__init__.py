@@ -1,24 +1,40 @@
-"""Pipeline dùng chung cho worker (F17) và replay (F12): khung hình → adapter → engine.
+"""Pipeline dùng chung cho worker (F06/F17) và replay (F12): khung hình → adapter → engine.
 
 overview.md §6: "`replay` dùng **chung** pipeline `vision` + `engine` với worker", để kết quả
 offline phản ánh đúng realtime. Module này chỉ dựa vào interface `PoseAdapter` và `FaceGate`,
 không import mediapipe; adapter cụ thể do nơi gọi tạo.
 """
 
+from typing import Protocol
+
 from postcare.engine import Engine
+from postcare.schemas.context import EngineContext
 from postcare.schemas.events import EngineOutput
-from postcare.schemas.observation import FrameObservation
+from postcare.schemas.observation import FrameObservation, PersonPose
 from postcare.vision.camera import Frame
 from postcare.vision.inference.base import PoseAdapter
 from postcare.vision.inference.face_gate import FaceGate
 
-__all__ = ["process_frame"]
+__all__ = ["FrameEngine", "process_frame"]
+
+
+class FrameEngine(Protocol):
+    """Phần của `Engine` mà pipeline dùng (cho phép engine giả trong test worker)."""
+
+    @property
+    def context(self) -> EngineContext: ...
+
+    def process(self, obs: FrameObservation) -> EngineOutput: ...
+
+    def peek_target(self, obs: FrameObservation) -> PersonPose | None:
+        """Người mục tiêu mà `process(obs)` sẽ chọn, chỉ đọc (nhánh face F25)."""
+        ...
 
 
 def process_frame(
     frame: Frame,
     adapter: PoseAdapter,
-    engine: Engine,
+    engine: Engine | FrameEngine,
     face: FaceGate | None = None,
 ) -> tuple[FrameObservation, EngineOutput]:
     """Chạy adapter pose trên một khung, nhánh face (nếu có), rồi đưa quan sát vào engine.

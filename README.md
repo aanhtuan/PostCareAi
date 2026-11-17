@@ -99,7 +99,8 @@ API không tự tạo bảng: chạy `make db-upgrade` sau khi tạo DB và sau 
 |---|---|---|
 | 1. API (cổng 8000) | `make dev-api` | `uv --directory server run uvicorn postcare.api.main:app --host 0.0.0.0 --port 8000 --reload` |
 | 2. Web (cổng 5173) | `make dev-web` | `npm --prefix web run dev` |
-| 3. Giả lập worker | `make simulate` | `uv --directory server run postcare simulate --bed A01` |
+| 3. Worker camera (F06) | `make worker CAMERA=1` | `uv --directory server run postcare worker --camera-id 1` |
+| 3'. Hoặc giả lập (không cần camera/model) | `make simulate` | `uv --directory server run postcare simulate --bed A01` |
 
 URL:
 
@@ -128,6 +129,18 @@ Mật khẩu chung là `SEED_PASSWORD` (mặc định **`postcare`**).
 3. Trên **Cảnh báo** hoặc khối "Sự kiện cần chú ý": bấm **[Đã tiếp nhận]**, rồi **[Bệnh nhân an toàn]** (kèm ghi chú) và **[Đã xử lý]**. Đăng nhập `charge` ở trình duyệt khác và bấm tiếp nhận lần nữa để thấy thông báo "Cảnh báo đã được tiếp nhận bởi …".
 4. Mở **Lịch sử theo dõi** (giường A01, phiên đang mở): thấy đủ chuỗi "hh:mm:ss - Bệnh nhân ngồi dậy …", người tiếp nhận và kết quả. Mở **Bàn giao ca** để xem tổng hợp và in.
 5. Sau khi giả lập dừng ~5 giây, camera A01 chuyển "Mất kết nối camera" (cảnh báo Cần chú ý, đúng A02). Dùng `--hold` để giữ heartbeat cho tới khi nhấn Ctrl+C.
+
+### Chạy worker thật thay giả lập (F06)
+
+Cần model pose (`make models`) và camera có **ROI giường** (F08 chưa có UI vẽ ROI: tạm đặt `cameras.roi_polygon` trong DB, ví dụ lấy từ `config/cameras/*.yaml`).
+
+```bash
+make worker CAMERA=1                        # nguồn trong cấu hình camera (webcam/URL/file)
+make worker CAMERA=1 VIDEO=D:/clip.mp4      # phát file video như camera, theo nhịp thời gian thật
+uv --directory server run postcare worker --camera-id 1 --model lite -v
+```
+
+Worker lấy cấu hình qua API nội bộ, gửi heartbeat mỗi 2 giây, trạng thái giường khi đổi, sự kiện của engine (chỉ khi giường có phiên mở) và khung JPEG ~5 fps (API chỉ giữ khung mới nhất trong RAM). API tạm sập thì worker thử lại, không thoát; Ctrl+C để dừng. Khung gửi đi là ảnh RAW (chưa làm mờ) cho tới F28: chỉ dùng với người tham gia mô phỏng đã đồng ý (F06 §8).
 
 Tham số giả lập:
 
@@ -187,8 +200,10 @@ server/                        Python 3.12 (uv), package `postcare`
     domain/                    Nghiệp vụ: phiên, sự kiện→cảnh báo, vòng đời, audit,
                                overview, timeline, handover, ca trực, seed, kho RAM
     api/                       FastAPI: v1/ (REST), internal/ (worker), realtime.py (WS), deps, errors
-    cli/                       Typer: `postcare version | seed | simulate | openapi`; simulator.py
-    engine/ vision/ pipeline/ worker/ replay/ eval/   chưa triển khai (chỗ cho phần AI)
+    cli/                       Typer: `postcare version | seed | simulate | worker | probe | replay | eval | models | openapi`
+    engine/ vision/ pipeline/  Engine thuần, camera + pose MediaPipe, pipeline dùng chung worker/replay
+    worker/                    Worker realtime một camera (F06): config, heartbeat, state, sự kiện, khung JPEG
+    replay/ eval/              Replay offline (F12), đánh giá (F16)
   tests/                       pytest (DB PostgreSQL postcare_test, rollback mỗi test)
 web/                           React 19 + TypeScript + Vite + Mantine 8
   src/api/                     client fetch, hook TanStack Query, schema.d.ts (sinh từ OpenAPI)

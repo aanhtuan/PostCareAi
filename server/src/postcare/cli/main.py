@@ -1,4 +1,4 @@
-"""Lệnh CLI `postcare`: version, seed, simulate, probe, replay, models, openapi."""
+"""Lệnh CLI `postcare`: version, seed, simulate, worker, probe, replay, models, openapi."""
 
 import json
 import os
@@ -147,6 +147,120 @@ def simulate(
     finally:
         sim.stop()
     typer.echo("Xong. Camera sẽ chuyển 'Mất kết nối' sau vài giây khi không còn heartbeat.")
+
+
+@app.command()
+def worker(
+    camera_id: Annotated[
+        int, typer.Option("--camera-id", "--camera", help="Id camera (GET /api/v1/cameras)")
+    ],
+    video: Annotated[
+        Path | None,
+        typer.Option(
+            help="Bỏ qua nguồn trong cấu hình camera, phát file video này theo nhịp thời gian thực"
+        ),
+    ] = None,
+    model: Annotated[
+        str | None, typer.Option(help="Biến thể model pose (lite/full/heavy, config/models.yaml)")
+    ] = None,
+    models_dir: Annotated[
+        Path | None,
+        typer.Option(help="Thư mục model (mặc định POSTCARE_MODELS_DIR hoặc models/)"),
+    ] = None,
+    engine_config: Annotated[
+        Path, typer.Option(help="Ngưỡng engine mặc định")
+    ] = DEFAULT_ENGINE_CONFIG,
+    api: Annotated[str | None, typer.Option(help="Địa chỉ API, mặc định API_BASE_URL")] = None,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="In log chi tiết")] = False,
+) -> None:
+    """Worker realtime cho một camera (F06): camera → pose → engine → API nội bộ.
+
+    Lấy cấu hình qua GET /internal/v1/cameras/{id}/config, heartbeat mỗi 2 s, gửi trạng thái,
+    sự kiện và khung JPEG ~5 fps. API_BASE_URL, WORKER_TOKEN đọc từ .env. Ctrl+C để dừng.
+    """
+    import logging
+
+    from postcare.schemas.enums import CameraSourceType
+    from postcare.vision.camera import FileSource, FrameSource, open_source
+    from postcare.vision.inference.base import ModelNotFoundError
+    from postcare.vision.inference.pose_mediapipe import MediaPipePoseAdapter
+    from postcare.vision.models import ManifestError, load_manifest
+    from postcare.worker.client import WorkerApiClient
+    from postcare.worker.config import WorkerConfig
+    from postcare.worker.loop import (
+        Worker,
+        WorkerOptions,
+        WorkerStopError,
+        default_engine_factory,
+        default_face_factory,
+    )
+
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    settings = get_settings()
+    if video is not None and not video.is_file():
+        _fail(f"Không tìm thấy file video: {video}", 2)
+    directory = models_dir or _default_models_dir()
+    try:
+        entry = load_manifest(DEFAULT_MODELS_MANIFEST).pose_entry(model)
+    except ManifestError as exc:
+        _fail(str(exc))
+    model_path = directory / entry.filename
+    if not model_path.is_file():
+        _fail(f"Không tìm thấy model pose {model_path}. Chạy `make models` trước.")
+    make_engine_ = default_engine_factory(engine_config)
+
+    def adapter_factory(cfg: WorkerConfig) -> MediaPipePoseAdapter:
+        from postcare.schemas.engine_config import EngineConfig
+
+        return MediaPipePoseAdapter.from_config(
+            model_path, EngineConfig.load(engine_config, cfg.thresholds)
+        )
+
+    def source_factory(cfg: WorkerConfig) -> FrameSource:
+        if video is not None:
+            return FileSource(video, max_fps=settings.worker_max_fps)
+        kwargs: dict[str, Any] = {}
+        if cfg.source_type is not CameraSourceType.FILE:
+            kwargs["fail_fast"] = False  # webcam/URL: tự kết nối lại (F05 R4)
+        return open_source(cfg.source_type, cfg.source, max_fps=settings.worker_max_fps, **kwargs)
+
+    options = WorkerOptions(
+        heartbeat_interval_s=settings.worker_heartbeat_interval_s,
+        config_poll_s=settings.worker_config_poll_s,
+        frame_fps=settings.worker_frame_fps,
+        jpeg_max_side=settings.worker_jpeg_max_side,
+        jpeg_quality=settings.worker_jpeg_quality,
+    )
+    base_url = api or settings.api_base_url
+    http = httpx.Client(base_url=base_url, timeout=5.0)
+    runner = Worker(
+        WorkerApiClient(http, camera_id=camera_id, token=settings.worker_token),
+        engine_factory=make_engine_,
+        source_factory=source_factory,
+        adapter_factory=adapter_factory,
+        face_factory=default_face_factory(engine_config, directory),
+        options=options,
+    )
+    src = f"file {video}" if video else "nguồn trong cấu hình camera"
+    typer.echo(f"Worker camera {camera_id} → {base_url} (pose {entry.name}, {src}). Ctrl+C dừng.")
+    code = 0
+    try:
+        runner.run()
+    except KeyboardInterrupt:
+        typer.echo("Đã dừng worker.")
+    except (WorkerStopError, ModelNotFoundError) as exc:
+        typer.echo(f"Worker dừng: {exc}", err=True)
+        code = 1
+    finally:
+        runner.close()
+        http.close()
+    if code:
+        raise typer.Exit(code)
 
 
 @app.command()
