@@ -176,6 +176,31 @@ def test_brief_edge_below_min_duration_no_bed_edge() -> None:
     assert codes(outs) == ["SIT_UP"]
 
 
+def test_edge_at_monitoring_start_emits_bed_edge() -> None:
+    """R4 (chốt 18/11/2026, hướng an toàn): AT_EDGE đầu tiên, chưa có trạng thái nào trước đó."""
+    seq = PoseSequence(fps=FPS, start=AT_EDGE).pose(AT_EDGE, seconds=RESTORE + MIN.AT_EDGE + 1)
+    outs = run_engine(seq.build())
+    assert outs[-1].state.body_state == S.AT_EDGE
+    assert codes(outs) == ["BED_EDGE"]
+    _, ev = first(outs, EventCode.BED_EDGE)
+    assert ev.explanation["from_state"] == S.NO_OBSERVATION.value
+
+
+def test_edge_after_occlusion_at_edge_no_new_bed_edge() -> None:
+    """Đang ở mép → bị che → thấy lại ở mép: không phải lần ra mép mới (debounce rút ngắn)."""
+    seq = (
+        at_edge_established()
+        .drop_landmarks(seconds=LOST + 1)
+        .pose(AT_EDGE, seconds=RESTORE + MIN.AT_EDGE + 1)
+        .build()
+    )
+    outs = run_engine(seq, config=short_debounce())
+    states = [o.state.body_state for o in outs]
+    assert S.NO_OBSERVATION in states[states.index(S.AT_EDGE) :]
+    assert outs[-1].state.body_state == S.AT_EDGE
+    assert codes(outs) == ["SIT_UP", "BED_EDGE"]
+
+
 def test_sitting_standing_out_of_bed_emits_bed_exit() -> None:
     """Ngồi mép < min_duration rồi đứng đi ra: qua STANDING là chuỗi hợp lệ (event-engine.md §4)."""
     seq = (
@@ -257,6 +282,22 @@ def test_return_to_bed_needs_hold() -> None:
     seq = exited().move_to(SITTING, seconds=0.5).sitting(seconds=MIN.RETURN_TO_BED - 0.5).build()
     outs = run_engine(seq)
     assert "RETURN_TO_BED" not in codes(outs)
+
+
+def test_return_to_bed_after_skipped_edge_without_bed_exit() -> None:
+    """R6: RETURN_TO_BED chỉ cần đã OUT_OF_BED, kể cả khi lần ra ngoài không sinh BED_EXIT."""
+    off_bed = LYING.moved_to((640, 700))
+    seq = (
+        lying_established()
+        .move_to(off_bed, seconds=0.5)
+        .pose(off_bed, seconds=MIN.OUT_OF_BED + 1)
+        .move_to(LYING, seconds=0.5)
+        .lying(seconds=MIN.LYING + MIN.RETURN_TO_BED + 1)
+        .build()
+    )
+    outs = run_engine(seq)
+    assert S.OUT_OF_BED in {o.state.body_state for o in outs}
+    assert codes(outs) == ["RETURN_TO_BED"]
 
 
 def test_return_to_bed_only_after_out_of_bed() -> None:
