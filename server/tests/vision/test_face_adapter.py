@@ -1,7 +1,7 @@
 """F25 AC1: face adapter + cổng chất lượng với model thật (marker `vision`, `make test-vision`).
 
 Cần `face_landmarker.task` và `pose_landmarker_*.task` trong `models/` (`make models`) và một clip
-cận mặt. Mặc định dùng clip stock `data/external/pexels/pexels-6010768.mp4` (người ngồi trên giường
+cận mặt. Mặc định dùng clip stock `data/external/pexels/pexels-6130032.mp4` (bệnh nhân trên giường
 bệnh, mặt rõ; datasets.md). Đổi thư mục bằng `POSTCARE_DATA_DIR`, `POSTCARE_MODELS_DIR`; đổi clip
 bằng `POSTCARE_FACE_CLIP`. Thiếu model hoặc video → skip. Không ghi khung hình ra đĩa.
 """
@@ -12,11 +12,6 @@ import os
 from pathlib import Path
 
 import pytest
-from postcare.vision.inference.face_gate import FaceGate
-from postcare.vision.inference.face_landmarker import (
-    MediaPipeFaceAdapter,
-    blendshape_keys_from_config,
-)
 
 from postcare.engine import Engine
 from postcare.pipeline import process_frame
@@ -26,6 +21,11 @@ from postcare.schemas.enums import FaceStatus
 from postcare.schemas.roi import RoiPolygon
 from postcare.settings import REPO_ROOT
 from postcare.vision.camera import FileSource
+from postcare.vision.inference.face_gate import FaceGate
+from postcare.vision.inference.face_landmarker import (
+    MediaPipeFaceAdapter,
+    blendshape_keys_from_config,
+)
 from postcare.vision.inference.pose_mediapipe import MediaPipePoseAdapter
 from postcare.vision.models import load_manifest
 
@@ -33,7 +33,7 @@ pytestmark = pytest.mark.vision
 
 DATA_DIR = Path(os.environ.get("POSTCARE_DATA_DIR", REPO_ROOT / "data"))
 MODELS_DIR = Path(os.environ.get("POSTCARE_MODELS_DIR", REPO_ROOT / "models"))
-DEFAULT_CLIP = DATA_DIR / "external" / "pexels" / "pexels-6010768.mp4"
+DEFAULT_CLIP = DATA_DIR / "external" / "pexels" / "pexels-6130032.mp4"
 FULL_FRAME_ROI = RoiPolygon(points=[(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)])
 
 

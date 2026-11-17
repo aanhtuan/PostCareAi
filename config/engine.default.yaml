@@ -57,7 +57,7 @@ face:
   enabled: true                    # tắt để đo FPS hoặc khi thu hẹp M3 (F25)
   min_head_box_px: 80              # A05
   run_every_n_frames: 2            # A05
-  head_crop_scale: 1.6             # nới vùng đầu khi cắt (F25)
+  head_crop_scale: 2.2             # nới vùng đầu khi cắt (F25; đo 2026-11-18 trên clip stock: 2.2 > 1.6, 3.0)
   # Gộp nhiều khóa của một tín hiệu (trái/phải, mouth*) bằng max (F26)
   signals:                         # ngưỡng blendshape 0..1
     eyes_closed: {keys: [eyeBlinkLeft, eyeBlinkRight], threshold: 0.6}
