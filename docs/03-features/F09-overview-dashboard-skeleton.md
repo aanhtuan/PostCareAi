@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F09 |
-| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -63,10 +63,10 @@ Dựng màn hình "Tổng quan" (PDF §9.1) dạng nhiều thẻ giường, đ�
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** Màn hình "Tổng quan" có thẻ cho mọi giường đang dùng: mã giường, phiên (Đang theo dõi / Không theo dõi), trạng thái camera. *(PDF §9.1; QA#13)* — *Kiểm chứng:* API test `test_overview_lists_active_beds_with_session_and_camera`; component test `OverviewPage renders a card per bed`, `BedCard shows session and camera labels`.
-- [ ] **AC2.** Header hiện ca trực hiện tại (ví dụ "Ca trực: 14:00–22:00"), tính đúng cả ca vắt qua nửa đêm. *(HS Hình 3; QA#19)* — *Kiểm chứng:* unit test `test_current_shift` tham số hóa (06:00 → Ca sáng, 13:59 → Ca sáng, 14:00 → Ca chiều, 23:30 → Ca đêm, 05:59 → Ca đêm); component test `header shows current shift`.
-- [ ] **AC3.** Bấm thẻ giường → mở màn hình "Theo dõi trực tiếp" của giường đó. *(PDF §9.1 (tr.11))* — *Kiểm chứng:* component test `clicking a bed card navigates to live view`.
-- [ ] **AC4.** Dữ liệu làm mới bằng polling ≤5 giây; layout dùng được ở chiều rộng ≥768px. *(QA#26)* — *Kiểm chứng:* component test `OverviewPage refetches within 5 s` (fake timers + msw đổi dữ liệu); kiểm tra tay ở 768px và 1366px, ghi vào mục 10.
+- [x] **AC1.** Màn hình "Tổng quan" có thẻ cho mọi giường đang dùng: mã giường, phiên (Đang theo dõi / Không theo dõi), trạng thái camera. *(PDF §9.1; QA#13)* — *Kiểm chứng:* API test `test_overview_lists_active_beds_with_session_and_camera`; component test `OverviewPage renders a card per bed`, `BedCard shows session and camera labels`.
+- [x] **AC2.** Header hiện ca trực hiện tại (ví dụ "Ca trực: 14:00–22:00"), tính đúng cả ca vắt qua nửa đêm. *(HS Hình 3; QA#19)* — *Kiểm chứng:* unit test `test_current_shift` tham số hóa (06:00 → Ca sáng, 13:59 → Ca sáng, 14:00 → Ca chiều, 23:30 → Ca đêm, 05:59 → Ca đêm); component test `header shows current shift`.
+- [x] **AC3.** Bấm thẻ giường → mở màn hình "Theo dõi trực tiếp" của giường đó. *(PDF §9.1 (tr.11))* — *Kiểm chứng:* component test `clicking a bed card navigates to live view`.
+- [x] **AC4.** Dữ liệu làm mới bằng polling ≤5 giây; layout dùng được ở chiều rộng ≥768px. *(QA#26)* — *Kiểm chứng:* component test `OverviewPage refetches within 5 s` (fake timers + msw đổi dữ liệu); kiểm tra tay ở 768px và 1366px, ghi vào mục 10.
 
 ## 6. Kế hoạch test
 
@@ -131,6 +131,24 @@ Rủi ro: fake timers + TanStack Query dễ treo → dùng `vi.useFakeTimers({ s
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+**Bằng chứng theo AC (18/11/2026)**
+
+| AC | Bằng chứng |
+|---|---|
+| AC1 | `server/tests/api/test_overview.py::test_overview_lists_active_beds_with_session_and_camera` (giường ngừng dùng bị loại, giường không camera → `camera: null`, sắp theo mã, `camera.status`), `test_overview_requires_staff` (4 vai trò nhân viên 200, FAMILY 403, chưa đăng nhập 401); web `BedCard.test.tsx` (`shows session and camera labels`, "Không theo dõi", "Mất kết nối camera", "Chưa rõ trạng thái camera", "Chưa gắn camera", "Cần kiểm tra" khi không đủ dữ liệu quan sát, "Cảnh báo mới", tạm dừng thu hình, không có mã nội bộ); `OverviewPage renders a card per bed…`, `shows empty state when no beds` |
+| AC2 | `test_current_shift` (tham số hóa, test_timeline_handover.py), `test_current_shift_ignores_deleted`, `test_overview_current_shift_shape`, `test_overview_no_shift_is_null`; web `header shows current shift`, `header shows no shift` |
+| AC3 | `clicking a bed card navigates to live view`, `Enter on a focused bed card navigates to live view` |
+| AC4 | `OverviewPage refetches within 5 s` (fake timers, `OVERVIEW_POLL_MS = 5000` trong `useOverview`); layout `SimpleGrid cols={{ base: 1, xs: 2, lg: 3 }}`: từ 576px trở lên 2 cột, từ 1200px 3 cột, nên ở 768px có 2 thẻ/hàng và ở 1366px có 3 thẻ/hàng. **Chưa xem tận mắt trên trình duyệt** ở 768px/1366px |
+
+**Chạy tay** (DB `postcare_f09`, `alembic upgrade head`, `postcare seed --reset --no-history`, uvicorn cổng 8019, curl + script urllib): chưa đăng nhập → 401; nurse/charge/doctor/admin → 200; lúc 04:08 giờ VN `current_shift = Ca đêm 22:00–06:00`; 3 thẻ A01–A03, `area = "Khu hậu phẫu"`, camera `UNKNOWN` (chưa chạy worker), `session: null`; mở phiên A02/BN-004 → 201, tạm dừng → 200 và `session.paused_at` khác null; tiếp tục → `paused_at: null`; kết thúc → 200.
+
+**Thay đổi so với code có sẵn**
+- API: `OverviewSessionOut.paused_at` (bắt buộc, có thể null); đã `make gen-api-types`.
+- Web: `useOverview` polling 5 giây; trạng thái thẻ `PAUSED` ("Đang tạm dừng thu hình", sau "Cảnh báo mới"), ẩn trạng thái cơ thể/chất lượng khi tạm dừng; thông báo "Chưa có giường nào đang dùng".
+- Nhãn camera `UNKNOWN` là "Chưa rõ trạng thái camera" (spec R4 ghi "Chưa rõ trạng thái"): giữ nhãn đã có, rõ nghĩa hơn.
+- Tiêu đề màn hình là "Tổng quan theo dõi" (theo HS Hình 3), mục điều hướng vẫn là "Tổng quan".
+- Ba trạng thái A12 đã có từ F21 (`bedCardStatus.ts`); F09 chỉ thêm test hiển thị.
 
 ## 11. Definition of Done
 

@@ -95,7 +95,7 @@ Trùng `username` (F35) dùng lại `DUPLICATE_CODE` với `details.field = "use
 | `GET/POST /api/v1/sessions/{id}/family-grants`, `POST /api/v1/family-grants/{id}/revoke` | F36 | Cấp / thu hồi quyền xem của người nhà |
 | `GET /api/v1/family/grants`, `GET /api/v1/family/grants/{id}/view`, `GET /api/v1/family/grants/{id}/timeline` | F36 | Chỉ `FAMILY`; dữ liệu đã lọc theo mức chia sẻ |
 | `GET /api/v1/cameras/{id}/stream.mjpeg?token=` | F07 | Xem trực tiếp |
-| `GET /api/v1/overview` | F09, F21 | Dữ liệu thẻ giường + ca hiện tại |
+| `GET /api/v1/overview` | F09, F21 | Dữ liệu thẻ giường + ca hiện tại: `{current_shift: ShiftOut \| null, beds: [{bed_id, code, area (tên khu vực), session: {id, patient_code, started_at, paused_at} \| null, camera: {id, name, status} \| null, pending_alert_count, acknowledged_alert_count, max_open_priority, state}]}`; chỉ giường đang dùng, sắp theo `code`; `paused_at` khác null = phiên đang tạm dừng thu hình. Web làm mới mỗi 5 giây (F09 R6) |
 | `GET /api/v1/events` | F17 | Lọc theo giường, phiên, thời gian, mức ưu tiên |
 | `GET /api/v1/alerts`, `GET /api/v1/alerts/{id}` | F19, F20 | Danh sách / chi tiết |
 | `POST /api/v1/alerts/{id}/acknowledge`, `.../outcome` `{outcome, note}`, `.../resolve` `{note?}` | F19 | Vòng đời cảnh báo |
