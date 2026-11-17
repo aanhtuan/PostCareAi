@@ -15,6 +15,7 @@ from postcare.api.realtime import WsHub
 from postcare.api.realtime import router as ws_router
 from postcare.api.v1 import (
     alerts,
+    areas,
     auth,
     beds,
     cameras,
@@ -101,6 +102,7 @@ def create_app(settings: Settings | None = None, *, watch_cameras: bool = True) 
         health.router,
         auth.router,
         catalog.router,
+        areas.router,
         beds.router,
         patients.router,
         cameras.router,

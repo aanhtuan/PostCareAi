@@ -13,7 +13,7 @@ CAMERAS = "/api/v1/cameras"
 
 
 def _new_bed(client: TestClient, admin: dict[str, str], code: str = "B01") -> int:
-    r = client.post("/api/v1/beds", json={"code": code, "area": "Khu"}, headers=admin)
+    r = client.post("/api/v1/beds", json={"code": code, "area_id": 1}, headers=admin)
     assert r.status_code == 201, r.text
     return r.json()["id"]
 

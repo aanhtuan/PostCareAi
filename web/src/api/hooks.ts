@@ -6,6 +6,7 @@ import type {
   AlertOut,
   AlertOutcome,
   AlertStatus,
+  AreaOut,
   BedOut,
   CameraOut,
   EventOut,
@@ -23,7 +24,7 @@ export const qk = {
   overview: ['overview'] as const,
   events: (p: object) => ['events', p] as const,
   alerts: (p: object) => ['alerts', p] as const,
-  shifts: ['shifts'] as const,
+  shifts: (includeInactive: boolean) => ['shifts', { includeInactive }] as const,
   sessions: (p: object) => ['sessions', p] as const,
   timeline: (p: object) => ['timeline', p] as const,
   handover: (p: object) => ['handover', p] as const,
@@ -84,10 +85,16 @@ export function useCameras(includeInactive = false) {
   return useQuery(catalogQuery<CameraOut>('cameras', includeInactive));
 }
 
-export function useShifts() {
+export function useAreas(includeInactive = false) {
+  return useQuery(catalogQuery<AreaOut>('areas', includeInactive));
+}
+
+/** Ca trực (F24; F37 thêm `include_inactive`). Không phân trang. */
+export function useShifts(includeInactive = false) {
   return useQuery({
-    queryKey: qk.shifts,
-    queryFn: () => api<ShiftOut[]>('/shifts'),
+    queryKey: qk.shifts(includeInactive),
+    queryFn: () =>
+      api<ShiftOut[]>('/shifts', { query: { include_inactive: includeInactive || undefined } }),
     staleTime: Infinity,
   });
 }
@@ -146,6 +153,8 @@ function useInvalidateMonitoring() {
       'sessions',
       'patients',
       'cameras',
+      'areas',
+      'shifts',
     ]) {
       void qc.invalidateQueries({ queryKey: [key] });
     }
@@ -221,7 +230,7 @@ export function useCaptureToggle() {
   });
 }
 
-export type CatalogResource = 'beds' | 'patients' | 'cameras';
+export type CatalogResource = 'beds' | 'patients' | 'cameras' | 'areas' | 'shifts';
 
 /** Thêm (`id` rỗng) hoặc sửa (`PATCH`) một mục danh mục. Chỉ ADMIN (F03 R2). */
 export function useSaveCatalogItem<TBody>(resource: CatalogResource) {

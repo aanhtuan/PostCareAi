@@ -5,7 +5,7 @@ from datetime import time
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from postcare.db.models import Bed, Camera, ShiftDefinition, User
+from postcare.db.models import Area, Bed, Camera, ShiftDefinition, User
 from postcare.domain.security import verify_password
 from postcare.domain.seed import seed_base, seed_demo
 from postcare.schemas.enums import CameraSourceType, UserRole
@@ -16,7 +16,7 @@ PW = "seed-pass"
 def _counts(db: Session) -> dict[str, int]:
     return {
         m.__tablename__: db.scalar(select(func.count()).select_from(m)) or 0
-        for m in (User, Bed, Camera, ShiftDefinition)
+        for m in (User, Area, Bed, Camera, ShiftDefinition)
     }
 
 
@@ -24,7 +24,7 @@ def test_seed_creates_sample_data(db_session: Session) -> None:
     seed_base(db_session, PW)
     beds = db_session.scalars(select(Bed).order_by(Bed.code)).all()
     assert [b.code for b in beds] == ["A01", "A02", "A03"]
-    assert {b.area for b in beds} == {"Khu hậu phẫu"}
+    assert {(b.area.code, b.area.name) for b in beds} == {("KV01", "Khu hậu phẫu")}
     cams = db_session.scalars(select(Camera)).all()
     assert len(cams) == 1
     cam = cams[0]
@@ -64,12 +64,13 @@ def test_seed_is_idempotent(db_session: Session) -> None:
         == before
         == {
             "users": 4,
+            "areas": 1,
             "beds": 3,
             "cameras": 1,
             "shift_definitions": 3,
         }
     )
-    assert sum(first.values()) == 11
+    assert sum(first.values()) == 12
     assert sum(second.values()) == 0
 
 
@@ -80,7 +81,7 @@ def test_seed_does_not_overwrite_edited_data(db_session: Session) -> None:
     nurse.full_name = "Tên đã sửa"
     nurse.password_hash = "hash-da-doi"
     bed = db_session.scalars(select(Bed).where(Bed.code == "A02")).one()
-    bed.area = "Khu khác"
+    bed.area = Area(code="KV-X", name="Khu khác")
     cam = db_session.scalars(select(Camera)).one()
     cam.source = "http://10.0.0.5:4747/video"
     db_session.commit()
@@ -89,7 +90,7 @@ def test_seed_does_not_overwrite_edited_data(db_session: Session) -> None:
     db_session.expire_all()
     assert db_session.get(User, nurse.id).full_name == "Tên đã sửa"  # type: ignore[union-attr]
     assert db_session.get(User, nurse.id).password_hash == "hash-da-doi"  # type: ignore[union-attr]
-    assert db_session.get(Bed, bed.id).area == "Khu khác"  # type: ignore[union-attr]
+    assert db_session.get(Bed, bed.id).area.name == "Khu khác"  # type: ignore[union-attr]
     assert db_session.get(Camera, cam.id).source == "http://10.0.0.5:4747/video"  # type: ignore[union-attr]
 
 
@@ -115,3 +116,54 @@ def test_seed_demo_skips_existing_camera_names(db_session: Session) -> None:
     seed_base(db_session, PW)
     names = sorted(db_session.scalars(select(Camera.name)))
     assert names == ["Camera A01", "Camera A02", "Camera A03"]
+
+
+def test_seed_area_code_taken_by_other_area(db_session: Session) -> None:
+    """F37: DB cũ qua migration 0006 có thể đã dùng KV01 cho khu vực khác; seed không gán nhầm."""
+    db_session.add(Area(code="KV01", name="Hồi sức"))
+    db_session.commit()
+    seed_base(db_session, PW)
+    beds = db_session.scalars(select(Bed)).all()
+    assert {(b.area.code, b.area.name) for b in beds} == {("KV02", "Khu hậu phẫu")}
+
+
+def test_seed_area_skips_deleted_area(db_session: Session) -> None:
+    """Review F37 #6: khu vực "Khu hậu phẫu" đã xóa không được dùng cho giường mẫu mới."""
+    db_session.add(Area(code="KV01", name="Khu hậu phẫu", is_active=False))
+    db_session.commit()
+    seed_base(db_session, PW)
+    beds = db_session.scalars(select(Bed)).all()
+    assert {(b.area.code, b.area.is_active) for b in beds} == {("KV02", True)}
+
+
+def test_seed_area_prefers_active_area(db_session: Session) -> None:
+    db_session.add_all(
+        [
+            Area(code="OLD", name="Khu hậu phẫu", is_active=False),
+            Area(code="HP", name="Khu hậu phẫu"),
+        ]
+    )
+    db_session.commit()
+    created = seed_base(db_session, PW)
+    assert created["areas"] == 0
+    assert {b.area.code for b in db_session.scalars(select(Bed))} == {"HP"}
+
+
+def test_seed_shifts_do_not_overlap_existing(db_session: Session) -> None:
+    """Review F37 #8: ca mẫu chồng giờ ca đang dùng (do ADMIN tạo) thì bỏ qua, không tạo chồng."""
+    db_session.add(ShiftDefinition(name="Ca hành chính", start_time=time(7), end_time=time(16)))
+    db_session.commit()
+    created = seed_base(db_session, PW)
+    names = {s.name for s in db_session.scalars(select(ShiftDefinition))}
+    # 06–14 và 14–22 chồng 07–16; 22–06 không chồng nên vẫn được tạo.
+    assert names == {"Ca hành chính", "Ca đêm"}
+    assert created["shift_definitions"] == 1
+
+
+def test_seed_shifts_ignore_deleted_overlap(db_session: Session) -> None:
+    db_session.add(
+        ShiftDefinition(name="Ca cũ", start_time=time(7), end_time=time(16), is_active=False)
+    )
+    db_session.commit()
+    created = seed_base(db_session, PW)
+    assert created["shift_definitions"] == 3
