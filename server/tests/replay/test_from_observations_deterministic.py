@@ -60,12 +60,14 @@ def test_event_line_has_fixed_field_order() -> None:
         observation_quality=ObservationQuality.GOOD,
         explanation={"rule_id": "bed_exit_v1", "hip_out_s": 1.2},
     )
-    record = EventRecord(**event.model_dump(), config_hash="abc")
+    record = EventRecord(**{**event.model_dump(), "config_hash": "abc"})
     line = dump_line(record)
     assert line == dump_line(EventRecord.model_validate_json(line))
     assert line.endswith("\n") and line.count("\n") == 1
     keys = list(json.loads(line))
-    assert keys == [*EngineEvent.model_fields, "config_hash"]
+    # F15: `config_hash` là trường của EngineEvent nên thứ tự trường = thứ tự của EngineEvent.
+    assert keys == list(EngineEvent.model_fields)
+    assert json.loads(line)["config_hash"] == "abc"
 
 
 def test_broken_observation_line_reports_line_number(tmp_path: Path) -> None:

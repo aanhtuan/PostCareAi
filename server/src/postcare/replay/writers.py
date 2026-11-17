@@ -27,9 +27,7 @@ from postcare.schemas.observation import FrameObservation
 
 
 class EventRecord(EngineEvent):
-    """Dòng `events.jsonl`: `EngineEvent` kèm `config_hash` của cấu hình đã chạy."""
-
-    config_hash: str
+    """Dòng `events.jsonl`: `EngineEvent` (đã có `config_hash` từ F15) của cấu hình đã chạy."""
 
 
 class FrameRecord(BaseModel):

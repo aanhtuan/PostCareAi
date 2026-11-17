@@ -24,5 +24,10 @@
   },
   "range_s": null,
   "config_hash": "782ec9464289e127a976451565bc0d8d8c48db3847037623612733c76264ffec",
-  "events": []
+  "events": [
+    {
+      "code": "SIT_UP",
+      "occurred_at_ms": 6100
+    }
+  ]
 }

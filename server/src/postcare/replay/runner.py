@@ -117,7 +117,10 @@ class _Outputs:
         self.observations.write(obs)
         self.frames.write(FrameRecord.from_output(obs, output))
         for event in output.events:
-            self.events.write(EventRecord(**event.model_dump(), config_hash=self.config_hash))
+            # F15: EngineEvent đã có config_hash; replay ghi giá trị của cấu hình đang chạy.
+            self.events.write(
+                EventRecord(**{**event.model_dump(), "config_hash": self.config_hash})
+            )
 
     @property
     def span_s(self) -> float | None:
