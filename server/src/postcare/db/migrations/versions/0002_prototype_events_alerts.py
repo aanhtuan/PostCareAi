@@ -1,7 +1,8 @@
-"""Prototype (ADR-0010): bảng events, alerts và cột cameras.last_config_hash.
+"""Prototype events and alerts tables (ADR-0010).
 
-Không thuộc phạm vi F01, nhưng API prototype (sự kiện, cảnh báo, timeline, bàn giao) cần để
-chạy được sau khi bỏ `create_all`. Cấu trúc theo data-model.md mục events/alerts (F17).
+Bảng events, alerts và cột cameras.last_config_hash của prototype. Không thuộc phạm vi F01,
+nhưng API prototype (sự kiện, cảnh báo, timeline, bàn giao) cần để chạy
+được sau khi bỏ `create_all`. Cấu trúc theo data-model.md mục events/alerts (F17).
 F17 tiếp nhận hai bảng này: thay đổi bằng migration mới, không sửa file này sau khi merge.
 
 Revision ID: 0002

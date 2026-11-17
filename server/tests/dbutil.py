@@ -1,7 +1,8 @@
 """Kiểm tra DB test trước khi chạy (F01 R10): đúng DB riêng, kết nối được, không tự skip."""
 
-from sqlalchemy import Engine, make_url, text
+from sqlalchemy import Engine, create_engine, make_url, text
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.pool import NullPool
 
 HINT = (
     "Khởi động PostgreSQL (docker start postcare-db) và tạo DB postcare_test "
@@ -26,10 +27,16 @@ def ensure_safe_test_url(test_url: str, dev_url: str) -> None:
         )
 
 
-def ensure_reachable(engine: Engine) -> None:
+def ensure_reachable(url: str, timeout_s: int = 5) -> None:
+    """Thử kết nối một lần với timeout ngắn để báo lỗi nhanh thay vì treo."""
+    probe: Engine = create_engine(
+        url, poolclass=NullPool, connect_args={"connect_timeout": timeout_s}
+    )
     try:
-        with engine.connect() as conn:
+        with probe.connect() as conn:
             conn.execute(text("SELECT 1"))
     except SQLAlchemyError as exc:
-        url = engine.url.render_as_string(hide_password=True)
-        raise DatabaseSetupError(f"Không kết nối được DB test {url}. {HINT}") from exc
+        shown = probe.url.render_as_string(hide_password=True)
+        raise DatabaseSetupError(f"Không kết nối được DB test {shown}. {HINT}") from exc
+    finally:
+        probe.dispose()

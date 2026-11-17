@@ -1,6 +1,7 @@
-"""F01: bảng nền users, patients, beds, cameras, monitoring_sessions, audit_logs, shift_definitions.
+"""F01 foundation tables.
 
-Theo docs/02-architecture/data-model.md (PDF §10.1; HS §6.2). Giá trị enum được chép cứng ở đây
+Bảng nền users, patients, beds, cameras, monitoring_sessions, audit_logs, shift_definitions
+theo docs/02-architecture/data-model.md (PDF §10.1; HS §6.2). Giá trị enum được chép cứng ở đây
 (migration không đổi theo code); enum thêm giá trị sau này phải có migration riêng.
 
 Revision ID: 0001

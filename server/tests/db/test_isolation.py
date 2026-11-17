@@ -42,9 +42,6 @@ def test_test_url_must_end_with_test() -> None:
 
 def test_unreachable_test_db_fails_clearly() -> None:
     """Không kết nối được thì báo lỗi kèm hướng dẫn, không skip."""
-    engine = create_engine(
-        "postgresql+psycopg://postcare:postcare@127.0.0.1:1/postcare_test",
-        connect_args={"connect_timeout": 2},
-    )
+    url = "postgresql+psycopg://postcare:postcare@127.0.0.1:1/postcare_test"
     with pytest.raises(DatabaseSetupError, match="docker start postcare-db"):
-        ensure_reachable(engine)
+        ensure_reachable(url, timeout_s=2)

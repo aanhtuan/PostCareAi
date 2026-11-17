@@ -15,12 +15,12 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from postcare.db.base import Base
-from postcare.db.migrate import upgrade
 from sqlalchemy import Connection, Engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from postcare.api.main import create_app
+from postcare.db.base import Base
+from postcare.db.migrate import upgrade
 from postcare.db.session import make_engine, make_session_factory
 from postcare.domain.notifications import InMemoryPublisher
 from postcare.domain.seed import seed_base, seed_demo
@@ -51,7 +51,7 @@ def test_settings() -> Settings:
 def test_engine(test_settings: Settings) -> Iterator[Engine]:
     engine = make_engine(test_settings.database_url)
     try:
-        ensure_reachable(engine)
+        ensure_reachable(test_settings.database_url)
     except DatabaseSetupError as exc:
         pytest.fail(str(exc), pytrace=False)
     upgrade(engine, "head")
