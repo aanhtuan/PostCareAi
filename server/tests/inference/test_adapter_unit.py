@@ -6,13 +6,13 @@ from typing import Any
 
 import numpy as np
 import pytest
-from postcare.vision.inference.base import ModelNotFoundError, PoseAdapter
-from postcare.vision.inference.pose_mediapipe import MediaPipePoseAdapter
 
 from postcare.schemas.engine_config import EngineConfig
 from postcare.schemas.observation import FrameObservation, KeypointName
 from postcare.settings import REPO_ROOT
 from postcare.vision.camera import Frame
+from postcare.vision.inference.base import ModelNotFoundError, PoseAdapter
+from postcare.vision.inference.pose_mediapipe import MediaPipePoseAdapter
 
 
 class FakeLandmarker:

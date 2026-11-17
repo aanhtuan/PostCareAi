@@ -2,11 +2,11 @@
 
 from pathlib import Path
 
-from postcare.vision.inference.stats import PoseCoverage
 from typer.testing import CliRunner
 
 from postcare.cli.main import app
 from postcare.schemas.observation import FrameObservation, Keypoint, KeypointName, PersonPose
+from postcare.vision.inference.stats import PoseCoverage
 from tests.camera.synthetic import write_video
 
 runner = CliRunner()

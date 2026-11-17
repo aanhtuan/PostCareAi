@@ -1,14 +1,14 @@
 """F11 AC2 (R4, R6): ánh xạ 33 landmark MediaPipe → `KeypointName` trung lập, không cần model."""
 
 import pytest
+
+from postcare.schemas import observation as schema_observation
+from postcare.schemas.observation import Keypoint, KeypointName, PersonPose
 from postcare.vision.inference.mapping import (
     MEDIAPIPE_LANDMARK_COUNT,
     MEDIAPIPE_POSE_INDEX,
     landmarks_to_person,
 )
-
-from postcare.schemas import observation as schema_observation
-from postcare.schemas.observation import Keypoint, KeypointName, PersonPose
 
 # Chỉ số theo tài liệu MediaPipe Pose Landmarker (33 điểm).
 EXPECTED_INDEX = {

@@ -14,14 +14,14 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from postcare.vision.inference.pose_mediapipe import MediaPipePoseAdapter
-from postcare.vision.models import load_manifest
 
 from postcare.schemas import observation as schema_observation
 from postcare.schemas.engine_config import EngineConfig
 from postcare.schemas.observation import FrameObservation, KeypointName
 from postcare.settings import REPO_ROOT
 from postcare.vision.camera import FileSource, Frame
+from postcare.vision.inference.pose_mediapipe import MediaPipePoseAdapter
+from postcare.vision.models import load_manifest
 
 pytestmark = pytest.mark.vision
 

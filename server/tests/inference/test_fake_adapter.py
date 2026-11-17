@@ -1,11 +1,11 @@
 """F11 R8: `FakePoseAdapter` trả quan sát dựng sẵn theo `frame_index` (cho test worker/replay)."""
 
 import numpy as np
-from postcare.vision.inference.base import PoseAdapter
-from postcare.vision.inference.fake import FakePoseAdapter
 
 from postcare.schemas.observation import FrameObservation, Keypoint, KeypointName, PersonPose
 from postcare.vision.camera import Frame
+from postcare.vision.inference.base import PoseAdapter
+from postcare.vision.inference.fake import FakePoseAdapter
 
 PERSON = PersonPose(keypoints={KeypointName.NOSE: Keypoint(x=0.5, y=0.2, visibility=0.9)})
 
