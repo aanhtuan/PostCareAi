@@ -8,10 +8,38 @@ import { renderWithProviders } from '../test/render';
 import { AppLayout } from './AppLayout';
 
 const USERS: UserOut[] = [
-  { id: 1, username: 'nurse', full_name: 'Nguyễn Thị Hoa', role: 'NURSE' },
-  { id: 2, username: 'charge', full_name: 'Trần Văn Minh', role: 'CHARGE_NURSE' },
-  { id: 3, username: 'doctor', full_name: 'Lê Quốc Bảo', role: 'DOCTOR' },
-  { id: 4, username: 'admin', full_name: 'Phạm Thu Hà', role: 'ADMIN' },
+  {
+    id: 1,
+    username: 'nurse',
+    full_name: 'Nguyễn Thị Hoa',
+    role: 'NURSE',
+    is_active: true,
+    created_at: '2026-11-17T00:00:00Z',
+  },
+  {
+    id: 2,
+    username: 'charge',
+    full_name: 'Trần Văn Minh',
+    role: 'CHARGE_NURSE',
+    is_active: true,
+    created_at: '2026-11-17T00:00:00Z',
+  },
+  {
+    id: 3,
+    username: 'doctor',
+    full_name: 'Lê Quốc Bảo',
+    role: 'DOCTOR',
+    is_active: true,
+    created_at: '2026-11-17T00:00:00Z',
+  },
+  {
+    id: 4,
+    username: 'admin',
+    full_name: 'Phạm Thu Hà',
+    role: 'ADMIN',
+    is_active: true,
+    created_at: '2026-11-17T00:00:00Z',
+  },
 ];
 
 describe('AppLayout header', () => {
@@ -30,7 +58,18 @@ describe('AppLayout header', () => {
       CHARGE_NURSE: 'Phụ trách ca',
       DOCTOR: 'Bác sĩ',
       ADMIN: 'Quản trị',
+      FAMILY: 'Người nhà',
     });
+  });
+
+  it('users menu item only for ADMIN', () => {
+    for (const user of USERS) {
+      const { unmount } = renderWithProviders(<AppLayout />, user);
+      const link = screen.queryByRole('link', { name: text.users.title });
+      if (user.role === 'ADMIN') expect(link).toBeInTheDocument();
+      else expect(link).not.toBeInTheDocument();
+      unmount();
+    }
   });
 
   it('logout button calls logout', async () => {

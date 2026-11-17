@@ -37,12 +37,13 @@ erDiagram
 | Cột | Kiểu | Ràng buộc | Ghi chú |
 |---|---|---|---|
 | id | bigint PK | | |
-| username | text | unique, not null | |
+| username | text | unique, not null | Chữ thường, 3–64 ký tự `[a-z0-9._-]`, không sửa sau khi tạo (F35 R5, kiểm tra ở API) |
 | full_name | text | not null | Tên hiển thị của nhân viên |
 | password_hash | text | not null | pwdlib/bcrypt |
-| role | enum `user_role` | not null | `NURSE`, `CHARGE_NURSE`, `DOCTOR`, `ADMIN` (QA#18), `FAMILY` (QA#31; thêm ở F35) |
+| role | enum `user_role` | not null | `NURSE`, `CHARGE_NURSE`, `DOCTOR`, `ADMIN` (QA#18), `FAMILY` (QA#31; thêm ở F35, migration 0003) |
 | is_active | bool | default true | `false` = đã khóa (F35, QA#36) |
 | created_at | timestamptz | default now() | |
+| token_version | integer | not null, default 0 | Tăng khi ADMIN đặt lại mật khẩu; JWT có `tv` khác giá trị này bị từ chối (F35, migration 0004) |
 
 ### patients (F01)
 
@@ -87,7 +88,7 @@ erDiagram
 | roi_polygon | jsonb | null | `[[x,y],…]`, x,y ∈ [0,1], ≥3 điểm, không tự cắt (F08) |
 | thresholds | jsonb | default `{}` | Override ngưỡng của [engine](event-engine.md#6-cấu-hình-và-ngưỡng-mặc-định) |
 | display_mode | enum `display_mode` | default `BLUR` | `RAW`, `BLUR`, `SKELETON` (F28; A08) |
-| config_version | int | default 1 | Tăng mỗi lần sửa cấu hình (worker poll) |
+| config_version | int | default 1 | Tăng mỗi lần sửa cấu hình (worker poll). F03: tăng khi `source_type`, `source` hoặc `bed_id` đổi giá trị (kể cả xóa camera đang gắn giường); đổi `name` thì không |
 | status | enum `camera_status` | default `UNKNOWN` | `ONLINE`, `OFFLINE`, `UNKNOWN` |
 | last_seen_at | timestamptz | null | Heartbeat gần nhất |
 | last_config_hash | text | not null, default `''` | Prototype (ADR-0010, migration 0002): hash cấu hình ngưỡng gần nhất worker gửi lên; dùng cho `events.config_hash` của sự kiện camera do API sinh |
@@ -211,6 +212,6 @@ Bảng chỉ INSERT; code không có hàm update hay delete.
 - Cột có `default` cũng là `NOT NULL`, trừ cột ghi rõ `null` *(giả định F01)*. Kiểu: id/FK `bigint`, chuỗi `text`, JSON `jsonb`, thời gian `timestamptz`.
 - Tên constraint theo quy ước trong `postcare/db/base.py` (`pk_<bảng>`, `uq_<bảng>_<cột>`, `fk_<bảng>_<cột>_<bảng đích>`), để migration sau tham chiếu được.
 - Mọi thay đổi schema đi qua migration Alembic (`server/src/postcare/db/migrations/`). Không sửa migration đã merge. Test `test_models_match_migrations` báo lỗi khi model và migration lệch nhau.
-- Migration hiện có: `0001` (F01: 7 bảng nền), `0002` (prototype ADR-0010: `events`, `alerts` theo mục tương ứng ở trên và cột `cameras.last_config_hash`; F17 tiếp nhận bằng migration mới).
+- Migration hiện có: `0001` (F01: 7 bảng nền), `0002` (prototype ADR-0010: `events`, `alerts` theo mục tương ứng ở trên và cột `cameras.last_config_hash`; F17 tiếp nhận bằng migration mới), `0003` (F35: thêm `FAMILY` vào `user_role`; downgrade dừng nếu còn tài khoản `FAMILY`), `0004` (F35: `users.token_version`).
 - Trạng thái cơ thể không lưu từng lần đổi. "Số lần đổi trạng thái" ở bàn giao ca (PDF §9.1) đếm qua các sự kiện tư thế/vị trí (F24) *(giả định)*.
 - Xóa mềm (`is_active = false`) với bảng danh mục (`beds`, `patients`, `cameras`, `areas`, `shift_definitions`, `users`), có khôi phục (QA#36). Không xóa cứng bất kỳ bảng nào; không xóa cứng sự kiện, cảnh báo hay audit. Bản ghi đã xóa vẫn giữ lịch sử, timeline, audit. Mã (`code`, `username`) duy nhất kể cả bản ghi đã xóa.

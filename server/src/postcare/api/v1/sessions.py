@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from postcare.api.deps import get_current_user, get_publisher, require_writer
+from postcare.api.deps import get_publisher, require_staff, require_writer
 from postcare.api.deps import get_session as db_session
 from postcare.db.models import User
 from postcare.domain import sessions as svc
@@ -13,7 +13,7 @@ from postcare.schemas.enums import Priority
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
-@router.get("", response_model=Page[SessionOut], dependencies=[Depends(get_current_user)])
+@router.get("", response_model=Page[SessionOut], dependencies=[Depends(require_staff)])
 def list_sessions(
     active: bool | None = None,
     bed_id: int | None = None,
@@ -39,7 +39,7 @@ def start_session(
     )
 
 
-@router.get("/{session_id}", response_model=SessionOut, dependencies=[Depends(get_current_user)])
+@router.get("/{session_id}", response_model=SessionOut, dependencies=[Depends(require_staff)])
 def get_session(session_id: int, db: Session = Depends(db_session)) -> SessionOut:
     return svc.get_session(db, session_id)
 
@@ -57,7 +57,7 @@ def end_session(
 @router.get(
     "/{session_id}/timeline",
     response_model=Page[TimelineItemOut],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_staff)],
 )
 def session_timeline(
     session_id: int,

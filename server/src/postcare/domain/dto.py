@@ -3,10 +3,11 @@
 API không trả câu tiếng Việt cho sự kiện; frontend ánh xạ mã → câu (api-conventions.md).
 """
 
+import re
 from datetime import datetime, time
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints
 
 from postcare.db.models import (
     Alert,
@@ -53,10 +54,59 @@ class UserRef(BaseModel):
 
 
 class UserOut(BaseModel):
+    """Không bao giờ có `password_hash` (F02 R4; F35 R4; PRD NFR06)."""
+
     id: int
     username: str
     full_name: str
     role: UserRole
+    is_active: bool
+    created_at: datetime
+
+
+_USERNAME_RE = re.compile(r"[a-z0-9._-]{3,64}")
+
+
+def _username(v: str) -> str:
+    v = v.strip().lower()
+    if not _USERNAME_RE.fullmatch(v):
+        raise ValueError("Tên đăng nhập gồm 3–64 ký tự a-z, 0-9, dấu chấm, gạch dưới, gạch ngang")
+    return v
+
+
+def _full_name(v: str) -> str:
+    v = v.strip()
+    if not v:
+        raise ValueError("Họ tên không được để trống")
+    return v
+
+
+def _password(v: str) -> str:
+    if len(v.encode()) > 72:  # bcrypt chỉ dùng 72 byte đầu
+        raise ValueError("Mật khẩu tối đa 72 byte")
+    return v
+
+
+# F35 R5, R6 (giả định): username bỏ khoảng trắng, chữ thường; mật khẩu tối thiểu 8 ký tự.
+Username = Annotated[str, AfterValidator(_username)]
+FullName = Annotated[str, Field(max_length=200), AfterValidator(_full_name)]
+Password = Annotated[str, Field(min_length=8), AfterValidator(_password)]
+
+
+class UserCreate(StrictIn):
+    username: Username
+    full_name: FullName
+    role: UserRole
+    password: Password
+
+
+class UserUpdate(StrictIn):
+    full_name: FullName | None = None
+    role: UserRole | None = None
+
+
+class PasswordReset(StrictIn):
+    new_password: Password
 
 
 class LoginIn(StrictIn):
@@ -71,7 +121,14 @@ class LoginOut(BaseModel):
 
 
 def user_out(u: User) -> UserOut:
-    return UserOut(id=u.id, username=u.username, full_name=u.full_name, role=u.role)
+    return UserOut(
+        id=u.id,
+        username=u.username,
+        full_name=u.full_name,
+        role=u.role,
+        is_active=u.is_active,
+        created_at=u.created_at,
+    )
 
 
 def user_ref(u: User | None) -> UserRef | None:
@@ -147,6 +204,54 @@ class CameraOut(BaseModel):
     status: CameraStatus
     last_seen_at: datetime | None
     config_version: int
+    is_active: bool
+
+
+# Mã và chuỗi bắt buộc: bỏ khoảng trắng đầu/cuối rồi mới kiểm tra (F03 R6).
+Code = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
+Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+Note = Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)]
+
+
+class BedCreate(StrictIn):
+    code: Code
+    area: Label
+
+
+class BedUpdate(StrictIn):
+    """Chỉ trường gửi lên mới đổi. Không có `is_active`: xóa/khôi phục qua DELETE, restore."""
+
+    code: Code | None = None
+    area: Label | None = None
+
+
+class PatientCreate(StrictIn):
+    """Chỉ mã thử nghiệm và ghi chú; `full_name`, `photo`… bị từ chối (PDF §10.1; HS §6.3)."""
+
+    code: Code
+    note: Note | None = None
+
+
+class PatientUpdate(StrictIn):
+    code: Code | None = None
+    note: Note | None = None
+
+
+class CameraCreate(StrictIn):
+    name: Label
+    source_type: CameraSourceType
+    # Kiểm tra theo `source_type` ở domain (F03 R5) để trả 400 kèm `details.field`.
+    source: Annotated[str, StringConstraints(max_length=1000)]
+    bed_id: int | None = None
+
+
+class CameraUpdate(StrictIn):
+    """`bed_id: null` nghĩa là gỡ camera khỏi giường; không gửi thì giữ nguyên."""
+
+    name: Label | None = None
+    source_type: CameraSourceType | None = None
+    source: Annotated[str, StringConstraints(max_length=1000)] | None = None
+    bed_id: int | None = None
 
 
 def session_out(s: MonitoringSession) -> SessionOut:
@@ -201,6 +306,7 @@ def camera_out(c: Camera) -> CameraOut:
         status=c.status,
         last_seen_at=c.last_seen_at,
         config_version=c.config_version,
+        is_active=c.is_active,
     )
 
 

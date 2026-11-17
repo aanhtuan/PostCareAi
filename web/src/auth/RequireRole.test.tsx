@@ -6,8 +6,22 @@ import type { UserOut } from '../api/types';
 import { renderWithProviders } from '../test/render';
 import { RequireRole } from './RequireRole';
 
-const admin: UserOut = { id: 4, username: 'admin', full_name: 'Phạm Thu Hà', role: 'ADMIN' };
-const doctor: UserOut = { id: 3, username: 'doctor', full_name: 'Lê Quốc Bảo', role: 'DOCTOR' };
+const admin: UserOut = {
+  id: 4,
+  username: 'admin',
+  full_name: 'Phạm Thu Hà',
+  role: 'ADMIN',
+  is_active: true,
+  created_at: '2026-11-17T00:00:00Z',
+};
+const doctor: UserOut = {
+  id: 3,
+  username: 'doctor',
+  full_name: 'Lê Quốc Bảo',
+  role: 'DOCTOR',
+  is_active: true,
+  created_at: '2026-11-17T00:00:00Z',
+};
 
 function routes() {
   return (

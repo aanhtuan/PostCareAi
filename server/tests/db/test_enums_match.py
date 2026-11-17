@@ -52,5 +52,12 @@ def test_enums_match_schemas(test_engine: Engine) -> None:
         assert db[name] == [m.value for m in cls], name
 
 
-def test_user_role_values_match_qa18(test_engine: Engine) -> None:
-    assert _db_enums(test_engine)["user_role"] == ["NURSE", "CHARGE_NURSE", "DOCTOR", "ADMIN"]
+def test_user_role_values_match_qa18_qa31(test_engine: Engine) -> None:
+    """QA#18 bốn vai trò nhân viên; QA#31 thêm `FAMILY` (F35, migration 0003)."""
+    assert _db_enums(test_engine)["user_role"] == [
+        "NURSE",
+        "CHARGE_NURSE",
+        "DOCTOR",
+        "ADMIN",
+        "FAMILY",
+    ]
