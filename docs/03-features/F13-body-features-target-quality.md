@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F13 |
-| Trạng thái | In progress |
+| Trạng thái | In review |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -84,11 +84,11 @@ Hai điều phải bảo đảm:
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** Đặc trưng tính đúng trên toạ độ tổng hợp: `hip_center`, `shoulder_center`, `trunk_angle_deg` (so với trục dài của giường, có tính tỷ lệ khung hình), `torso_length`, `dist_to_roi_edge` (đúng dấu trong/ngoài), `ankles_outside_roi`, `velocity` đã làm mượt *(PDF §6.1 (tr.7); HS §5.2)*. — *Kiểm chứng:* `server/tests/engine/test_features.py` (`test_centers_and_torso_length`, `test_trunk_angle_relative_to_bed_axis`, `test_trunk_angle_uses_pixel_aspect_ratio`, `test_dist_to_roi_edge_sign`, `test_ankles_outside_roi_ignores_low_visibility`, `test_velocity_smoothed_from_ts_ms`).
-- [ ] **AC2.** Người mục tiêu là người có tâm hông trong ROI và liên tục với vị trí trước. Người đứng ngoài ROI (điều dưỡng, người đi ngang) không trở thành mục tiêu. Nhảy xa hơn `target.max_jump_torso_lengths` thì coi là người khác *(QA#20; PDF §13.1 (tr.14); HS §8.1)*. — *Kiểm chứng:* `server/tests/engine/test_target.py` (`test_person_outside_roi_never_becomes_target`, `test_target_tracked_by_continuity_outside_roi`, `test_jump_over_threshold_is_new_person`).
-- [ ] **AC3.** Có ≥ 2 người trong ROI → `MULTIPLE_PEOPLE`. Keypoint chính có visibility thấp → `LOW_CONFIDENCE`. `source_ok = false` → `CAMERA_ISSUE` *(QA#20; PDF §17 (tr.17))*. — *Kiểm chứng:* `server/tests/engine/test_quality.py` (`test_two_people_in_roi_is_multiple_people`, `test_low_visibility_required_keypoint_is_low_confidence`, `test_source_not_ok_is_camera_issue`).
-- [ ] **AC4.** Chất lượng kém liên tục ≥ `quality.low_quality_to_no_observation_s` → `Engine.process` trả `NO_OBSERVATION` và không kết luận tư thế. Chất lượng kém ngắn hơn ngưỡng không đổi trạng thái. Muốn thoát phải `GOOD` liên tục ≥ `quality.restore_duration_s` *(PDF §4.3 (tr.6), §13.4 (tr.15); HS §5.2)*. — *Kiểm chứng:* `server/tests/engine/test_engine_quality_gate.py` (`test_prolonged_low_quality_goes_no_observation`, `test_short_low_quality_keeps_state`, `test_restore_requires_restore_duration`).
-- [ ] **AC5.** Engine xác định và thuần: chạy hai lần trên cùng chuỗi với cùng cấu hình cho output giống hệt; không import thư viện bị cấm *(event-engine.md mục 1)*. — *Kiểm chứng:* `test_engine_deterministic_same_sequence_same_output`; `make lint-imports`.
+- [x] **AC1.** Đặc trưng tính đúng trên toạ độ tổng hợp: `hip_center`, `shoulder_center`, `trunk_angle_deg` (so với trục dài của giường, có tính tỷ lệ khung hình), `torso_length`, `dist_to_roi_edge` (đúng dấu trong/ngoài), `ankles_outside_roi`, `velocity` đã làm mượt *(PDF §6.1 (tr.7); HS §5.2)*. — *Kiểm chứng:* `server/tests/engine/test_features.py` (`test_centers_and_torso_length`, `test_trunk_angle_relative_to_bed_axis`, `test_trunk_angle_uses_pixel_aspect_ratio`, `test_dist_to_roi_edge_sign`, `test_ankles_outside_roi_ignores_low_visibility`, `test_velocity_smoothed_from_ts_ms`).
+- [x] **AC2.** Người mục tiêu là người có tâm hông trong ROI và liên tục với vị trí trước. Người đứng ngoài ROI (điều dưỡng, người đi ngang) không trở thành mục tiêu. Nhảy xa hơn `target.max_jump_torso_lengths` thì coi là người khác *(QA#20; PDF §13.1 (tr.14); HS §8.1)*. — *Kiểm chứng:* `server/tests/engine/test_target.py` (`test_person_outside_roi_never_becomes_target`, `test_target_tracked_by_continuity_outside_roi`, `test_jump_over_threshold_is_new_person`).
+- [x] **AC3.** Có ≥ 2 người trong ROI → `MULTIPLE_PEOPLE`. Keypoint chính có visibility thấp → `LOW_CONFIDENCE`. `source_ok = false` → `CAMERA_ISSUE` *(QA#20; PDF §17 (tr.17))*. — *Kiểm chứng:* `server/tests/engine/test_quality.py` (`test_two_people_in_roi_is_multiple_people`, `test_low_visibility_required_keypoint_is_low_confidence`, `test_source_not_ok_is_camera_issue`).
+- [x] **AC4.** Chất lượng kém liên tục ≥ `quality.low_quality_to_no_observation_s` → `Engine.process` trả `NO_OBSERVATION` và không kết luận tư thế. Chất lượng kém ngắn hơn ngưỡng không đổi trạng thái. Muốn thoát phải `GOOD` liên tục ≥ `quality.restore_duration_s` *(PDF §4.3 (tr.6), §13.4 (tr.15); HS §5.2)*. — *Kiểm chứng:* `server/tests/engine/test_engine_quality_gate.py` (`test_prolonged_low_quality_goes_no_observation`, `test_short_low_quality_keeps_state`, `test_restore_requires_restore_duration`).
+- [x] **AC5.** Engine xác định và thuần: chạy hai lần trên cùng chuỗi với cùng cấu hình cho output giống hệt; không import thư viện bị cấm *(event-engine.md mục 1)*. — *Kiểm chứng:* `test_engine_deterministic_same_sequence_same_output`; `make lint-imports`.
 
 ## 6. Kế hoạch test
 
@@ -120,6 +120,10 @@ Các ca còn lại của bảng (ngồi dậy rồi nằm lại, dao động qua
 - *(giả định)* Khi chất lượng kém chưa đủ lâu thì giữ trạng thái cũ và bỏ đặc trưng của frame kém (R7).
 - *(giả định)* Reset bộ làm mượt khi đổi mục tiêu hoặc thoát `NO_OBSERVATION` (R4).
 - *(giả định)* Module phụ trợ `engine/geometry.py`.
+- *(giả định)* `hip_center` cần đủ hai hông, không xét visibility (dùng để định vị và đếm người trong ROI). Keypoint bắt buộc bị thiếu coi như visibility = 0.
+- *(giả định)* Frame không khớp ai thì vẫn nhớ vị trí mục tiêu và không nhận người mới, cho tới khi cổng chất lượng đóng và frame không có mục tiêu. Nhận mục tiêu mới khi có nhiều người trong ROI: người sâu nhất trong ROI.
+- *(giả định)* Cổng chất lượng khởi động ở trạng thái đóng (`NO_OBSERVATION`), nên lúc bắt đầu cũng cần `GOOD` liên tục ≥ `quality.restore_duration_s`.
+- *(giả định)* Bộ làm mượt chỉ cập nhật ở frame `GOOD`; keypoint tùy chọn (gối, cổ chân) không thấy ở một frame thì bỏ giá trị làm mượt cũ của điểm đó.
 
 ## 8. Câu hỏi mở
 
@@ -157,7 +161,22 @@ Code hiện có dùng lại: `postcare/engine/pipeline.py` (khung F10: `TargetSe
 
 ## 10. Ghi chú bàn giao
 
-> Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+**Kiểm chứng (2026-11-17, nhánh `feat/F13-body-features`):** `make check` exit 0 (pytest 251 passed, vitest 30 passed, import-linter 9 contract kept); `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0. Không phải feature vision (không gọi MediaPipe), không cần `make test-vision`.
+
+| AC | Bằng chứng |
+|---|---|
+| AC1 | `server/tests/engine/test_features.py` (6 test theo tên ở mục 5 + `test_shoulder_line_angle`, `test_static_pose_stable_and_reset`); hình học ở `test_geometry.py` (ROI xoay 0/30/90/135°, trục PCA theo pixel) |
+| AC2 | `server/tests/engine/test_target.py`: 3 test theo tên ở mục 5 + `test_nurse_outside_roi_does_not_replace_patient`, `test_walker_passing_near_edge_does_not_steal_target`, `test_nearest_person_wins_continuity`, `test_only_num_poses_persons_considered` |
+| AC3 | `server/tests/engine/test_quality.py`: 3 test theo tên ở mục 5 + ca âm tính `test_second_person_outside_roi_is_not_multiple_people`, `test_low_visibility_optional_keypoint_is_still_good`; thứ tự ưu tiên; 4 test `QualityGate` |
+| AC4 | `server/tests/engine/test_engine_quality_gate.py`: 3 test theo tên ở mục 5 (+ `test_startup_requires_restore_duration`); ca âm tính mục 6: `test_noise_1_to_3_frames_no_quality_transition` (1–3 frame, visibility và nhảy keypoint), `test_landmark_loss_at_edge_is_not_out_of_roi`, `test_nurse_outside_roi_ignored`, `test_two_people_in_roi_goes_no_observation` |
+| AC5 | `test_engine_deterministic_same_sequence_same_output` (+ bản có state machine giả); `make lint-imports` gồm contract mới `engine-no-clock` (cấm `time`, `datetime`, `random`, đã thử thêm `import time` thì contract BROKEN); `test_engine_static_guards.py` quét AST (bắt cả `__import__`) |
+
+**Điều người sau cần biết:**
+- Chưa có F14 nên `StateMachine` (khung F10) vẫn luôn trả `NO_OBSERVATION`: output thật của engine chưa đổi. Test AC4 thay `StateMachine` bằng bản giả qua `monkeypatch` (`postcare.engine.engine.StateMachine`). F14 thay khung này: `update(assessment, ts_ms)` chỉ được gọi khi cổng mở và frame `GOOD`, `assessment.features` luôn có; vào/ra `NO_OBSERVATION` do `Engine` xử lý.
+- `FrameAssessment` giờ có `quality`, `target`, `features: BodyFeatures | None`, `observable`, `persons_in_roi`. `TargetSelector`/`QualityAssessor` đã chuyển khỏi `pipeline.py` sang `target.py`/`quality.py`.
+- R9: `observation_quality` đã nằm trong `BodyStateSnapshot`. `BodyStateSnapshot` chưa có trường `explanation`; đặc trưng sẽ đưa vào `explanation` của sự kiện khi F14/F15 cần.
+- Builder `server/tests/engine/builders.py`: `PoseSequence` (đủ các thao tác R10, thêm `hold`, `pose`, `move_to`, `camera_issue`, `remove_extra_people`), `person_from_px`, `frame`, `run_engine`, `default_config`, tư thế mẫu `LYING`/`SITTING`/`AT_EDGE`/`STANDING`/`OUTSIDE`/`NURSE`.
+- Không thêm khóa cấu hình, không thêm thư viện.
 
 ## 11. Definition of Done
 
