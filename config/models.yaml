@@ -7,6 +7,7 @@ version: 1
 pose:
   # Biến thể dùng khi không truyền --model. Chọn bằng benchmark F11 (tech-stack.md
   # "Kết quả đo hiệu năng"): biến thể chính xác nhất đạt >= 10 FPS ở 720p trên CPU máy dev (A07).
+  # Kết quả 2026-11-17 (i5-10300H, CPU): full 16–28 FPS, heavy 9.1–13.7 FPS ở 720p → chọn full.
   default: full
   variants:
     - name: lite
