@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F06 |
-| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | Done <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 3 phiên |
@@ -172,11 +172,22 @@ Kiểm tra (2026-11-18): `make check` exit 0 (server 842 passed, web 77 passed, 
 - `pipeline.process_frame` nhận `Engine | FrameEngine` (Protocol) để test worker dùng engine giả; hành vi không đổi.
 - Khung gửi đi là RAW cho tới F28 (câu hỏi mở §8, mặc định chấp nhận; README đã ghi).
 - ROI camera chưa đặt → worker chỉ gửi heartbeat + khung, log cảnh báo (cần F08 để đặt ROI trên UI).
+- **Cho F17/F25:** worker chưa nối face adapter / FaceGate (F25); `process_frame` hiện chỉ chạy pose. Khi F25 merge, thêm face vào `pipeline.process_frame` (worker và replay dùng chung) và `adapter_factory` của `postcare worker`.
+
+**2026-11-18 – review: Đạt**, kèm 5 điểm sửa (test trước, commit `test(F06): review fixes …` rồi `fix(F06): …`):
+
+1. Che user:pass trong URL nguồn trước khi ghi log (`worker/config.py::mask_source`, `rtsp://u:p@host` → `rtsp://***@host`): `test_mask_source_hides_url_credentials`, `test_worker_logs_do_not_contain_url_password`.
+2. Circuit mở (API lỗi gần đây) → không gửi lại sự kiện và không poll config; lỗi gửi sự kiện cũng mở circuit; backoff tính từ lúc request kết thúc. Timeout từng request: heartbeat 1 s, request khác 3 s (`WorkerApiClient(request_timeout_s, heartbeat_timeout_s)`), nên API treo không chặn một `step()` ~10 s: `test_event_flush_skipped_while_api_circuit_open`, `test_hung_api_does_not_block_a_step_long` (transport giả treo tới timeout, bước dài nhất ≤ 4 s).
+3. Phát file theo nhịp thật: `test_file_source_played_at_real_speed` (FileSource video tổng hợp 4 s, tổng thời gian chờ giả lập 3,7–4,3 s).
+4. `POST …/frame` không bắt đầu bằng `FF D8` → 400 `VALIDATION_ERROR`: `test_frame_without_jpeg_magic_400`.
+5. Ghi chú FaceGate ở trên. `pyproject.toml` bỏ qua cảnh báo Starlette về `timeout` khi worker dùng `TestClient`.
+
+Đã merge `main` cục bộ vào nhánh trước khi sửa. Sau sửa: `make check` exit 0 (server 940 passed, web 87 passed; lần đầu vitest hết bộ nhớ, chạy lại đạt); `scripts\dev.ps1 check` exit 0. Trạng thái: **Done**.
 
 ## 11. Definition of Done
 
-- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
-- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
-- [ ] Doc liên quan đã cập nhật cùng PR.
-- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [x] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [x] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [x] Doc liên quan đã cập nhật cùng PR.
+- [x] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).
