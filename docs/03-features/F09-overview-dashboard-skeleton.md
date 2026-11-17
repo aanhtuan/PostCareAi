@@ -106,7 +106,7 @@ Dựng màn hình "Tổng quan" (PDF §9.1) dạng nhiều thẻ giường, đ�
 | R5 bấm thẻ | `navigate('/beds/:id/live')`, `role=button`, Enter | **chưa có test** |
 | R6 polling | — | **thiếu**: `useOverview` không có `refetchInterval` (chỉ có invalidation WebSocket) |
 | R7 layout | `SimpleGrid cols={{base:1, xs:2, lg:3}}` (≥576px: 2 cột) | kiểm tra tay |
-| R8 text | `vi.ts` (`overview`, `bedCard`, `shift`, `cameraStatus`) | test `not.toMatch(/BED_EXIT|…/)` |
+| R8 text | `vi.ts` (`overview`, `bedCard`, `shift`, `cameraStatus`) | test kiểm tra không có mã nội bộ trong DOM |
 
 **Chỗ thiếu sẽ làm**
 
