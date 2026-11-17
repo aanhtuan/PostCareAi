@@ -246,3 +246,9 @@ def test_frame_unknown_camera_404(client: TestClient, worker_headers) -> None:
         content=JPEG,
     )
     assert r.status_code == 404
+
+
+def test_frame_without_jpeg_magic_400(client: TestClient, worker_headers) -> None:
+    r = _frame(client, worker_headers, b"\x89PNG\r\n\x1a\n" + b"\x00" * 16)
+    assert r.status_code == 400
+    assert r.json()["error"]["code"] == "VALIDATION_ERROR"

@@ -12,9 +12,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
-from postcare.worker.client import WorkerApiClient
-from postcare.worker.config import WorkerConfig
-from postcare.worker.loop import Worker, WorkerOptions
 
 from postcare.schemas.context import EngineContext
 from postcare.schemas.enums import (
@@ -32,6 +29,9 @@ from postcare.schemas.roi import validate_roi_polygon
 from postcare.schemas.state import BodyStateSnapshot, FaceSignals
 from postcare.vision.fake import FakeFrameSource
 from postcare.vision.inference.fake import FakePoseAdapter
+from postcare.worker.client import WorkerApiClient
+from postcare.worker.config import WorkerConfig
+from postcare.worker.loop import Worker, WorkerOptions
 
 TOKEN = "worker-token-for-tests-at-least-32-bytes"
 ROI = [[0.2, 0.2], [0.8, 0.2], [0.8, 0.9], [0.2, 0.9]]
@@ -43,6 +43,7 @@ class FakeTime:
 
     def __init__(self) -> None:
         self.t = 100.0
+        self.slept = 0.0
 
     def monotonic(self) -> float:
         return self.t
@@ -52,6 +53,7 @@ class FakeTime:
 
     def sleep(self, seconds: float) -> None:
         self.t += max(seconds, 0.0)
+        self.slept += max(seconds, 0.0)
 
 
 def default_config(**overrides: Any) -> dict[str, Any]:
@@ -210,10 +212,14 @@ def make_harness(
     engine_kwargs: dict[str, Any] | None = None,
     options: WorkerOptions | None = None,
     config: dict[str, Any] | None = None,
+    source: Callable[[], Any] | None = None,
+    pace: Callable[[Any], bool] | None = None,
+    hang: bool = False,
 ) -> Harness:
     t = FakeTime()
     api = FakeApi(time=t, config=config or default_config())
-    http = httpx.Client(base_url="http://api.test", transport=httpx.MockTransport(api.handler))
+    handler = hanging_handler(api) if hang else api.handler
+    http = httpx.Client(base_url="http://api.test", transport=httpx.MockTransport(handler))
     client = WorkerApiClient(http, camera_id=1, token=TOKEN)
     engines: list[FakeEngine] = []
     sources: list[FakeFrameSource] = []
@@ -229,8 +235,8 @@ def make_harness(
         engines.append(engine)
         return engine
 
-    def source_factory(cfg: WorkerConfig) -> FakeFrameSource:
-        src = FakeFrameSource(make_script())
+    def source_factory(cfg: WorkerConfig) -> Any:
+        src = source() if source is not None else FakeFrameSource(make_script())
         sources.append(src)
         return src
 
@@ -248,6 +254,20 @@ def make_harness(
         clock=t.monotonic,
         wall=t.wall,
         sleep=t.sleep,
-        pace=lambda _src: True,
+        pace=pace or (lambda _src: True),
     )
     return Harness(api, t, worker, engines, sources, adapters)
+
+
+def hanging_handler(api: FakeApi) -> Callable[[httpx.Request], httpx.Response]:
+    """API treo khi `api.down`: mỗi request "chờ" hết timeout đọc (đồng hồ giả) rồi ReadTimeout."""
+
+    def _handle(request: httpx.Request) -> httpx.Response:
+        if api.down:
+            timeout = request.extensions.get("timeout", {}).get("read") or 30.0
+            api.time.t += min(float(timeout), 30.0)
+            api.calls.append((api.time.t, request.method, request.url.path + "#timeout", None))
+            raise httpx.ReadTimeout("API treo", request=request)
+        return api.handler(request)
+
+    return _handle
