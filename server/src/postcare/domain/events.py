@@ -122,6 +122,10 @@ def ingest_event(db: Session, data: EventIn, publisher: Publisher) -> tuple[Even
         raise DomainError(
             "NO_ACTIVE_SESSION", "Giường không có phiên theo dõi tại thời điểm sự kiện", 409
         )
+    if session.paused_at is not None and data.occurred_at >= session.paused_at:
+        raise DomainError(
+            "CAPTURE_PAUSED", "Phiên theo dõi đang tạm dừng thu hình tại thời điểm sự kiện", 409
+        )
     try:
         event, alert = _insert(
             db,

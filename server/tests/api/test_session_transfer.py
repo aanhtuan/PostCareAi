@@ -4,7 +4,7 @@ Dữ liệu seed: giường A01/A02/A03 (id 1–3) có camera 1–3; bệnh nhâ
 """
 
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -71,6 +71,7 @@ def test_transfer_links_sessions(client: TestClient, login: Login) -> None:
     old = _start(client, nurse, 1, 1)
     new = _transfer(client, nurse, old["id"], 2, "  Cần phòng yên tĩnh  ").json()
     assert new["previous_session_id"] == old["id"]
+    assert new["previous_bed_code"] == "A01"
     assert new["transfer_reason"] == "Cần phòng yên tĩnh"
     assert new["next_session_id"] is None
     old_now = _get(client, nurse, old["id"])
@@ -252,7 +253,7 @@ def test_transfer_keeps_old_events_on_old_session(
 ) -> None:
     nurse = login("nurse")
     old = _start(client, nurse, 1, 1)
-    t = datetime.now(UTC) - timedelta(seconds=1)
+    t = datetime.now(UTC)  # sau lúc mở phiên, trước lúc chuyển
     r = post_event("SIT_UP", "INFO", camera_id=1, occurred_at=t)
     assert r.status_code == 201, r.text
     event_id = r.json()["id"]

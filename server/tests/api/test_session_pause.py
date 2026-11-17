@@ -1,7 +1,7 @@
 """F04 AC7 (R19–R22; F36 R15–R18 phần phiên): tạm dừng / tiếp tục thu hình theo phiên."""
 
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -164,7 +164,7 @@ def test_internal_config_reports_capture_paused(
 def test_engine_event_rejected_while_paused(
     client: TestClient, login: Login, open_session: dict[str, Any], post_event: Callable[..., Any]
 ) -> None:
-    before_pause = datetime.now(UTC) - timedelta(seconds=1)
+    before_pause = datetime.now(UTC)  # sau lúc mở phiên, trước lúc tạm dừng
     _pause(client, login("nurse"), open_session["id"])
     r = post_event("BED_EXIT", "HIGH")
     assert r.status_code == 409
