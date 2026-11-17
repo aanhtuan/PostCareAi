@@ -6,7 +6,6 @@ A01; event-engine.md mục 7.
 from itertools import pairwise
 
 from postcare.engine.debounce import Debouncer
-
 from postcare.schemas.state import BodyState as S
 from tests.engine.builders import AT_EDGE, SITTING, codes, default_config, run_engine
 from tests.engine.test_rules_body import at_edge_established
