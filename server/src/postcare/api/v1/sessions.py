@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from postcare.api.deps import get_current_user, get_db, get_publisher, require_writer
+from postcare.api.deps import get_current_user, get_publisher, require_writer
+from postcare.api.deps import get_session as db_session
 from postcare.db.models import User
 from postcare.domain import sessions as svc
 from postcare.domain import timeline as tl
@@ -19,7 +20,7 @@ def list_sessions(
     patient_id: int | None = None,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
+    db: Session = Depends(db_session),
 ) -> Page[SessionOut]:
     return svc.list_sessions(
         db, active=active, bed_id=bed_id, patient_id=patient_id, limit=limit, offset=offset
@@ -30,7 +31,7 @@ def list_sessions(
 def start_session(
     body: SessionCreate,
     user: User = Depends(require_writer),
-    db: Session = Depends(get_db),
+    db: Session = Depends(db_session),
     publisher: Publisher = Depends(get_publisher),
 ) -> SessionOut:
     return svc.start_session(
@@ -39,7 +40,7 @@ def start_session(
 
 
 @router.get("/{session_id}", response_model=SessionOut, dependencies=[Depends(get_current_user)])
-def get_session(session_id: int, db: Session = Depends(get_db)) -> SessionOut:
+def get_session(session_id: int, db: Session = Depends(db_session)) -> SessionOut:
     return svc.get_session(db, session_id)
 
 
@@ -47,7 +48,7 @@ def get_session(session_id: int, db: Session = Depends(get_db)) -> SessionOut:
 def end_session(
     session_id: int,
     user: User = Depends(require_writer),
-    db: Session = Depends(get_db),
+    db: Session = Depends(db_session),
     publisher: Publisher = Depends(get_publisher),
 ) -> SessionOut:
     return svc.end_session(db, session_id=session_id, user=user, publisher=publisher)
@@ -63,6 +64,6 @@ def session_timeline(
     priority: list[Priority] | None = Query(None),
     limit: int = Query(200, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
+    db: Session = Depends(db_session),
 ) -> Page[TimelineItemOut]:
     return tl.session_timeline(db, session_id, priority, limit, offset)

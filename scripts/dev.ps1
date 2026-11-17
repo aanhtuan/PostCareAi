@@ -66,7 +66,7 @@ switch ($Task) {
     'dev-api' { Invoke-Uv @('run', 'uvicorn', 'postcare.api.main:app', '--host', '0.0.0.0', '--port', "$Port", '--reload') }
     'dev-web' { Invoke-Npm @('run', 'dev') }
     'worker' { Stop-Placeholder "worker -Camera ${Camera}: not implemented yet - see F06. Use simulate meanwhile." }
-    'seed' { Invoke-Uv @('run', 'postcare', 'seed') }
+    'seed' { Invoke-Uv @('run', 'postcare', 'seed', '--reset') }
     'simulate' { Invoke-Uv @('run', 'postcare', 'simulate', '--bed', $Bed, '--scenario', $Scenario, '--speed', "$Speed") }
     'format' { Invoke-Uv @('run', 'ruff', 'check', '--fix', '.'); Invoke-Uv @('run', 'ruff', 'format', '.'); Invoke-Npm @('run', 'format') }
     'format-check' { Invoke-FormatCheck }
@@ -87,8 +87,8 @@ switch ($Task) {
         Invoke-Test
         Invoke-BuildWeb
     }
-    'db-upgrade' { Stop-Placeholder 'db-upgrade: not implemented yet - see F01. Use seed meanwhile.' }
-    'db-seed' { Stop-Placeholder 'db-seed: not implemented yet - see F01. Use seed meanwhile.' }
+    'db-upgrade' { Invoke-Uv @('run', 'alembic', 'upgrade', 'head') }
+    'db-seed' { Invoke-Uv @('run', 'postcare', 'seed') }
     'models' { Stop-Placeholder 'models: not implemented yet - see F11.' }
     'gen-api-types' {
         Invoke-Uv @('run', 'postcare', 'openapi', '--out', '../web/src/api/openapi.json')

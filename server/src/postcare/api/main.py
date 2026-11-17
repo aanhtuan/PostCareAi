@@ -14,7 +14,7 @@ from postcare.api.internal import cameras as internal_cameras
 from postcare.api.realtime import WsHub
 from postcare.api.realtime import router as ws_router
 from postcare.api.v1 import alerts, auth, catalog, health, monitoring, sessions
-from postcare.db.session import create_schema, make_engine, make_session_factory
+from postcare.db.session import make_engine, make_session_factory
 from postcare.domain.cameras import mark_offline_cameras
 from postcare.domain.runtime import RuntimeStore
 from postcare.settings import Settings, get_settings
@@ -52,8 +52,8 @@ def create_app(settings: Settings | None = None, *, watch_cameras: bool = True) 
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        # Schema do Alembic tạo (`make db-upgrade`), API không tự tạo bảng (F01).
         app.state.hub.bind_loop(asyncio.get_running_loop())
-        create_schema(engine)
         task = asyncio.create_task(_watch_cameras(app)) if watch_cameras else None
         yield
         if task:

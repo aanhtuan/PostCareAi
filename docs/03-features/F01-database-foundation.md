@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F01 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -84,11 +84,11 @@ Dựng tầng dữ liệu PostgreSQL cho các thực thể nền: người dùng
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** `make db-upgrade` trên DB rỗng tạo đủ 7 bảng `users`, `patients`, `beds`, `cameras`, `monitoring_sessions`, `audit_logs`, `shift_definitions` với cột, enum và ràng buộc đúng data-model.md (kể cả 2 partial unique index). *(PDF §10.1)* — *Kiểm chứng:* test `test_upgrade_creates_foundation_tables` (đọc bằng SQLAlchemy `inspect`); test `test_enums_match_schemas`.
-- [ ] **AC2.** `make db-seed` tạo giường A01–A03, 1 camera gắn A01, 4 tài khoản (mỗi vai trò một, mật khẩu đã hash), 3 ca; chạy lần hai không tạo trùng. *(HS Hình 3; QA#18, QA#19)* — *Kiểm chứng:* test `test_seed_creates_sample_data`, `test_seed_is_idempotent`, `test_seed_passwords_are_hashed`.
+- [x] **AC1.** `make db-upgrade` trên DB rỗng tạo đủ 7 bảng `users`, `patients`, `beds`, `cameras`, `monitoring_sessions`, `audit_logs`, `shift_definitions` với cột, enum và ràng buộc đúng data-model.md (kể cả 2 partial unique index). *(PDF §10.1)* — *Kiểm chứng:* test `test_upgrade_creates_foundation_tables` (đọc bằng SQLAlchemy `inspect`); test `test_enums_match_schemas`.
+- [x] **AC2.** `make db-seed` tạo giường A01–A03, 1 camera gắn A01, 4 tài khoản (mỗi vai trò một, mật khẩu đã hash), 3 ca; chạy lần hai không tạo trùng. *(HS Hình 3; QA#18, QA#19)* — *Kiểm chứng:* test `test_seed_creates_sample_data`, `test_seed_is_idempotent`, `test_seed_passwords_are_hashed`.
 - [ ] **AC3.** Test dùng DB `postcare_test` riêng; dữ liệu một test tạo ra không còn ở test sau. CI có service Postgres và `make check` xanh trên CI. *(testing.md §3)* — *Kiểm chứng:* cặp test `test_rollback_isolation_a` / `test_rollback_isolation_b`; job CI xanh.
-- [ ] **AC4.** `alembic downgrade base` rồi `alembic upgrade head` chạy được hai chiều không lỗi. *(coding-standards.md §2: mỗi migration có `downgrade`)* — *Kiểm chứng:* test `test_migrations_roundtrip` (upgrade → downgrade base → upgrade).
-- [ ] **AC5.** Có helper `record_audit()` dùng chung, kèm test: ghi đúng actor, action, entity, before/after; actor null cho hệ thống; không tự commit. *(PDF §10.1; api-conventions.md "Quy ước code backend")* — *Kiểm chứng:* test `test_record_audit_inserts_row`, `test_record_audit_system_actor`, `test_record_audit_rolls_back_with_transaction`.
+- [x] **AC4.** `alembic downgrade base` rồi `alembic upgrade head` chạy được hai chiều không lỗi. *(coding-standards.md §2: mỗi migration có `downgrade`)* — *Kiểm chứng:* test `test_migrations_roundtrip` (upgrade → downgrade base → upgrade).
+- [x] **AC5.** Có helper `record_audit()` dùng chung, kèm test: ghi đúng actor, action, entity, before/after; actor null cho hệ thống; không tự commit. *(PDF §10.1; api-conventions.md "Quy ước code backend")* — *Kiểm chứng:* test `test_record_audit_inserts_row`, `test_record_audit_system_actor`, `test_record_audit_rolls_back_with_transaction`.
 
 ## 6. Kế hoạch test
 
@@ -111,6 +111,10 @@ Dựng tầng dữ liệu PostgreSQL cho các thực thể nền: người dùng
 - *(giả định)* Thư mục migration nằm trong `server/src/postcare/db/migrations/`.
 - *(giả định)* `record_audit()` không commit; người gọi commit.
 - *(giả định)* Không kết nối được DB test thì test lỗi, không skip.
+- *(giả định, thêm khi lập kế hoạch)* `TEST_DATABASE_URL` phải khác `DATABASE_URL` và tên database phải kết thúc bằng `_test`; nếu không, test dừng với lỗi rõ ràng (để không bao giờ chạm DB dev).
+- *(giả định, thêm khi lập kế hoạch)* Cột có `default` trong data-model.md cũng là `NOT NULL` (ví dụ `is_active`, `created_at`, `thresholds`), trừ cột ghi rõ `null`. Cột `shift_definitions.name/start_time/end_time` là `NOT NULL`.
+- *(giả định, thêm khi lập kế hoạch)* Để prototype (ADR-0010) vẫn chạy, migration thứ hai `0002_prototype_events_alerts` tạo `events`, `alerts` (đúng data-model.md) và cột `cameras.last_config_hash` mà prototype đang dùng. F17 tiếp nhận hai bảng này (sửa bằng migration mới, không sửa 0002).
+- *(giả định, thêm khi lập kế hoạch)* Dữ liệu demo của prototype (camera A02/A03, ROI mẫu, bệnh nhân BN-001…BN-005, phiên và sự kiện quá khứ) chỉ tạo khi chạy `postcare seed --reset` (`make seed`), không thuộc `make db-seed`. F30 sẽ thay bằng `make demo-seed`.
 
 ## 8. Câu hỏi mở
 
@@ -118,13 +122,71 @@ Dựng tầng dữ liệu PostgreSQL cho các thực thể nền: người dùng
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+Khảo sát: prototype (ADR-0010) đã có `db/models.py` (9 bảng, SQLite, `create_all`), `db/session.py`, `db/types.py` (`UTCDateTime`), `domain/audit.py` (`record_audit`), `domain/security.py` (`hash_password`), `domain/seed.py`, `schemas/enums.py` (đủ 4 enum của R4), `settings.py`, `api/deps.py` (`get_db`), CLI `postcare seed` (xóa và tạo lại). Test API dùng SQLite tạm mỗi test. Kế hoạch là chuyển các phần này sang PostgreSQL + Alembic, không viết lại từ đầu.
 
-1. …
+1. **Phụ thuộc và cấu hình.** `server/pyproject.toml`: đưa `psycopg[binary]` từ extra `postgres` vào phụ thuộc chính, thêm `alembic` (lý do: ADR-0004; tech-stack.md đã liệt kê). `settings.py`: `database_url` mặc định PostgreSQL, thêm `test_database_url`. `.env.example`: `DATABASE_URL`, `TEST_DATABASE_URL`, `SEED_PASSWORD` (R1).
+2. **Hạ tầng test DB.** `server/tests/conftest.py`:
+   - fixture phiên `test_engine`: kiểm tra URL an toàn (khác `DATABASE_URL`, tên kết thúc `_test`), thử kết nối; lỗi thì `pytest.fail` kèm hướng dẫn `docker start postcare-db` (không skip); rồi `alembic upgrade head` một lần;
+   - fixture `connection` (transaction ngoài, rollback cuối test) và `db_session` (`join_transaction_mode="create_savepoint"`, nên `commit()` trong code chỉ nhả savepoint);
+   - fixture `app`/`client` của test API cũ dùng cùng `connection` (`app.state.session_factory` gắn vào connection), `TRUNCATE … RESTART IDENTITY` trong transaction để id bắt đầu từ 1 như test cũ giả định;
+   - fixture `committed_app` cho test "lưu trước, phát sau" cần kết nối thứ hai thật: commit thật, dọn bằng `TRUNCATE` sau test;
+   - hàm kiểm tra URL đặt ở `server/tests/dbutil.py` để test được.
+3. **Test viết trước** (chạy, xác nhận đỏ đúng lý do):
+   - `tests/db/test_migrations.py` (AC1, AC4): `test_upgrade_creates_foundation_tables` (đọc bằng `inspect`: cột, kiểu, NOT NULL, default, unique, FK cho 7 bảng); `test_partial_unique_indexes_exist`; `test_patients_has_no_name_or_photo_column` (âm tính); `test_two_cameras_same_bed_rejected` (âm tính, `IntegrityError`); `test_partial_unique_open_session_per_bed`, `..._per_patient`; `test_closed_session_does_not_block_new_one` (âm tính); `test_models_match_migrations` (`alembic.autogenerate.compare_metadata` rỗng); `test_migrations_roundtrip` (upgrade → downgrade base → không còn bảng/enum → upgrade head).
+   - `tests/db/test_enums_match.py` (AC1, R4): `test_enums_match_schemas` (so `pg_enum` với enum trong `postcare.schemas`).
+   - `tests/db/test_seed.py` (AC2): `test_seed_creates_sample_data`, `test_seed_passwords_are_hashed`, `test_seed_is_idempotent` (chạy 2 lần, số bản ghi không đổi), `test_seed_does_not_overwrite_edited_data` (âm tính, R8).
+   - `tests/db/test_isolation.py` (AC3): `test_rollback_isolation_a` / `_b`; `test_test_url_must_differ_from_dev_url`, `test_test_url_must_end_with_test`, `test_unreachable_test_db_fails_clearly` (âm tính R10).
+   - `tests/domain/test_audit.py` (AC5): `test_record_audit_inserts_row`, `test_record_audit_system_actor`, `test_record_audit_rolls_back_with_transaction` (âm tính), `test_record_audit_serializes_datetime_utc`, `test_record_audit_does_not_commit`.
+   - `tests/test_tooling.py`: `db-upgrade`, `db-seed` không còn là target giữ chỗ; recipe gọi `alembic upgrade head` / `postcare seed`; `dev.ps1` tương ứng; CI có service `postgres:16` và `TEST_DATABASE_URL` (R6, R7, R11).
+4. **Model và migration.** `db/models.py`: kiểu PostgreSQL (`BigInteger` PK, `Text`, `JSONB`, enum native, `timestamptz` qua `UTCDateTime`), `server_default` theo data-model.md. `db/base.py`: `Base` với quy ước đặt tên constraint. `db/session.py`: bỏ nhánh SQLite, bỏ `create_schema`/`reset_schema`. `db/migrate.py`: `alembic_config(url)`, `upgrade_head(url)`, `reset_schema(url)` qua Alembic API. `server/alembic.ini`, `db/migrations/env.py` (URL lấy từ config hoặc `DATABASE_URL`; nhận connection có sẵn khi test), `versions/0001_foundation.py` (7 bảng, 4 enum, 2 partial unique index, `downgrade` xóa cả enum), `versions/0002_prototype_events_alerts.py`.
+5. **Seed.** `domain/seed.py`: `seed_base()` idempotent theo khóa tự nhiên, chỉ thêm, không sửa bản ghi có sẵn, trả số bản ghi đã tạo; đúng R7 (1 camera "Camera A01", WEBCAM, "0"). `seed_demo()` (prototype: camera A02/A03, ROI mẫu, BN-001…BN-005) và `seed_history()` giữ cho `make seed`. CLI: `postcare seed` (chỉ `seed_base`), `postcare seed --reset [--no-history]` (xóa schema bằng Alembic, tạo lại, thêm dữ liệu demo; thay `make seed` cũ).
+6. **Audit và session.** `domain/audit.py`: chuyển `before`/`after` sang JSON (datetime → ISO 8601 UTC, date/time → ISO, enum → value), không commit. `api/deps.py`: đổi `get_db` thành `get_session` (R13), cập nhật router. `api/main.py`: bỏ `create_all` khi khởi động.
+7. **Lệnh.** `Makefile`: `db-upgrade` → `uv --directory server run alembic upgrade head`; `db-seed` → `uv --directory server run postcare seed`; `seed` → `postcare seed --reset`. `scripts/dev.ps1` tương ứng. `.github/workflows/ci.yml`: service `postgres:16` cho job Ubuntu (tạo `postcare_test`); job Windows khởi động PostgreSQL có sẵn trên runner (Windows runner không hỗ trợ service container) rồi tạo user/DB.
+8. **Tài liệu cùng nhánh:** README (PostgreSQL bằng Docker, `make db-upgrade`, `make db-seed`, `make seed`), `dev-setup.md` §3–4, `data-model.md` (quy ước NOT NULL, migration 0002, `last_config_hash`, enum native), `tech-stack.md` (phiên bản alembic, psycopg chính thức), `testing.md` §3 (fixture), `overview.md` (db dùng Alembic, import `schemas`), ADR-0010 (thay thế một phần: mục 1–2 bởi F01/ADR-0004), `.env.example`.
+9. **Kiểm chứng:** `make check` và `scripts\dev.ps1 check` exit 0; thủ công: DB rỗng → `make db-upgrade`, `make db-seed` hai lần (đếm bản ghi bằng `psql`), `alembic downgrade base` / `upgrade head`, `make seed` rồi chạy API + `postcare simulate --bed A01` để chắc prototype còn chạy. Ghi kết quả vào mục 10.
+
+Không cần `make gen-api-types` (không đổi endpoint; chỉ đổi tên dependency).
+
+**Rủi ro:**
+- Test API cũ dùng chung một connection qua nhiều session (savepoint): một test gọi `rollback()` giữa chừng có thể xóa dữ liệu của request trước. Kiểm chứng bằng chạy toàn bộ test cũ; test cần commit thật dùng `committed_app`.
+- `alembic downgrade base` bị chặn nếu còn connection giữ transaction: test roundtrip không dùng `db_session`.
+- Job Windows trên CI chưa chạy được ở máy dev; chỉ kiểm chứng khi push (coordinator).
 
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+**Triển khai (17/11/2026, nhánh `feat/F01-database-foundation`).**
+
+Bằng chứng theo AC (test tự động trong `server/tests/db/`, `server/tests/domain/`, chạy trên PostgreSQL 16 Docker, DB `postcare_test`):
+
+| AC | Bằng chứng |
+|---|---|
+| AC1 | `test_upgrade_creates_foundation_tables` (cột, kiểu, NOT NULL, default, PK), `test_foreign_keys_and_unique_constraints`, `test_partial_unique_indexes_exist`, `test_enums_match_schemas`, `test_user_role_values_match_qa18`, `test_models_match_migrations`; âm tính `test_patients_has_no_name_or_photo_column`, `test_two_cameras_same_bed_rejected`, `test_partial_unique_open_session_per_bed/_per_patient`, `test_closed_session_does_not_block_new_one`. Thủ công: DB rỗng `postcare_f01manual` → `make db-upgrade` chạy `0001`, `0002`; `\dt` có 7 bảng nền + `events`, `alerts`, `alembic_version`; `\dT` có 9 enum |
+| AC2 | `test_seed_creates_sample_data`, `test_seed_passwords_are_hashed`, `test_seed_is_idempotent`, `test_seed_does_not_overwrite_edited_data`. Thủ công: `make db-seed` lần 1 in `users=4, shift_definitions=3, beds=3, cameras=1`, lần 2 in toàn 0; `psql` đếm 4/3/1/3, hash bắt đầu `$2b$` |
+| AC3 | `test_rollback_isolation_a/_b`, `test_uses_separate_test_database`; âm tính `test_test_url_must_differ_from_dev_url`, `test_test_url_must_end_with_test`, `test_unreachable_test_db_fails_clearly`. Thủ công: `TEST_DATABASE_URL=…@127.0.0.1:1/postcare_test pytest tests/db/test_seed.py` → 4 ERROR "Không kết nối được DB test …", exit 1, ~10 s, không skip. CI: đã thêm service `postgres:16` (Ubuntu) và PostgreSQL cài sẵn (Windows) nhưng **chưa chạy trên GitHub** (chưa push) → chưa tick |
+| AC4 | `test_migrations_roundtrip` (upgrade → downgrade base: không còn bảng, không còn enum → upgrade head). Thủ công: `uv run alembic downgrade base` rồi `upgrade head` trên `postcare_f01manual`, `alembic current` = `0002 (head)` |
+| AC5 | `test_record_audit_inserts_row`, `test_record_audit_system_actor`, `test_record_audit_rolls_back_with_transaction`, `test_record_audit_does_not_commit`, `test_record_audit_serializes_datetime_utc`, `test_record_audit_rejects_naive_datetime`, `test_audit_module_has_no_update_or_delete` |
+
+Kiểm tra chung: `make check` exit 0 (pytest 114 passed, vitest 30 passed) và `scripts\dev.ps1 check` exit 0 trên máy dev Windows.
+
+Prototype vẫn chạy: `make seed` (`postcare seed --reset`) trên `postcare_f01manual` tạo 3 camera, 5 bệnh nhân, 3 phiên mở, 10 sự kiện, 4 cảnh báo; API (`uvicorn`, cổng 8765) + `postcare simulate --bed A01 --speed 20` chạy đủ kịch bản, `GET /api/v1/alerts?priority=HIGH&status=PENDING` trả BED_EXIT của A01 và A03. Toàn bộ test API cũ (SQLite trước đây) chạy xanh trên PostgreSQL.
+
+**Lệch so với spec / điều người sau cần biết:**
+- Migration `0002_prototype_events_alerts` tạo `events`, `alerts` (ngoài phạm vi F01, thuộc F17) và cột `cameras.last_config_hash` (không có trong data-model.md trước đây; đã thêm vào doc) để prototype không hỏng khi bỏ `create_all`. F17 tiếp nhận bằng migration mới.
+- `make seed` đổi nghĩa: `postcare seed --reset` (xóa toàn bộ bảng, migrate lại, thêm dữ liệu demo prototype). `make db-seed` chỉ tạo dữ liệu nền theo R7. F30 sẽ thay phần demo bằng `make demo-seed`.
+- Camera seed của F01 tên "Camera A01", không có ROI; ROI mẫu chỉ được thêm ở `--reset`.
+- SQLite đã bỏ hoàn toàn (ADR-0010 thay thế một phần). `make check` cần PostgreSQL đang chạy (`docker start postcare-db`) và DB `postcare_test`.
+- Dependency FastAPI đổi tên `get_db` → `get_session` (R13). Router `sessions.py` có hàm endpoint trùng tên nên import dưới tên `db_session`; OpenAPI không đổi.
+- Test API dùng chung connection của test (savepoint) và `TRUNCATE … RESTART IDENTITY` đầu test; test "lưu trước, phát sau" dùng marker `real_commit` (commit thật, dọn bằng TRUNCATE).
+- Job Windows trên CI không dùng được service container: dừng PostgreSQL cài sẵn trên runner (bản 17) và cài PostgreSQL 16 bằng `choco install postgresql16`, mỗi lệnh native kiểm tra `$LASTEXITCODE`.
+
+**Review (coordinator, 17/11/2026): Cần sửa.** Đã sửa:
+1. Merge `main` (F10) vào nhánh; `server/pyproject.toml` có `alembic`, `psycopg[binary]`, `pyyaml` trong phụ thuộc chính, bỏ extra `postgres`, giữ marker `real_commit` và override mypy cho `yaml`; `uv lock`.
+2. `ci.yml` job Windows: `$ErrorActionPreference = 'Stop'`, kiểm tra `$LASTEXITCODE` sau mỗi lệnh native, dùng PostgreSQL 16 qua chocolatey.
+3. `test_migrations_roundtrip`: `upgrade(head)` nằm trong `finally` để test sau vẫn có schema.
+4. Ghi chú vào F03 §8: `seed_base` tìm camera A01 theo `bed_id`, xóa mềm camera ở F03 có thể làm `db-seed` tạo camera trùng.
+Sau khi sửa: `make check` và `scripts\dev.ps1 check` exit 0 (pytest 158 passed, vitest 30 passed).
 
 ## 11. Definition of Done
 

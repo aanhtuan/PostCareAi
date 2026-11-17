@@ -11,10 +11,11 @@ import httpx
 import typer
 from sqlalchemy import select
 
+from postcare.db.migrate import reset_schema
 from postcare.db.models import Bed
-from postcare.db.session import make_engine, make_session_factory, reset_schema
+from postcare.db.session import make_engine, make_session_factory
 from postcare.db.types import utcnow
-from postcare.domain.seed import SEED_USERS, seed_base, seed_history
+from postcare.domain.seed import SEED_USERS, seed_base, seed_demo, seed_history
 from postcare.settings import get_settings
 
 # Console Windows (cp1252) không in được tiếng Việt: ép UTF-8 cho stdout/stderr.
@@ -33,24 +34,40 @@ def version() -> None:
 
 @app.command()
 def seed(
+    reset: Annotated[
+        bool,
+        typer.Option(
+            "--reset",
+            help="Prototype: XÓA toàn bộ dữ liệu, tạo lại schema bằng migration, thêm dữ liệu demo",
+        ),
+    ] = False,
     history: Annotated[
-        bool, typer.Option(help="Thêm phiên mở và sự kiện quá khứ cho A02/A03")
+        bool, typer.Option(help="Cùng --reset: thêm phiên mở và sự kiện quá khứ cho A01–A03")
     ] = True,
 ) -> None:
-    """XÓA và tạo lại toàn bộ dữ liệu mẫu (tài khoản, ca, giường A01–A03, camera, BN-001…)."""
+    """Tạo dữ liệu mẫu còn thiếu: 4 tài khoản, 3 ca, giường A01–A03, camera A01 (chạy lại an toàn).
+
+    Cần schema mới nhất (`make db-upgrade`). `--reset` (`make seed`) thêm dữ liệu demo của
+    prototype: camera A02/A03, bệnh nhân BN-001…BN-005, phiên và sự kiện quá khứ.
+    """
     settings = get_settings()
     engine = make_engine(settings.database_url)
-    reset_schema(engine)
+    if reset:
+        reset_schema(engine)
     factory = make_session_factory(engine)
     with factory() as db:
-        seed_base(db, settings.seed_password)
-        if history:
-            seed_history(db, utcnow())
-    typer.echo(f"Đã tạo dữ liệu mẫu tại {engine.url.render_as_string(hide_password=True)}")
+        created = seed_base(db, settings.seed_password)
+        if reset:
+            seed_demo(db)
+            if history:
+                seed_history(db, utcnow())
+    typer.echo(f"Dữ liệu mẫu tại {engine.url.render_as_string(hide_password=True)}")
+    typer.echo("Bản ghi mới: " + ", ".join(f"{k}={v}" for k, v in created.items()))
     typer.echo("Tài khoản (mật khẩu = SEED_PASSWORD, mặc định 'postcare'):")
     for username, full_name, role in SEED_USERS:
         typer.echo(f"  {username:<8} {role.value:<13} {full_name}")
-    typer.echo("Nếu API đang chạy, nên khởi động lại để xóa trạng thái giường trong RAM.")
+    if reset:
+        typer.echo("Nếu API đang chạy, nên khởi động lại để xóa trạng thái giường trong RAM.")
 
 
 def _camera_for_bed(bed_code: str) -> int:

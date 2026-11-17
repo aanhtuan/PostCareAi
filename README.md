@@ -24,7 +24,7 @@ Repo đã có một **code base chạy được** để trình bày các phần 
 |---|---|
 | API FastAPI: đăng nhập JWT, phân quyền 4 vai trò, giường/camera/bệnh nhân, phiên theo dõi, sự kiện → cảnh báo, vòng đời cảnh báo + audit, timeline, bàn giao ca, WebSocket realtime | **Phần AI và camera:** MediaPipe, Event Detection Engine, worker đọc camera, MJPEG. Thay bằng lệnh giả lập `postcare simulate` gửi dữ liệu qua đúng API nội bộ mà worker thật sẽ dùng |
 | Web React tiếng Việt: Tổng quan, Theo dõi trực tiếp (skeleton mô phỏng), Cảnh báo, Lịch sử theo dõi, Bàn giao ca, Quản lý giường | Màn hình Cấu hình camera / vẽ ROI, chế độ hiển thị, thêm/sửa danh mục trên UI |
-| SQLite mặc định (chạy ngay), hỗ trợ PostgreSQL qua `DATABASE_URL` | Alembic migration (đang dùng `create_all`), E2E. Đã có từ F00: mypy, import-linter, pre-commit/pre-push hook, CI GitHub Actions, msw |
+| PostgreSQL 16 (Docker) + Alembic migration (F01), test trên DB `postcare_test` rollback mỗi test | E2E. Đã có từ F00: mypy, import-linter, pre-commit/pre-push hook, CI GitHub Actions, msw |
 | Bộ giả lập CLI: rời giường, mất quan sát, chuyển động bất thường, tín hiệu khuôn mặt, đổi tư thế | Quyền xem của người nhà (F36), quản lý tài khoản (F35), khu vực/ca trực (F37), chuyển giường (F04) |
 
 - Sự kiện do `postcare simulate` sinh ra **không** phải kết quả nhận diện AI và không phải bằng chứng chạy camera thật.
@@ -40,7 +40,7 @@ Repo đã có một **code base chạy được** để trình bày các phần 
 | Python | 3.12 (qua uv) | `uv python install 3.12` | `uv python install 3.12` |
 | Node.js + npm | 24 LTS (≥ 22) | `winget install OpenJS.NodeJS.LTS`, hoặc bản zip (xem dưới) | nvm / NodeSource |
 | GNU Make | tùy chọn | `winget install ezwinports.make` (không bắt buộc: dùng `scripts\dev.ps1`) | `sudo apt install make` |
-| PostgreSQL | tùy chọn | — (mặc định dùng SQLite) | — |
+| Docker (chạy PostgreSQL 16) | mới nhất | Docker Desktop | `sudo apt install docker.io` |
 
 Máy có Python khác (ví dụ 3.15) không sao: uv dùng 3.12 theo `server/.python-version`.
 
@@ -77,13 +77,19 @@ Chạy ở thư mục gốc repo. Không bắt buộc tạo `.env`: mọi biến
 | Việc | Có make | Không có make (PowerShell / bash) |
 |---|---|---|
 | Cài phụ thuộc và git hook | `make setup` | `uv --directory server sync`, `npm --prefix web ci`, rồi `uv --directory server run pre-commit install --hook-type pre-commit --hook-type pre-push` |
-| Tạo dữ liệu mẫu | `make seed` | `uv --directory server run postcare seed` |
+| Chạy PostgreSQL 16 (một lần) | xem [mục 4](#4-postgresql) | xem [mục 4](#4-postgresql) |
+| Tạo/cập nhật bảng (migration) | `make db-upgrade` | `uv --directory server run alembic upgrade head` |
+| Dữ liệu mẫu nền (chạy lại an toàn) | `make db-seed` | `uv --directory server run postcare seed` |
+| Dữ liệu demo prototype (**xóa hết** rồi tạo lại) | `make seed` | `uv --directory server run postcare seed --reset` |
 
 Windows có thể dùng script thay make: `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 <lệnh>` với `<lệnh>` là tên target bất kỳ của Makefile (`setup`, `dev`, `seed`, `dev-api`, `dev-web`, `simulate`, `test`, `lint`, `format`, `check`…). Danh sách đầy đủ: `make help`.
 
 `make setup` cài hook **pre-commit** (ruff format/check, prettier, eslint: chỉ kiểm tra, không tự sửa) và **pre-push** (`make check`). Hook cần `uv`, `node` và (pre-push) `make` có trong PATH.
 
-`postcare seed` **xóa và tạo lại** toàn bộ dữ liệu: 4 tài khoản, 3 ca trực, giường A01–A03 ("Khu hậu phẫu") mỗi giường một camera, bệnh nhân BN-001…BN-005, phiên đang mở cho A01–A03, vài sự kiện quá khứ cho A02 (một cảnh báo đã tiếp nhận) và A03 (cảnh báo mới) để dashboard giống phác thảo HS Hình 3. Thêm `--no-history` để chỉ tạo danh mục. Nếu API đang chạy, khởi động lại API sau khi seed.
+API không tự tạo bảng: chạy `make db-upgrade` sau khi tạo DB và sau mỗi lần pull có migration mới.
+
+- `postcare seed` (`make db-seed`, F01) chỉ **thêm phần còn thiếu**: 4 tài khoản (`nurse`, `charge`, `doctor`, `admin`, mật khẩu `SEED_PASSWORD`, mặc định `postcare`), 3 ca trực, giường A01–A03 ("Khu hậu phẫu"), camera A01. Không sửa dữ liệu đã có.
+- `postcare seed --reset` (`make seed`, prototype) **xóa toàn bộ bảng**, chạy lại migration, tạo dữ liệu nền và thêm dữ liệu demo: camera A02/A03, bệnh nhân BN-001…BN-005, phiên đang mở cho A01–A03, vài sự kiện quá khứ cho A02 (một cảnh báo đã tiếp nhận) và A03 (cảnh báo mới) để dashboard giống phác thảo HS Hình 3. Thêm `--no-history` để bỏ phiên và sự kiện. Nếu API đang chạy, khởi động lại API sau khi seed.
 
 ## 3. Chạy
 
@@ -134,16 +140,23 @@ uv --directory server run postcare simulate --help
 make simulate BED=A02 SCENARIO=abnormal-movement SPEED=2
 ```
 
-## 4. Dùng PostgreSQL thay SQLite (tùy chọn)
+## 4. PostgreSQL
+
+Dự án dùng PostgreSQL 16 ([ADR-0004](docs/02-architecture/decisions/ADR-0004-postgresql.md)), chạy bằng Docker trên máy dev (QA#34). Mở Docker Desktop rồi chạy một lần:
 
 ```bash
-uv --directory server sync --extra postgres      # cài psycopg 3
-# tạo user/database theo docs/04-guides/dev-setup.md mục 2, rồi trong .env:
-# DATABASE_URL=postgresql+psycopg://postcare:postcare@localhost:5432/postcare
-uv --directory server run postcare seed           # tạo bảng (create_all) + dữ liệu mẫu
+docker run -d --name postcare-db -e POSTGRES_USER=postcare -e POSTGRES_PASSWORD=postcare \
+  -e POSTGRES_DB=postcare -p 5432:5432 -v postcare-pgdata:/var/lib/postgresql/data postgres:16
+docker exec postcare-db createdb -U postcare postcare_test
+make db-upgrade && make db-seed     # hoặc make seed để có dữ liệu demo
 ```
 
-Test luôn dùng SQLite tạm, không cần PostgreSQL. Alembic sẽ được thêm ở F01 ([ADR-0010](docs/02-architecture/decisions/ADR-0010-prototype-sqlite-simulator.md)).
+Các lần sau: `docker start postcare-db`. Địa chỉ mặc định (đổi trong `.env`):
+
+- `DATABASE_URL=postgresql+psycopg://postcare:postcare@localhost:5432/postcare` (API, CLI, migration);
+- `TEST_DATABASE_URL=postgresql+psycopg://postcare:postcare@localhost:5432/postcare_test` (pytest; tên DB phải kết thúc bằng `_test`).
+
+Test tự chạy `alembic upgrade head` trên DB test và rollback sau mỗi test. Không kết nối được DB test thì test **lỗi** (không skip). Chi tiết: [dev-setup.md](docs/04-guides/dev-setup.md) mục 4.
 
 ## 5. Test, lint, format
 
@@ -170,13 +183,13 @@ scripts/dev.ps1                Lệnh tương đương Makefile cho Windows
 server/                        Python 3.12 (uv), package `postcare`
   src/postcare/
     schemas/                   Enum, catalog sự kiện (nguồn sự thật cho mã/mức ưu tiên)
-    db/                        SQLAlchemy model, kiểu UTC, engine/session
+    db/                        SQLAlchemy model, kiểu UTC, engine/session, migrations/ (Alembic)
     domain/                    Nghiệp vụ: phiên, sự kiện→cảnh báo, vòng đời, audit,
                                overview, timeline, handover, ca trực, seed, kho RAM
     api/                       FastAPI: v1/ (REST), internal/ (worker), realtime.py (WS), deps, errors
     cli/                       Typer: `postcare version | seed | simulate | openapi`; simulator.py
     engine/ vision/ pipeline/ worker/ replay/ eval/   chưa triển khai (chỗ cho phần AI)
-  tests/                       pytest (SQLite tạm cho mỗi test)
+  tests/                       pytest (DB PostgreSQL postcare_test, rollback mỗi test)
 web/                           React 19 + TypeScript + Vite + Mantine 8
   src/api/                     client fetch, hook TanStack Query, schema.d.ts (sinh từ OpenAPI)
   src/realtime/                WebSocket client, cập nhật cache, âm thanh cảnh báo
@@ -198,7 +211,8 @@ docs/                          Tài liệu sản phẩm, kiến trúc, spec, ti�
 | Giả lập báo "Giường A01 chưa có phiên theo dõi" | Mở phiên ở **Quản lý giường** ("Bắt đầu theo dõi") hoặc chạy lại `seed` |
 | Giả lập báo không kết nối được API / 401 | API chưa chạy, hoặc `WORKER_TOKEN` của API và giả lập khác nhau (cùng đọc `.env` ở thư mục gốc) |
 | Cổng 8000 hoặc 5173 bị chiếm | Dừng tiến trình cũ, hoặc đổi cổng: `--port 8001` cho API và đặt `VITE_API_TARGET=http://127.0.0.1:8001` trước khi chạy web |
-| `database is locked` (SQLite) | Chạy `seed` khi API đang ghi nhiều: dừng API, seed, rồi chạy lại API |
+| API / test báo không kết nối được PostgreSQL | `docker start postcare-db` (Docker Desktop phải đang chạy); kiểm tra `DATABASE_URL` / `TEST_DATABASE_URL` |
+| API báo lỗi `relation "..." does not exist` | Chưa chạy migration: `make db-upgrade` |
 | Không nghe âm thanh cảnh báo | Trình duyệt chặn tự phát âm thanh cho tới khi bạn bấm vào trang ít nhất một lần |
 | Tiếng Việt bị lỗi font trong terminal Windows | Lệnh `postcare` tự in UTF-8; dùng Windows Terminal hoặc `chcp 65001` |
 | Gửi JSON có tiếng Việt bằng `curl` trên Git Bash bị 400 | Do mã hóa dòng lệnh; dùng UI, Swagger (`/api/docs`) hoặc file JSON UTF-8 với `--data-binary @file.json` |

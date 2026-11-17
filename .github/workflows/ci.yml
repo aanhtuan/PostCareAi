@@ -1,6 +1,6 @@
 # CI (F00 R13; QA#8). Ubuntu chay day du `make setup` + `make check`.
 # Windows chay cung bo kiem tra qua scripts/dev.ps1 (AGENTS.md quy tac 10: da nen tang).
-# Chua co service Postgres: F01 them khi test chuyen sang TEST_DATABASE_URL.
+# F01 R11: test chay tren PostgreSQL (TEST_DATABASE_URL, DB postcare_test, rollback moi test).
 name: ci
 
 on:
@@ -18,6 +18,22 @@ jobs:
   check:
     name: make check (ubuntu)
     runs-on: ubuntu-latest
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://postcare:postcare@localhost:5432/postcare_test
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postcare
+          POSTGRES_PASSWORD: postcare
+          POSTGRES_DB: postcare_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postcare"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -35,6 +51,8 @@ jobs:
   windows:
     name: dev.ps1 check (windows)
     runs-on: windows-latest
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://postcare:postcare@localhost:5432/postcare_test
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -46,6 +64,25 @@ jobs:
           node-version-file: web/.nvmrc
           cache: npm
           cache-dependency-path: web/package-lock.json
+      # Windows runner khong ho tro service container va ban PostgreSQL cai san la 17:
+      # dung service cai san (neu dang chay) va cai PostgreSQL 16 qua chocolatey (ADR-0004).
+      - name: install PostgreSQL 16 and create postcare_test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-Service -Name postgresql* -ErrorAction SilentlyContinue | Stop-Service -Force
+          choco install postgresql16 --no-progress -y --params '/Password:postgres /Port:5432'
+          if ($LASTEXITCODE -ne 0) { throw "choco install postgresql16 failed: $LASTEXITCODE" }
+          $bin = 'C:\Program Files\PostgreSQL\16\bin'
+          $env:PGPASSWORD = 'postgres'
+          & "$bin\pg_isready.exe" -h localhost -p 5432 -t 60
+          if ($LASTEXITCODE -ne 0) { throw "pg_isready failed: $LASTEXITCODE" }
+          & "$bin\psql.exe" -h localhost -U postgres -v ON_ERROR_STOP=1 -c "SELECT version();"
+          if ($LASTEXITCODE -ne 0) { throw "psql version failed: $LASTEXITCODE" }
+          & "$bin\psql.exe" -h localhost -U postgres -v ON_ERROR_STOP=1 -c "CREATE USER postcare WITH PASSWORD 'postcare';"
+          if ($LASTEXITCODE -ne 0) { throw "CREATE USER failed: $LASTEXITCODE" }
+          & "$bin\psql.exe" -h localhost -U postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE postcare_test OWNER postcare;"
+          if ($LASTEXITCODE -ne 0) { throw "CREATE DATABASE failed: $LASTEXITCODE" }
       - name: setup
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 setup

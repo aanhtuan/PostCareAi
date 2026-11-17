@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import AwareDatetime
 from sqlalchemy.orm import Session
 
-from postcare.api.deps import get_current_user, get_db, get_publisher, require_writer
+from postcare.api.deps import get_current_user, get_publisher, get_session, require_writer
 from postcare.db.models import User
 from postcare.domain import alerts as svc
 from postcare.domain.dto import AlertOut, OutcomeIn, Page, ResolveIn
@@ -21,7 +21,7 @@ def list_alerts(
     to: AwareDatetime | None = None,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_session),
 ) -> Page[AlertOut]:
     return svc.list_alerts(
         db,
@@ -36,7 +36,7 @@ def list_alerts(
 
 
 @router.get("/{alert_id}", response_model=AlertOut, dependencies=[Depends(get_current_user)])
-def get_alert(alert_id: int, db: Session = Depends(get_db)) -> AlertOut:
+def get_alert(alert_id: int, db: Session = Depends(get_session)) -> AlertOut:
     return svc.get_alert(db, alert_id)
 
 
@@ -44,7 +44,7 @@ def get_alert(alert_id: int, db: Session = Depends(get_db)) -> AlertOut:
 def acknowledge(
     alert_id: int,
     user: User = Depends(require_writer),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_session),
     publisher: Publisher = Depends(get_publisher),
 ) -> AlertOut:
     return svc.acknowledge(db, alert_id, user, publisher)
@@ -55,7 +55,7 @@ def outcome(
     alert_id: int,
     body: OutcomeIn,
     user: User = Depends(require_writer),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_session),
     publisher: Publisher = Depends(get_publisher),
 ) -> AlertOut:
     return svc.set_outcome(db, alert_id, body.outcome, body.note, user, publisher)
@@ -66,7 +66,7 @@ def resolve(
     alert_id: int,
     body: ResolveIn | None = None,
     user: User = Depends(require_writer),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_session),
     publisher: Publisher = Depends(get_publisher),
 ) -> AlertOut:
     return svc.resolve(db, alert_id, body.note if body else None, user, publisher)

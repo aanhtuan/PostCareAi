@@ -37,9 +37,10 @@ CREATE DATABASE postcare_test OWNER postcare;
 ```bash
 cp .env.example .env        # Windows PowerShell: Copy-Item .env.example .env
 make setup                  # uv sync, npm ci, cài hook pre-commit và pre-push
-make seed                   # dữ liệu mẫu SQLite của prototype (tới khi F01 có db-upgrade/db-seed)
-make db-upgrade             # chạy migration (từ F01; hiện là target giữ chỗ, exit 1)
-make db-seed                # dữ liệu mẫu (từ F01; hiện là target giữ chỗ, exit 1)
+# PostgreSQL phải đang chạy (mục 4)
+make db-upgrade             # alembic upgrade head trên DATABASE_URL
+make db-seed                # dữ liệu mẫu nền (postcare seed), chạy lại an toàn
+make seed                   # tùy chọn, prototype: XÓA hết, migrate lại, thêm dữ liệu demo
 make models                 # tải model MediaPipe (từ F11; hiện là target giữ chỗ, exit 1)
 make check                  # phải xanh
 ```
@@ -69,7 +70,7 @@ docker run -d --name postcare-db -e POSTGRES_USER=postcare -e POSTGRES_PASSWORD=
 docker exec -it postcare-db createdb -U postcare postcare_test
 ```
 
-Trong `.env`: `DATABASE_URL=postgresql+psycopg://postcare:postcare@localhost:5432/postcare`.
+Giá trị mặc định (không cần `.env`): `DATABASE_URL=postgresql+psycopg://postcare:postcare@localhost:5432/postcare`, `TEST_DATABASE_URL=postgresql+psycopg://postcare:postcare@localhost:5432/postcare_test`. Test chỉ chạy trên DB có tên kết thúc bằng `_test` và tự chạy migration trên đó; DB test không kết nối được thì test lỗi (không skip), nên `make check` cần container đang chạy.
 
 Các lần sau chỉ cần `docker start postcare-db`. Dữ liệu nằm trong volume `postcare-pgdata`; xóa hẳn bằng `docker rm -f postcare-db` rồi `docker volume rm postcare-pgdata`.
 

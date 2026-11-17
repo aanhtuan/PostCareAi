@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import AwareDatetime
 from sqlalchemy.orm import Session
 
-from postcare.api.deps import get_current_user, get_db, get_store
+from postcare.api.deps import get_current_user, get_session, get_store
 from postcare.db.types import utcnow
 from postcare.domain import events as ev
 from postcare.domain import handover as ho
@@ -22,7 +22,7 @@ router = APIRouter(tags=["monitoring"], dependencies=[Depends(get_current_user)]
 
 @router.get("/overview", response_model=OverviewOut)
 def overview(
-    db: Session = Depends(get_db), store: RuntimeStore = Depends(get_store)
+    db: Session = Depends(get_session), store: RuntimeStore = Depends(get_store)
 ) -> OverviewOut:
     return get_overview(db, store, utcnow())
 
@@ -37,7 +37,7 @@ def list_events(
     code: EventCode | None = None,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_session),
 ) -> Page[EventOut]:
     return ev.list_events(
         db,
@@ -60,7 +60,7 @@ def bed_timeline(
     priority: list[Priority] | None = Query(None),
     limit: int = Query(200, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_session),
 ) -> Page[TimelineItemOut]:
     return tl.bed_timeline(db, bed_id, from_, to, priority, limit, offset)
 
@@ -71,7 +71,7 @@ def handover(
     date_: date | None = Query(None, alias="date"),
     from_: AwareDatetime | None = Query(None, alias="from"),
     to: AwareDatetime | None = None,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_session),
 ) -> HandoverOut:
     start, end, shift = ho.resolve_window(db, shift_id=shift_id, day=date_, from_=from_, to=to)
     return ho.build_handover(db, start, end, shift)

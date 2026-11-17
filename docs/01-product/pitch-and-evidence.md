@@ -135,7 +135,7 @@ Camera (một giường)
 | Engine | Python thuần, state machine, rule theo thời gian | Kết hợp landmark, vùng giường, chất lượng, thời gian duy trì; replay và test xác định | Rule phải có ca âm tính; hiệu chỉnh trên tập dev |
 | Worker | Tiến trình riêng, HTTP client | Tách inference khỏi API; gửi trạng thái, heartbeat, sự kiện | Gửi lại, chống trùng, khôi phục kết nối. Worker không ghi DB trực tiếp |
 | API | FastAPI, Pydantic, SQLAlchemy | Xác thực dữ liệu, nghiệp vụ | Phân quyền thực thi ở API |
-| Lưu trữ | SQLite ở prototype; PostgreSQL + Alembic theo F01 | Lộ trình migration theo kiến trúc đích | Xem [ADR-0010](../02-architecture/decisions/ADR-0010-prototype-sqlite-simulator.md) |
+| Lưu trữ | PostgreSQL 16 + Alembic (F01; prototype trước đó dùng SQLite) | Migration hai chiều, test trên DB riêng | Xem [ADR-0010](../02-architecture/decisions/ADR-0010-prototype-sqlite-simulator.md) |
 | Realtime | WebSocket | Cập nhật dashboard, cảnh báo, trạng thái | Commit trước khi phát; xử lý mất kết nối |
 | Giao diện | React, TypeScript, Mantine, TanStack Query | Web tiếng Việt | Text chỉ trong `vi.ts` |
 | Chất lượng | pytest, Vitest, mypy, import-linter, hook, CI; Playwright (F30) | Kiểm tra logic, giao diện, kiến trúc, tích hợp | Công cụ phải chạy thật |

@@ -15,4 +15,4 @@ Mỗi quyết định kiến trúc quan trọng được ghi thành một ADR, t
 | [ADR-0007](ADR-0007-alert-status-outcome.md) | Tách `status` và `outcome` của cảnh báo | Chấp nhận |
 | [ADR-0008](ADR-0008-early-eval-tooling.md) | Làm công cụ đánh giá sớm, chốt ngưỡng trước tập test | Chấp nhận |
 | [ADR-0009](ADR-0009-abnormal-movement-code.md) | Dùng mã `ABNORMAL_MOVEMENT` thay `FALL_LIKE` | Chấp nhận |
-| [ADR-0010](ADR-0010-prototype-sqlite-simulator.md) | Prototype đề xuất dùng SQLite, create_all và bộ giả lập thay worker AI | Chấp nhận (tạm thời) |
+| [ADR-0010](ADR-0010-prototype-sqlite-simulator.md) | Prototype đề xuất dùng SQLite, create_all và bộ giả lập thay worker AI | Thay thế một phần (mục 1–2 bởi F01/ADR-0004) |

@@ -27,7 +27,7 @@ def get_settings_dep(request: Request) -> Settings:
     return request.app.state.settings
 
 
-def get_db(request: Request) -> Iterator[Session]:
+def get_session(request: Request) -> Iterator[Session]:
     db = request.app.state.session_factory()
     try:
         yield db
@@ -72,7 +72,7 @@ def user_from_token(db: Session, token: str, settings: Settings) -> User:
 
 def get_current_user(
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_session),
     settings: Settings = Depends(get_settings_dep),
 ) -> User:
     if creds is None or creds.scheme.lower() != "bearer":
