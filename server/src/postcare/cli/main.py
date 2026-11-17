@@ -1,7 +1,8 @@
-"""Lệnh CLI `postcare`: seed, simulate, openapi."""
+"""Lệnh CLI `postcare`: version, seed, simulate, openapi."""
 
 import json
 import sys
+from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import Annotated
 
@@ -21,6 +22,12 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
 app = typer.Typer(help="PostCare AI - công cụ dòng lệnh (prototype)", no_args_is_help=True)
+
+
+@app.command()
+def version() -> None:
+    """In phiên bản package `postcare` đã cài."""
+    typer.echo(f"postcare {package_version('postcare')}")
 
 
 @app.command()

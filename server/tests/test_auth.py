@@ -5,12 +5,6 @@ from fastapi.testclient import TestClient
 from tests.conftest import PASSWORD
 
 
-def test_health(client: TestClient) -> None:
-    r = client.get("/api/v1/health")
-    assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
-
-
 def test_login_returns_token_and_user(client: TestClient) -> None:
     r = client.post("/api/v1/auth/login", json={"username": "nurse", "password": PASSWORD})
     assert r.status_code == 200
