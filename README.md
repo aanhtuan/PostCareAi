@@ -72,7 +72,7 @@ Sau khi cài uv/Node, **mở terminal mới** rồi kiểm tra: `uv --version`, 
 
 ## 2. Thiết lập (một lần)
 
-Chạy ở thư mục gốc repo. Không bắt buộc tạo `.env`: mọi biến có giá trị mặc định cho dev. Muốn đổi thì `cp .env.example .env` (PowerShell: `Copy-Item .env.example .env`).
+Chạy ở thư mục gốc repo. **Tạo `.env` trước khi chạy API:** `cp .env.example .env` (PowerShell: `Copy-Item .env.example .env`). API từ chối khởi động nếu `JWT_SECRET` hoặc `WORKER_TOKEN` còn là giá trị mặc định (`change-me…`) hoặc ngắn hơn 32 byte. Giá trị trong `.env.example` chỉ dùng cho dev; chạy demo trong LAN thì tạo giá trị mới bằng `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Worker và giả lập đọc cùng file `.env` nên `WORKER_TOKEN` tự khớp. Các biến khác có giá trị mặc định.
 
 | Việc | Có make | Không có make (PowerShell / bash) |
 |---|---|---|
