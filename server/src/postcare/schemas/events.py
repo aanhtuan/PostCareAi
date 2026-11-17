@@ -2,8 +2,12 @@
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Annotated, Self
 
-from postcare.schemas.enums import PRIORITY_RANK, Priority
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+
+from postcare.schemas.enums import PRIORITY_RANK, ObservationQuality, Priority
+from postcare.schemas.state import BodyStateSnapshot
 
 
 class EventCode(StrEnum):
@@ -29,6 +33,16 @@ class EventSpec:
 
     allowed_priorities: frozenset[Priority]
     api_generated: bool = False
+
+    @property
+    def default_priority(self) -> Priority:
+        """Mức mặc định = mức thấp nhất cho phép (FACE_ATTENTION: MEDIUM; F26 nâng lên HIGH)."""
+        return min(self.allowed_priorities, key=lambda p: PRIORITY_RANK[p])
+
+    @property
+    def creates_alert(self) -> bool:
+        """Mức mặc định MEDIUM/HIGH thì tạo cảnh báo PENDING (QA#17)."""
+        return self.default_priority in ALERT_PRIORITIES
 
 
 def _one(priority: Priority, *, api_generated: bool = False) -> EventSpec:
@@ -70,4 +84,42 @@ STATE_CHANGE_CODES: frozenset[EventCode] = frozenset(
 
 def default_priority(code: EventCode) -> Priority:
     """Mức ưu tiên mặc định (thấp nhất trong các mức cho phép)."""
-    return min(EVENT_CATALOG[code].allowed_priorities, key=lambda p: PRIORITY_RANK[p])
+    return EVENT_CATALOG[code].default_priority
+
+
+class EngineEvent(BaseModel):
+    """Một sự kiện engine phát ra (event-engine.md mục 2, 5)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    code: EventCode
+    priority: Priority
+    occurred_at_ms: Annotated[int, Field(ge=0)]
+    """Lúc hành động bắt đầu (theo `ts_ms`)."""
+    detected_at_ms: Annotated[int, Field(ge=0)]
+    """Lúc engine kết luận, sau khi đủ `min_duration` (theo `ts_ms`)."""
+    confidence: Annotated[float, Field(ge=0.0, le=1.0)]
+    observation_quality: ObservationQuality
+    explanation: dict[str, JsonValue]
+    """Căn cứ ngắn gọn: luôn có `rule_id` và giá trị đặc trưng chính (PDF §7; HS §6.2)."""
+
+    @model_validator(mode="after")
+    def _check(self) -> Self:
+        rule_id = self.explanation.get("rule_id")
+        if not isinstance(rule_id, str) or not rule_id:
+            raise ValueError("explanation.rule_id phải là chuỗi không rỗng")
+        if self.priority not in EVENT_CATALOG[self.code].allowed_priorities:
+            raise ValueError(f"priority {self.priority} không hợp lệ cho {self.code}")
+        if self.occurred_at_ms > self.detected_at_ms:
+            raise ValueError("occurred_at_ms phải ≤ detected_at_ms")
+        return self
+
+
+class EngineOutput(BaseModel):
+    """Kết quả của `Engine.process(obs)` cho một khung hình."""
+
+    model_config = ConfigDict(frozen=True)
+
+    state: BodyStateSnapshot
+    state_changed: bool
+    events: list[EngineEvent] = Field(default_factory=list)

@@ -36,7 +36,7 @@ FaceSignals                       # do ENGINE suy ra theo thời gian (F26)
 
 EngineContext                     # truyền khi tạo Engine(config, context), không nằm trong từng frame
   camera_id: int
-  roi_polygon: list[(x, y)]       # chuẩn hóa 0–1; đổi ROI → worker tạo Engine mới
+  roi_polygon: RoiPolygon         # points: list[(x, y)] chuẩn hóa 0–1, ≥3 điểm; đổi ROI → worker tạo Engine mới
 
 EngineOutput
   state: BodyStateSnapshot        # body_state, observation_quality, activity_level, rest_status, face_status, face_signals
@@ -48,6 +48,13 @@ EngineOutput
 - Vòng đời một instance `Engine` = một phiên theo dõi. Worker tạo `Engine` mới khi phiên đổi hoặc ROI/ngưỡng đổi *(giả định)*.
 
 `KeypointName` là danh sách tên trung lập. Adapter MediaPipe ánh xạ 33 landmark sang các tên này. Adapter khác (ví dụ RTMPose) ánh xạ tập keypoint của nó sang cùng tên (PDF §10).
+
+Quy ước của code (F10, file trong `postcare/schemas/`: `observation.py`, `state.py`, `events.py`, `context.py`, `roi.py`, `engine_config.py`):
+- `KeypointName` gồm 21 tên viết thường: `nose`, `left_/right_` + `eye`, `ear`, `shoulder`, `elbow`, `wrist`, `hip`, `knee`, `ankle`, `heel`, `foot_index` *(giả định F10 R3)*. Tên lạ hoặc toạ độ, visibility ngoài [0, 1] → lỗi validate; adapter phải kẹp giá trị trước khi tạo.
+- Mọi schema là Pydantic frozen và JSON round-trip được (định dạng `observations.jsonl`).
+- `EngineEvent` kiểm tra `explanation.rule_id` không rỗng, `priority` thuộc các mức cho phép của mã trong catalog, `occurred_at_ms ≤ detected_at_ms` *(giả định)*.
+- `Engine.process(obs)`: `obs.ts_ms` phải tăng ngặt so với frame trước, `obs.camera_id` phải bằng `context.camera_id`; sai → `ValueError` *(giả định)*. `state_changed` là `true` ở output đầu tiên và khi `BodyStateSnapshot` khác lần trước.
+- Chưa có vận động, nghỉ, khuôn mặt (trước F23, F26, F27): `activity_level = UNKNOWN`, `rest_status = UNKNOWN`, `face_status = NOT_VISIBLE`.
 
 ## 3. Pipeline (mỗi bước là một module, có test riêng)
 
@@ -63,7 +70,7 @@ EngineOutput
 | 8 | Khuôn mặt + kết hợp | `engine/face.py`, `engine/rules/face.py`, `engine/rest.py` | F26, F27 | face_signals; FACE_ATTENTION (có nâng ưu tiên); rest_status |
 | 9 | Debounce + quan sát | `engine/debounce.py`, `engine/rules/observation.py` | F15 (engine); F17 chỉ lưu | Lọc lặp; OBSERVATION_LOST / RESTORED |
 
-`engine/engine.py` có lớp `Engine` ghép các bước trên. Method `Engine.process(obs) -> EngineOutput` là API duy nhất mà worker và replay gọi (F10).
+`engine/engine.py` có lớp `Engine` ghép các bước trên. Khung các bước (chữ ký sẵn, chưa có logic) nằm ở `engine/pipeline.py` (F10): `TargetSelector`, `QualityAssessor`, `StateMachine`, `RuleSet`; feature sau tách ra module riêng như bảng trên. Method `Engine.process(obs) -> EngineOutput` là API duy nhất mà worker và replay gọi (F10).
 
 ## 4. Trạng thái cơ thể
 
@@ -197,7 +204,9 @@ privacy:                           # chỉ ảnh hưởng hiển thị, KHÔNG t
   head_hold_s: 1.0
 ```
 
-Engine tính `config_hash` (sha256 của cấu hình đã hợp nhất, dạng chuẩn) và gắn vào mọi sự kiện. **Hash tính trên mọi khóa trừ `privacy.*`**, vì đổi cách hiển thị không làm đổi kết quả phát hiện. Mỗi cấu hình camera (default + override) có một hash. Tập test dùng một cấu hình camera *(giả định)*.
+`EngineConfig.load(path, overrides)` (`postcare/schemas/engine_config.py`) đọc file này, hợp nhất sâu override (dict từ `cameras.thresholds` hoặc file `config/cameras/<setup>.yaml`) rồi validate ở chế độ strict. Khóa lạ, sai kiểu, thiếu khóa → `EngineConfigError` nêu đường dẫn khóa (ví dụ `posture.sitting_enter_deg`).
+
+Engine tính `config_hash` (sha256 của cấu hình đã hợp nhất, dạng JSON chuẩn: khóa sắp xếp, không khoảng trắng) và gắn vào mọi sự kiện. **Hash tính trên mọi khóa trừ `privacy.*`**, vì đổi cách hiển thị không làm đổi kết quả phát hiện. Mỗi cấu hình camera (default + override) có một hash. Tập test dùng một cấu hình camera *(giả định)*.
 
 > **Lưu ý về góc nhìn *(giả định)*:** Góc thân 2D phụ thuộc vào vị trí camera.
 > - Đo **so với trục dài của giường** (trục chính của polygon ROI) thì không phụ thuộc hướng giường trong khung hình.
