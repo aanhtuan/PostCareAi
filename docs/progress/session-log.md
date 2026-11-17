@@ -2,6 +2,16 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-17 – Claude Code (Opus) – F00 hoàn tất
+
+- **Mục tiêu phiên:** Hoàn thành F00 theo vòng đời subagent (planner → test-writer → implementer → code-reviewer) và các kiểm chứng tay còn thiếu.
+- **Đã làm:** 14 commit trên `feat/F00-project-skeleton`: mypy strict cho `schemas`/`engine`, import-linter 8 contract, `postcare version`, `postcare openapi --check` (sửa lỗi ghi CRLF), router health v1, marker `vision`, msw, `config/engine.default.yaml`, `Procfile.dev`, Makefile ↔ `scripts/dev.ps1` có test giữ tương đương, pre-commit + pre-push, CI Ubuntu + Windows. Review: chỉ vướng kiểm tay; đã sửa góp ý nhỏ (AGENTS bước check-api-types, mypy 2.x, ghi `npm audit` vào Backlog).
+- **Kết quả kiểm tra:** `make check` và `dev.ps1 check` exit 0 (pytest 80 passed, vitest 30 passed). Bản clone sạch: `make setup` + `make check` exit 0. `git push` thật chạy hook pre-push (`make check` Passed). CI run 44107632897: ubuntu success, windows success. Trình duyệt mở 5173 được; IP LAN 192.168.2.113:5173 trả 200. Chưa thử từ một thiết bị khác.
+- **Đang dở:** Không.
+- **Bước tiếp theo:** F01 (PostgreSQL Docker + Alembic), F05 (FrameSource), F10 (schema + engine core) song song.
+- **Blocker / câu hỏi cho người dùng:** Không.
+- **Giả định mới:** pyyaml đang ở nhóm dev; F10 chuyển sang phụ thuộc chính.
+
 ## 2026-11-17 – Claude Code (Opus, planner) – F00
 
 - **Mục tiêu phiên:** Lập kế hoạch F00 theo plan-feature.md, xuất phát từ code prototype.

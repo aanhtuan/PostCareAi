@@ -10,29 +10,7 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 
 ## Đang làm
 
-- **F00 – Khung xương dự án** ([spec](../03-features/F00-project-skeleton.md), nhánh `feat/F00-project-skeleton`). Trạng thái: Planned (17/11/2026). Kế hoạch ở spec mục 9; phần đã đạt sẵn ở 9.1. Vòng đời tiếp: test-writer → implementer → code-reviewer → cập nhật tiến độ → merge.
-  - [x] Lập kế hoạch (planner).
-  - [ ] 1. Thêm mypy, import-linter, pre-commit, honcho vào nhóm dev; marker `vision`; `[tool.mypy]`.
-  - [ ] 2. `test_health.py`, `test_cli.py`; router `api/v1/health.py`; lệnh `postcare version`.
-  - [ ] 3. Test giữ chỗ marker `vision` (`make test-vision` exit 0).
-  - [ ] 4. mypy strict xanh cho `schemas`, `engine`.
-  - [ ] 5. `server/.importlinter` theo overview.md §3; kiểm ca âm tính.
-  - [ ] 6. `postcare openapi --check` + script `check-api-types` (openapi-typescript `--check`).
-  - [ ] 7. msw + `App.test.tsx` + `web/.nvmrc`.
-  - [ ] 8. `config/engine.default.yaml`.
-  - [ ] 9. `Procfile.dev`.
-  - [ ] 10. `test_tooling.py`; viết lại Makefile đủ target R3; `scripts/dev.ps1` tương đương.
-  - [ ] 11. `.pre-commit-config.yaml` (pre-commit + pre-push), `make setup` cài hook.
-  - [ ] 12. `.github/workflows/ci.yml` (Ubuntu, `make setup` + `make check`, chưa có Postgres).
-  - [ ] 13. Cập nhật doc (spec 9.4), kiểm chứng thủ công AC1–AC6 trên Windows, ghi mục 10.
-- **Hợp nhất đề xuất nhóm vào tài liệu** (nhánh `docs/consolidate-proposals`). Người dùng đã duyệt kế hoạch ngày 17/11/2026 (QA#31–QA#37).
-  - [x] Commit lưu hai file đề xuất gốc (`fc5a2bf`).
-  - [x] QA#31–QA#37, PRD (vai trò `FAMILY`, US10–US12), glossary, tech-stack, dev-setup (Docker PostgreSQL), ROADMAP và mục lục feature (F35 vào M0, F36, F37, F31 R1–R3 ở M4).
-  - [x] `docs/01-product/pitch-and-evidence.md`, `docs/progress/DEMO-PLAN.md`.
-  - [x] Spec F36, F37; cập nhật F03 (xóa mềm/khôi phục), F04 (chuyển giường, tạm dừng thu hình), F35 (MVP); data-model, api-conventions; ghi chú liên quan ở F18, F21, F22.
-  - [x] `docs/04-guides/datasets.md`, mục 8 "Dữ liệu ngoài" trong evaluation.md. Đã tải URFD, GMDCSA24, CAUCAFall, 19 clip Pexels/Mixkit vào `data/external/` (khoảng 2,5 GB, không commit); `data/eval/manifest.csv` 379 video, `truth.csv` 211 nhãn. Le2i bỏ qua (không có mirror video).
-  - [x] Xóa `SUMMARY.md` và hai file đề xuất (bản gốc ở commit `fc5a2bf`).
-  - [x] Merge vào `main`.
+- **Tiếp theo trong lúc này:** F01 (B), F05 và F10 (A) theo vòng đời planner → test-writer → implementer → code-reviewer → merge.
 - **Lưu ý cho F16:** nhãn trên dữ liệu ngoài chỉ phủ một số mã sự kiện mỗi video (cột notes); F16 phải bỏ qua mã không được gán nhãn khi tính FP *(giả định, datasets.md)*. Script dựng manifest/truth chưa nằm trong repo; quy tắc dựng ghi ở datasets.md §3.5, cần đưa thành lệnh trong F16.
 
 ## Tiếp theo
@@ -61,6 +39,9 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 - `npm audit` báo 8 lỗ hổng (7 moderate, 1 high) trong devDependency của web (17/11/2026). Xem từng gói, nâng phiên bản nếu không phá build; ghi kết quả vào session-log.
 
 ## Đã xong gần đây
+
+- [x] 2026-11-17: **F00 Done.** Mypy, import-linter (8 contract), pre-commit/pre-push, CI GitHub Actions (Ubuntu + Windows, run 44107632897 xanh), `config/engine.default.yaml`, msw, `postcare version`/`openapi --check`. Chi tiết: spec F00 mục 10.
+- [x] 2026-11-17: Hợp nhất đề xuất nhóm vào tài liệu (QA#31–QA#37, F35–F37, pitch, DEMO-PLAN, datasets); dữ liệu ngoài 2,5 GB trong `data/external/`.
 
 - [x] 2026-11-16: Chuẩn bị xuất bản GitHub; cài lại phụ thuộc frontend cho Linux, `make check` đạt (40 backend + 25 frontend test, build đạt). SUMMARY.md đã cập nhật; đã push prototype lên origin/main qua SSH (commit đầu tiên e59d28f).
 - [x] 2026-11-16: Lưu bản tổng kết hiện trạng và kết quả kiểm tra vào `SUMMARY.md`. Ngày 17/11/2026 nội dung đã gộp vào README ("Trạng thái hiện tại") và session-log, file đã xóa.
