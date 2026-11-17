@@ -662,7 +662,10 @@ def eval_command(
     model_info: dict[str, Any] | None = None
     if from_observations is None:
         adapter_factory, model_info = _pose_adapter_factory(model, models_dir)
-    mode = "observations" if from_observations is not None else f"video (pose {model_info})"
+    if model_info is None:
+        mode = f"observations (chỉ engine, từ {from_observations})"
+    else:
+        mode = f"video (pose {model_info['variant']}, {model_info['file']}, max-fps {max_fps:g})"
 
     typer.echo(f"Eval split {split}: {len(rows)} video → {runs}")
     results = run_split(
