@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import Connection, event, select
 from sqlalchemy.orm import Session
 
 from postcare.db.models import AuditLog, Camera
@@ -233,3 +233,63 @@ def test_deleted_bed_history_still_accessible(
     assert [i["code"] for i in r.json()["items"]] == ["SIT_UP"]
     r = client.get("/api/v1/beds/1", headers=nurse)
     assert r.status_code == 200 and r.json()["is_active"] is False
+
+
+def test_start_session_locks_bed_and_patient_rows(
+    client: TestClient, login, connection: Connection
+) -> None:
+    """Review F03 #2: mở phiên khóa hàng giường và bệnh nhân để không tranh chấp với xóa mềm."""
+    statements: list[str] = []
+
+    def capture(_conn: Any, _cursor: Any, statement: str, *_: Any) -> None:
+        statements.append(" ".join(statement.split()))
+
+    nurse = login("nurse")
+    event.listen(connection, "before_cursor_execute", capture)
+    try:
+        r = client.post("/api/v1/sessions", json={"bed_id": 2, "patient_id": 2}, headers=nurse)
+    finally:
+        event.remove(connection, "before_cursor_execute", capture)
+    assert r.status_code == 201, r.text
+    locked = [s for s in statements if s.endswith("FOR UPDATE")]
+    assert any("FROM beds" in s for s in locked), statements
+    assert any("FROM patients" in s for s in locked), statements
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"bed_id": None},
+        {"bed_id": "NEW_BED"},
+        {"source": "1"},
+        {"source_type": "FILE", "source": "a.mp4"},
+    ],
+)
+def test_update_camera_in_active_session_409(
+    client: TestClient, login, open_session: dict[str, Any], patch: dict[str, Any]
+) -> None:
+    """Review F03 #4: không đổi giường hoặc nguồn của camera đang dùng cho phiên mở."""
+    admin = login("admin")
+    if patch.get("bed_id") == "NEW_BED":
+        r = client.post("/api/v1/beds", json={"code": "Z09", "area": "Khu"}, headers=admin)
+        patch = {"bed_id": r.json()["id"]}
+    before = client.get("/api/v1/cameras/1", headers=admin).json()
+    r = client.patch("/api/v1/cameras/1", json=patch, headers=admin)
+    assert r.status_code == 409, r.text
+    err = r.json()["error"]
+    assert err["code"] == "CAMERA_IN_ACTIVE_SESSION"
+    assert err["details"]["session_id"] == open_session["id"]
+    assert client.get("/api/v1/cameras/1", headers=admin).json() == before
+
+
+def test_update_camera_in_active_session_allows_name_and_same_values(
+    client: TestClient, login, open_session: dict[str, Any]
+) -> None:
+    admin = login("admin")
+    r = client.patch(
+        "/api/v1/cameras/1",
+        json={"name": "Camera giường A01", "source_type": "WEBCAM", "source": "0", "bed_id": 1},
+        headers=admin,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["name"] == "Camera giường A01"
