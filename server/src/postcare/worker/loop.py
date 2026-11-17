@@ -45,7 +45,7 @@ from postcare.worker.client import (
     WorkerApiError,
     WorkerUnauthorizedError,
 )
-from postcare.worker.config import WorkerConfig
+from postcare.worker.config import WorkerConfig, mask_source
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +205,7 @@ class Worker:
         now = self._clock()
         if now >= self._next_heartbeat:
             self._heartbeat(now)
-        if now >= self._next_poll:
+        if now >= self._next_poll and self._api_open(self._clock()):
             self._load_config(now)
         self._flush_events(self._clock())
         cfg = self.config
@@ -259,13 +259,19 @@ class Worker:
                 "Cấu hình camera %s: nguồn %s %s, phiên %s, config_version %s",
                 cfg.camera_id,
                 cfg.source_type.value,
-                cfg.source,
+                mask_source(cfg.source),
                 cfg.active_session_id,
                 cfg.config_version,
             )
             return
         if old.source_key != cfg.source_key:
-            logger.info("Nguồn đổi %s → %s: mở lại nguồn", old.source_key, cfg.source_key)
+            logger.info(
+                "Nguồn đổi %s %s → %s %s: mở lại nguồn",
+                old.source_type.value,
+                mask_source(old.source),
+                cfg.source_type.value,
+                mask_source(cfg.source),
+            )
             self._close_source()
         if old.engine_key != cfg.engine_key:
             logger.info(
@@ -299,6 +305,7 @@ class Worker:
             self._load_config(now)
 
     def _mark_api_error(self, now: float, exc: Exception) -> None:
+        now = max(now, self._clock())  # request treo tới timeout: tính backoff từ lúc kết thúc
         if self._api_reachable is not False:
             logger.warning("Không gửi được tới API (%s); vẫn chạy và thử lại", exc)
         self._api_reachable = False
@@ -478,6 +485,8 @@ class Worker:
 
     def _flush_events(self, now: float) -> None:
         while self._events:
+            if not self._api_open(self._clock()):
+                return  # circuit mở: không gửi, chờ heartbeat thử lại API
             pending = self._events[0]
             if pending.next_try > now:
                 return
@@ -492,6 +501,7 @@ class Worker:
                     self.options.retry_max_s,
                 )
                 pending.next_try = now + delay
+                self._mark_api_error(now, ApiUnavailableError("gửi sự kiện thất bại"))
                 return
             self._events.popleft()
 

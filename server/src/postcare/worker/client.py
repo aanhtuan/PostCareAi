@@ -48,7 +48,18 @@ def _error_code(r: httpx.Response) -> str:
 
 
 class WorkerApiClient:
-    def __init__(self, http: httpx.Client, *, camera_id: int, token: str) -> None:
+    def __init__(
+        self,
+        http: httpx.Client,
+        *,
+        camera_id: int,
+        token: str,
+        request_timeout_s: float = 3.0,
+        heartbeat_timeout_s: float = 1.0,
+    ) -> None:
+        # Timeout ngắn: API treo không chặn vòng lặp worker lâu (heartbeat ngắn nhất).
+        self.request_timeout_s = request_timeout_s
+        self.heartbeat_timeout_s = heartbeat_timeout_s
         self.http = http
         self.camera_id = camera_id
         self._headers = {"X-Worker-Token": token}
@@ -56,6 +67,7 @@ class WorkerApiClient:
 
     def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         headers = {**self._headers, **kwargs.pop("headers", {})}
+        kwargs.setdefault("timeout", self.request_timeout_s)
         try:
             r = self.http.request(method, path, headers=headers, **kwargs)
         except httpx.TransportError as exc:
@@ -79,7 +91,9 @@ class WorkerApiClient:
 
     def heartbeat(self, body: dict[str, Any]) -> int:
         """Gửi heartbeat, trả `config_version` hiện tại trên API (A02)."""
-        r = self._request("POST", f"{self._base}/heartbeat", json=body)
+        r = self._request(
+            "POST", f"{self._base}/heartbeat", json=body, timeout=self.heartbeat_timeout_s
+        )
         if r.status_code == 404:
             raise self._camera_gone()
         if r.status_code != 200:

@@ -63,7 +63,12 @@ markers = [
     "vision: cần model MediaPipe và video thật (make test-vision)",
     "real_commit: test API commit thật trên DB test (dọn bằng TRUNCATE), không rollback",
 ]
-filterwarnings = ["ignore::DeprecationWarning", "ignore:Using `httpx` with:Warning"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore:Using `httpx` with:Warning",
+    # F06: worker đặt timeout từng request; TestClient bỏ qua timeout (test tích hợp worker ↔ API).
+    "ignore:You should not use the 'timeout' argument with the TestClient",
+]
 
 [tool.mypy]
 strict = true

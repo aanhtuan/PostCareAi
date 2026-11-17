@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from postcare.schemas.enums import CameraSourceType, DisplayMode
+
+_USERINFO = re.compile(r"^([A-Za-z][A-Za-z0-9+.\-]*://)[^/@]+@")
+
+
+def mask_source(source: str) -> str:
+    """Che user:pass trong URL nguồn trước khi ghi log (`rtsp://u:p@host` → `rtsp://***@host`)."""
+    return _USERINFO.sub(r"\1***@", source)
 
 
 class WorkerConfig(BaseModel):
