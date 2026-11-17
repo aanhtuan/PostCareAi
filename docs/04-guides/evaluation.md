@@ -60,7 +60,23 @@ S06_P01_r1,BED_EDGE,20.0,25.0,
 S06_P01_r1,BED_EXIT,27.0,27.0,
 ```
 
-`config/cameras/<setup>.yaml`: ROI (toạ độ chuẩn hóa) + override ngưỡng cho cấu hình camera dùng khi quay.
+`config/cameras/<setup>.yaml`: ROI (toạ độ chuẩn hóa) + override ngưỡng cho cấu hình camera dùng khi quay (F12; mẫu `config/cameras/example.yaml`):
+
+```yaml
+version: 1
+camera_id: 0          # tuỳ chọn
+roi_polygon:          # ≥ 3 đỉnh [x, y] trong [0, 1], theo thứ tự vẽ, không tự cắt
+  - [0.2, 0.3]
+  - [0.8, 0.3]
+  - [0.8, 0.8]
+  - [0.2, 0.8]
+thresholds: {}        # override config/engine.default.yaml (hợp nhất sâu), có thể rỗng
+notes: ""
+```
+
+Sai định dạng (ROI tự cắt, khóa lạ, ngưỡng sai kiểu) → `postcare replay` báo đường dẫn khóa và exit khác 0. Repo có sẵn cấu hình cho vài clip ngoài (`pexels-8090735`, `mixkit-29966`, `gmdcsa24-subject1`) với ROI ước lượng bằng mắt *(giả định)*.
+
+Kết quả `postcare replay` (`runs/<id>/`, không commit): `observations.jsonl`, `events.jsonl` (mỗi dòng `EngineEvent` + `config_hash`), `frames.jsonl` (mỗi khung: `frame_index`, `ts_ms`, `body_state`, `observation_quality`, `activity_level`, `rest_status`, `face_status`, `persons`), `run.json` (video, `config_hash`, commit, thời lượng, số khung, khung bỏ, FPS xử lý, CPU %, RAM MB). Hai file `events.jsonl`, `frames.jsonl` không chứa số liệu phụ thuộc máy nên so sánh từng byte được. Cách chạy: [dev-setup.md §7](dev-setup.md#7-replay-video-và-cắt-fixture-f12).
 
 **Quy tắc chia tập** (HS §8.1):
 - Một `video_id` chỉ thuộc **một** split.

@@ -121,3 +121,28 @@ Xem thêm [camera-setup.md](camera-setup.md).
 | Hook báo `make` / `uv` not found khi push hoặc commit | Thêm thư mục chứa `make`, `uv`, `node` vào PATH người dùng, mở lại terminal/IDE |
 | `npm ci` báo `EPERM ... rolldown-binding...node` trên Windows | Một tiến trình Vite/Vitest đang chạy giữ file. Dừng `make dev-web` rồi chạy lại `make setup` |
 | Không đọc được URL điện thoại | Ping IP, kiểm tra cùng mạng, thử mở URL trong trình duyệt laptop |
+
+## 7. Replay video và cắt fixture (F12)
+
+Chạy trong `server/` (đường dẫn tương đối tính từ `server/`). Video nằm ngoài git (`data/`); kết quả ghi vào `runs/<id>/` (gitignore). Replay không gọi API, không cần DB.
+
+```bash
+# Video → pose MediaPipe → engine (cùng pipeline với worker). Cần model (make models).
+uv run postcare replay --video ../data/external/pexels/pexels-8090735.mp4 \
+  --camera-config ../config/cameras/pexels-8090735.yaml --out ../runs/pexels-8090735 --preview
+
+# Chạy lại chỉ engine (không cần MediaPipe, xác định từng byte), ví dụ sau khi chỉnh ngưỡng
+uv run postcare replay --from-observations ../runs/pexels-8090735/observations.jsonl \
+  --camera-config ../config/cameras/pexels-8090735.yaml --out ../runs/pexels-8090735-b
+
+# Cắt đoạn 2–6 s làm fixture test (chỉ toạ độ) + sự kiện kỳ vọng
+uv run postcare replay --from-observations ../runs/pexels-8090735/observations.jsonl \
+  --camera-config ../config/cameras/pexels-8090735.yaml --start-s 2 --end-s 6 \
+  --save-observations tests/fixtures/s06_pexels_exit.jsonl --save-expected
+```
+
+- `--out` đã có dữ liệu → lỗi, thêm `--overwrite` để ghi đè.
+- `--max-fps` (mặc định 15, A03) chọn khung theo thời gian video; `0` = mọi khung. `--model lite|full|heavy` (mặc định theo `config/models.yaml`). `--models-dir` mặc định là `POSTCARE_MODELS_DIR` nếu đặt, không thì `models/` (tiện khi chạy trong git worktree).
+- `--preview` ghi `preview.mp4` (skeleton mọi người, ROI, `body_state | observation_quality`, nhãn sự kiện 2 s). Đây là công cụ dev, nhãn dùng mã nội bộ; chỉ dùng với `--video`. Không đưa `preview.mp4` ra ngoài nhóm nếu video có người thật.
+- File `.expected.json` do lệnh sinh từ engine hiện tại: xem lại so với ground truth trước khi commit (testing.md §2).
+- Cấu hình camera: [evaluation.md §4](evaluation.md#4-định-dạng-file).

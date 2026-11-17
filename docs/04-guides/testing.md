@@ -57,8 +57,11 @@ Builder hỗ trợ thêm các thao tác: `noise(frames=2)`, `drop_landmarks(seco
 | Lặp sự kiện trong cửa sổ debounce | Chỉ 1 sự kiện | PDF §7 |
 
 **Fixture từ video thật:**
-- `postcare replay … --save-observations` cắt đoạn ngắn, lưu `server/tests/fixtures/<scenario>.jsonl` (chỉ toạ độ, không ảnh).
-- Test regression: chạy engine trên fixture và so sánh danh sách sự kiện với file `.expected.json`.
+- `postcare replay --from-observations runs/<id>/observations.jsonl --camera-config <yaml> --start-s A --end-s B --save-observations server/tests/fixtures/<scenario>.jsonl --save-expected` cắt đoạn ngắn (F12). Fixture chỉ chứa các trường của `FrameObservation` (toạ độ), không ảnh, không đường dẫn video.
+- `<scenario>.expected.json` gồm `camera` (`camera_id`, `roi_polygon`, `thresholds`), `range_s`, `config_hash` (tham khảo) và `events` (`code`, `occurred_at_ms`). File do lệnh sinh ra; **xem lại so với ground truth** trước khi commit.
+- Test regression `server/tests/engine/test_fixtures_regression.py`: mỗi `*.jsonl` có `.expected.json` đi kèm → chạy engine (ngưỡng mặc định hợp nhất với `camera.thresholds`), so danh sách sự kiện. Thiếu `.expected.json` → ca bị skip kèm lý do. Đổi ngưỡng hoặc rule làm lệch sự kiện → sinh lại expected bằng lệnh trên, xem lại rồi commit cùng PR.
+- Fixture tổng hợp `synthetic_sit_occluded` (builder F13: nằm, điều dưỡng ngoài ROI, ngồi dậy, mất người, nằm lại) giữ khung regression có ít nhất một ca.
+- Test replay không dùng media: `server/tests/replay/` chạy với `FakeFrameSource` + `FakePoseAdapter`. Test vision `server/tests/vision/test_replay_video.py` chạy `postcare replay --video` với model thật trên `data/external/pexels/pexels-8090735.mp4` (`make test-vision`).
 
 ## 3. Backend
 

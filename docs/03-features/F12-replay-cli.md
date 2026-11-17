@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F12 |
-| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -74,10 +74,10 @@ Cung cấp lệnh `postcare replay` chạy **cùng pipeline** với worker (Came
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** `postcare replay --video X --camera-config cam.yaml --out runs/<id>/` xuất `observations.jsonl`, `events.jsonl`, `frames.jsonl` và `run.json`; mỗi dòng JSONL parse được bằng schema tương ứng. *(PDF §12; overview.md §6)* — *Kiểm chứng:* test `test_replay_writes_all_outputs` (`FakeFrameSource` + `FakePoseAdapter`, chạy trong `make check`); test vision `test_replay_real_video` trên video trong `data/` (`make test-vision`).
-- [ ] **AC2.** `--from-observations` chạy lại engine không cần MediaPipe; 2 lần chạy cho `events.jsonl` và `frames.jsonl` giống hệt từng byte. *(ADR-0008; event-engine.md §1)* — *Kiểm chứng:* test `test_from_observations_deterministic` (so sánh byte), `test_from_observations_does_not_import_mediapipe` (kiểm tra `sys.modules`).
-- [ ] **AC3.** `--preview` ghi `runs/<id>/preview.mp4` có vẽ skeleton, ROI và trạng thái; `runs/` nằm trong `.gitignore`. *(PDF §12)* — *Kiểm chứng:* test `test_preview_writes_mp4` (đọc lại bằng OpenCV: đúng số khung, kích thước); xem tay một preview trên video thật, ghi vào mục 10.
-- [ ] **AC4.** Lệnh cắt đoạn observation tạo fixture `server/tests/fixtures/<scenario>.jsonl` chỉ chứa toạ độ (không ảnh), kèm `.expected.json`; test regression chạy engine trên mọi fixture. *(testing.md §2; HS §8.1; QA#29)* — *Kiểm chứng:* test `test_fixture_cut_range`, `test_fixture_contains_only_observation_fields`, `test_fixtures_regression` (với một fixture tổng hợp nhỏ tạo bằng builder hoặc tay).
+- [x] **AC1.** `postcare replay --video X --camera-config cam.yaml --out runs/<id>/` xuất `observations.jsonl`, `events.jsonl`, `frames.jsonl` và `run.json`; mỗi dòng JSONL parse được bằng schema tương ứng. *(PDF §12; overview.md §6)* — *Kiểm chứng:* test `test_replay_writes_all_outputs` (`FakeFrameSource` + `FakePoseAdapter`, chạy trong `make check`); test vision `test_replay_real_video` trên video trong `data/` (`make test-vision`).
+- [x] **AC2.** `--from-observations` chạy lại engine không cần MediaPipe; 2 lần chạy cho `events.jsonl` và `frames.jsonl` giống hệt từng byte. *(ADR-0008; event-engine.md §1)* — *Kiểm chứng:* test `test_from_observations_deterministic` (so sánh byte), `test_from_observations_does_not_import_mediapipe` (kiểm tra `sys.modules`).
+- [x] **AC3.** `--preview` ghi `runs/<id>/preview.mp4` có vẽ skeleton, ROI và trạng thái; `runs/` nằm trong `.gitignore`. *(PDF §12)* — *Kiểm chứng:* test `test_preview_writes_mp4` (đọc lại bằng OpenCV: đúng số khung, kích thước); xem tay một preview trên video thật, ghi vào mục 10.
+- [x] **AC4.** Lệnh cắt đoạn observation tạo fixture `server/tests/fixtures/<scenario>.jsonl` chỉ chứa toạ độ (không ảnh), kèm `.expected.json`; test regression chạy engine trên mọi fixture. *(testing.md §2; HS §8.1; QA#29)* — *Kiểm chứng:* test `test_fixture_cut_range`, `test_fixture_contains_only_observation_fields`, `test_fixtures_regression` (với một fixture tổng hợp nhỏ tạo bằng builder hoặc tay).
 
 ## 6. Kế hoạch test
 
@@ -97,7 +97,14 @@ Cung cấp lệnh `postcare replay` chạy **cùng pipeline** với worker (Came
 - *(giả định)* Tên tham số `--start-s`, `--end-s`, `--save-observations`, `--save-expected`.
 - *(giả định)* File `.expected.json` do lệnh sinh ra và được người xem lại trước khi commit.
 - *(giả định)* Preview dùng mã nội bộ trong nhãn vẽ (công cụ dev).
-- *(giả định)* `validate_roi_polygon` dùng chung với F08; feature nào làm trước thì tạo.
+- *(giả định)* `validate_roi_polygon` dùng chung với F08; feature nào làm trước thì tạo. F12 đã tạo trong `schemas/roi.py`; `RoiPolygon` giữ nguyên kiểm tra của F10.
+- *(giả định)* Gói `postcare.pipeline` đã có sẵn từ F00, nên `process_frame` đặt ở `postcare/pipeline/__init__.py` thay vì `postcare/pipeline.py`.
+- *(giả định)* `frames.jsonl` ghi `persons` = số người adapter thấy (kể cả ngoài ROI).
+- *(giả định)* File cấu hình camera có `version: 1`, `camera_id` tuỳ chọn (mặc định 0), `notes` tuỳ chọn; khóa lạ là lỗi. `--from-observations` dùng `camera_id` của observation đầu tiên.
+- *(giả định)* `.expected.json` lưu kèm `camera` (ROI, `thresholds`) để test regression chạy không cần file cấu hình ngoài; `config_hash` chỉ để tham khảo, không so.
+- *(giả định)* `--start-s`/`--end-s` lọc theo `ts_ms` trong đoạn đóng [a, b]; fixture giữ nguyên `ts_ms`, `frame_index` gốc.
+- *(giả định)* Nhãn sự kiện trên preview giữ 2 s sau `detected_at_ms` (chỉ để xem, không phải ngưỡng engine).
+- *(giả định)* ROI của các cấu hình camera cho clip ngoài (`config/cameras/pexels-8090735.yaml`, `mixkit-29966.yaml`, `gmdcsa24-subject1.yaml`) ước lượng bằng mắt từ một khung.
 
 ## 8. Câu hỏi mở
 
@@ -136,6 +143,36 @@ Rủi ro: codec `mp4v` có thể thiếu trên Linux → test preview kiểm tra
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+Ngày 2026-11-18, nhánh `feat/F12-replay-cli`, Windows 11, i5-10300H, model pose `full` (CPU).
+
+**AC1:**
+- `tests/replay/test_replay_outputs.py` xanh: `test_replay_writes_all_outputs` (`FakeFrameSource` + `FakePoseAdapter`; 4 file, mỗi dòng parse bằng `FrameObservation` / `EventRecord` / `FrameRecord`, `run.json` đủ khóa); `--out` có dữ liệu mà không `--overwrite` → exit ≠ 0, có `--overwrite` → ghi lại; ROI tự cắt → exit ≠ 0, không ghi file; thiếu model → exit ≠ 0 kèm gợi ý `make models`; `test_process_frame_is_shared_pipeline`.
+- `tests/replay/test_camera_config.py`: ROI sai (ít điểm, ngoài [0, 1], tự cắt, thẳng hàng), `version` sai, khóa lạ, ngưỡng sai kiểu/khối lạ → `CameraConfigError` nêu đường dẫn khóa; mọi `config/cameras/*.yaml` hợp lệ. `tests/schemas/test_roi_validate.py` cho `validate_roi_polygon`.
+- Vision `test_replay_real_video` (`make test-vision`, `POSTCARE_DATA_DIR=D:/PostCareAi/data`, `POSTCARE_MODELS_DIR=D:/PostCareAi/models`): 5 passed (4 của F11 + 1 của F12).
+
+**AC2:** `test_from_observations_deterministic` (so byte `events.jsonl`, `frames.jsonl`, `observations.jsonl`; không có CRLF), chạy lại từ `observations.jsonl` của một lần chạy cho cùng `frames.jsonl`; `test_from_observations_does_not_import_mediapipe` (subprocess, `sys.modules` không có `mediapipe`); dòng hỏng → lỗi "dòng 3"; `test_event_line_has_fixed_field_order`.
+
+**AC3:** `test_preview_writes_mp4` (OpenCV đọc lại: đủ 180 khung, 320×180); không `--preview` → không có mp4; `--preview` cùng `--from-observations` → exit ≠ 0. Xem tay `preview.mp4` của `pexels-8090735`: skeleton khớp người, ROI vàng quanh giường, góc trái hiện `NO_OBSERVATION | GOOD`, `t=…s #… persons=1`. `runs/` có trong `.gitignore`.
+
+**AC4:** `test_fixture_cut_range`, `test_fixture_contains_only_observation_fields`, khoảng ngược / rỗng → exit ≠ 0, `--save-expected` thiếu `--save-observations` → exit ≠ 0, fixture thiếu `.expected.json` → skip có lý do, `test_cut_fixture_passes_regression`. `tests/engine/test_fixtures_regression.py` chạy trên fixture tổng hợp `synthetic_sit_occluded` (150 khung, 10 fps, ~100 KB). Cắt thử trên clip thật: `pexels-8090735` 2–6 s → 60 khung, file không chứa đường dẫn video.
+
+**Replay thủ công** (đường dẫn tuyệt đối tới `D:\PostCareAi\data\external`, kết quả trong scratchpad, không commit; `--max-fps 15`, `--preview`):
+
+| Clip | Cấu hình camera | Thời lượng | Khung xử lý / bỏ | `observation_quality` | Sự kiện | FPS xử lý | CPU | RAM đỉnh |
+|---|---|---|---|---|---|---|---|---|
+| `pexels/pexels-8090735.mp4` | `pexels-8090735.yaml` | 7,7 s | 115 / 69 | GOOD 92, NO_PERSON 22, LOW_CONFIDENCE 1 | 0 | 17,7 | 125 % | 294 MB |
+| `gmdcsa24/…/Subject 1/ADL/04.mp4` | `gmdcsa24-subject1.yaml` | 5,8 s | 87 / 83 | GOOD 87 | 0 | 17,5 | 122 % | 286 MB |
+| `mixkit/mixkit-29966.mp4` | `mixkit-29966.yaml` | 25,1 s | 377 / 225 | GOOD 354, NO_PERSON 20, MULTIPLE_PEOPLE 2, LOW_CONFIDENCE 1 | 0 | 13,0 | 107 % | 290 MB |
+
+- `body_state` luôn `NO_OBSERVATION` và không có sự kiện: đúng với engine hiện tại (state machine F14 chưa merge, rule F15 chưa có). Sau khi F14/F15 vào `main`, chạy lại các lệnh trên để kiểm chứng trạng thái và sự kiện.
+- `--from-observations` trên `observations.jsonl` của `pexels-8090735`: `frames.jsonl`, `events.jsonl` giống hệt từng byte bản chạy video (`cmp`).
+
+**Kiểm tra cuối:** `make check` xanh (387 passed, 10 contract KEPT, web build xong); `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0; `make test-vision` 5 passed. Hai lệnh check chạy với `TEST_DATABASE_URL=.../postcare_f11_test` (DB test riêng của builder).
+
+**Người sau cần biết:**
+- Worker (F17) gọi `postcare.pipeline.process_frame(frame, adapter, engine)`, không tự ghép adapter + engine.
+- Khi F15 thêm rule: cắt fixture từ clip thật bằng lệnh ở dev-setup.md §7, xem lại `.expected.json` so với ground truth rồi commit; `synthetic_sit_occluded.expected.json` có thể cần sinh lại nếu rule phát sự kiện trên chuỗi đó.
 
 ## 11. Definition of Done
 

@@ -63,9 +63,9 @@ flowchart LR
 | `schemas` | Kiểu dữ liệu và cấu hình dùng chung: `FrameObservation`, `PersonPose`, `FaceObservation` (output adapter), `FaceSignals` (tín hiệu engine suy ra), `EngineOutput`, `EventCode`, `Priority`, `BodyState`, enum (`schemas/enums.py`), `EngineConfig` + đọc YAML (`schemas/engine_config.py`), `EngineContext` (`schemas/context.py`), polygon ROI (`schemas/roi.py`) | stdlib, pydantic, pyyaml | mọi module khác |
 | `engine` | Temporal Processing + Event Engine: chọn người mục tiêu, đặc trưng, làm mượt, state machine, rule, vận động, khuôn mặt | `schemas`, stdlib, pydantic, numpy | cv2, mediapipe, fastapi, sqlalchemy, httpx, `time`, `datetime`, `random`, `importlib` (không đọc đồng hồ, xác định), `vision`, `api`, `db` |
 | `vision` | Camera Service (`vision.camera`), AI Inference adapter (`vision.inference`, **nơi duy nhất import mediapipe**), render khung hình (`vision.render`) | `schemas`, cv2, mediapipe, numpy | `api`, `db`, `engine` |
-| `pipeline` | Ghép `vision` + `engine` cho một khung hình (dùng chung bởi worker và replay, để offline phản ánh đúng realtime) | `vision`, `engine`, `schemas` | `api`, `db` |
+| `pipeline` | Ghép `vision` + `engine` cho một khung hình: `process_frame(frame, adapter, engine)` trong `pipeline/__init__.py` (F12), dùng chung bởi worker và replay để offline phản ánh đúng realtime. Chỉ dựa vào interface `PoseAdapter`, không import mediapipe | `vision`, `engine`, `schemas` | `api`, `db` |
 | `worker` | Vòng lặp realtime: `pipeline` + HTTP client tới API | `pipeline`, `vision`, `engine`, `schemas`, httpx | `api`, `db` |
-| `replay` / `eval` | Chạy offline trên file video; tính metric từ file JSONL/CSV | `pipeline`, `vision`, `engine`, `schemas` | `api`, `db` |
+| `replay` / `eval` | Chạy offline trên file video (`replay/runner.py`, F12: JSONL + `run.json`, cấu hình camera `replay/camera_config.py`, cắt fixture `replay/fixtures.py`); tính metric từ file JSONL/CSV | `pipeline`, `vision`, `engine`, `schemas` | `api`, `db` |
 | `db` | SQLAlchemy model, session, Alembic (`db/migrations/`, chạy từ code qua `db/migrate.py`) | sqlalchemy, alembic, `schemas` (enum), `settings` (URL cho Alembic) | `api`, `vision`, `engine` |
 | `domain` | Nghiệp vụ: phiên, sự kiện → cảnh báo, vòng đời cảnh báo, audit, timeline, bàn giao ca, chỉ số workflow (F29) | `db`, `schemas` | `api`, `vision`, `engine` |
 | `api` | FastAPI routers (`api.v1`, `api.internal`), auth, realtime gateway, frame buffer, kho trạng thái giường trong RAM | `domain`, `db`, `schemas` | `vision`, `engine` |
@@ -121,7 +121,7 @@ flowchart LR
   EV --> REP[reports/eval-split-date.md]
 ```
 
-`replay` dùng **chung** pipeline `vision` + `engine` với worker. Kết quả offline vì vậy phản ánh đúng hành vi realtime (PDF §12: dựng engine trên file video trước).
+`replay` dùng **chung** pipeline `vision` + `engine` với worker (`postcare.pipeline.process_frame`). `--from-observations` chỉ chạy engine, không import mediapipe; `events.jsonl` và `frames.jsonl` giống hệt từng byte giữa các lần chạy. Cách dùng: [dev-setup.md §7](../04-guides/dev-setup.md#7-replay-video-và-cắt-fixture-f12). Kết quả offline vì vậy phản ánh đúng hành vi realtime (PDF §12: dựng engine trên file video trước).
 
 ## 7. Kênh giao tiếp worker ↔ API
 
