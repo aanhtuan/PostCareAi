@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F35 |
-| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -71,23 +71,23 @@ Cho ADMIN quản lý tài khoản trên giao diện thay vì chỉ tạo bằng 
 
 - **Module / file dự kiến:**
   - `server/src/postcare/schemas/enums.py` (`UserRole.FAMILY`).
-  - `server/src/postcare/api/auth.py`: `require_staff`; `get_current_user` đọc vai trò từ DB.
+  - `server/src/postcare/api/deps.py`: `STAFF_ROLES`, `require_staff`, `require_admin`; `get_current_user` đọc vai trò từ DB (đã có từ F02).
   - `server/src/postcare/domain/users.py` (`create_user`, `update_user`, `lock_user`, `unlock_user`, `reset_password`); `server/src/postcare/api/v1/users.py`.
   - Schema: `UserCreate`, `UserUpdate`, `UserOut`, `PasswordReset`.
   - Test: `server/tests/api/test_users.py`, `test_family_role_default_deny.py`.
-  - Web: `web/src/pages/Management/Users/UsersPage.tsx`, `UserForm.tsx`, `ResetPasswordDialog.tsx`, `UsersPage.test.tsx`; `web/src/pages/Family/FamilyPlaceholder.tsx` (thay bằng F36).
-- **Dữ liệu:** `users` (đã có từ F01); enum `user_role` thêm `FAMILY` (migration đổi CHECK constraint); ghi `audit_logs` ([data-model.md](../02-architecture/data-model.md#users-f01)).
+  - Web: `web/src/api/users.ts` (hook), `web/src/pages/Management/Users/UsersPage.tsx`, `UserForm.tsx`, `ResetPasswordDialog.tsx`, `errors.ts`, `UsersPage.test.tsx`; `web/src/pages/Family/FamilyPlaceholder.tsx` (thay bằng F36).
+- **Dữ liệu:** `users` (đã có từ F01); enum `user_role` thêm `FAMILY` (migration 0003 `ALTER TYPE user_role ADD VALUE 'FAMILY'`; enum native, không phải CHECK); ghi `audit_logs` ([data-model.md](../02-architecture/data-model.md#users-f01)).
 - **API:** `GET/POST /api/v1/users`, `GET/PATCH /api/v1/users/{id}`, `POST /api/v1/users/{id}/lock|unlock|reset-password` ([api-conventions.md](../02-architecture/api-conventions.md)). Chạy `make gen-api-types`.
 - **UI:** "Người dùng" trong "Quản lý". Text cần thêm vào `vi.ts`: `users.title` ("Người dùng"), `users.add` ("Thêm người dùng"), `users.username` ("Tên đăng nhập"), `users.fullName` ("Họ tên"), `users.role` ("Vai trò"), `users.status.active` ("Đang dùng"), `users.status.locked` ("Đã khóa"), `users.lock` ("Khóa"), `users.unlock` ("Mở khóa"), `users.confirmLock` ("Khóa tài khoản này? Người dùng sẽ không đăng nhập được."), `users.resetPassword` ("Đặt lại mật khẩu"), `users.newPassword` ("Mật khẩu mới"), `users.showLocked` ("Hiện tài khoản đã khóa"), `role.FAMILY` ("Người nhà"), `family.noAccess` ("Chưa có quyền xem").
 - **Cấu hình:** không có.
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** ADMIN liệt kê, tạo, sửa họ tên và vai trò (gồm `FAMILY`), khóa, mở khóa, đặt lại mật khẩu; `NURSE`, `CHARGE_NURSE`, `DOCTOR`, `FAMILY` gọi bất kỳ endpoint `/users` nào → 403. *(QA#36; QA#31)* — *Kiểm chứng:* test `test_admin_user_crud`, `test_admin_can_create_family_user`, `test_users_endpoints_admin_only` (tham số hóa 4 vai trò), `test_reset_password_allows_new_login`.
-- [ ] **AC2.** Trùng `username` (kể cả khác hoa thường, khoảng trắng) → 409 `DUPLICATE_CODE`; tài khoản bị khóa không đăng nhập được và token cũ bị từ chối; mở khóa thì đăng nhập lại được. *(QA#36; F02)* — *Kiểm chứng:* test `test_duplicate_username_409`, `test_locked_user_cannot_login`, `test_locked_user_token_rejected`, `test_unlock_restores_login`.
-- [ ] **AC3.** ADMIN tự khóa hoặc tự hạ vai trò → 409 `CANNOT_MODIFY_SELF`; khóa hoặc hạ vai trò ADMIN cuối cùng đang hoạt động → 409 `LAST_ADMIN`; khi còn ADMIN khác thì làm được. *(giả định)* — *Kiểm chứng:* test `test_cannot_lock_self`, `test_cannot_demote_self`, `test_cannot_lock_last_admin`, `test_can_lock_admin_when_another_exists`.
-- [ ] **AC4.** Mọi thao tác ghi có audit đúng action; `before`/`after` không chứa mật khẩu hay hash; response không có `password_hash`. *(PDF §10.1; PRD NFR06, NFR08)* — *Kiểm chứng:* test `test_user_writes_audited`, `test_audit_never_contains_password` (quét JSON audit tìm mật khẩu thử và tiền tố hash `$2`), `test_user_out_has_no_password_hash`.
-- [ ] **AC5.** Tài khoản `FAMILY` bị chặn mặc định: mọi endpoint nhân viên → 403; WebSocket bị đóng 4403; web đưa về `/family`. Đổi vai trò có hiệu lực ngay ở request kế tiếp. *(QA#31; giả định)* — *Kiểm chứng:* test `test_family_forbidden_on_staff_read_endpoints` (tham số hóa `/beds`, `/sessions`, `/overview`, `/alerts`, `/timeline`, `/handover`), `test_family_ws_closed_4403`, `test_role_change_effective_next_request`; component test `UsersPage lists users with Vietnamese role labels`, `non-admin cannot open users page`, `family user redirected to /family`.
+- [x] **AC1.** ADMIN liệt kê, tạo, sửa họ tên và vai trò (gồm `FAMILY`), khóa, mở khóa, đặt lại mật khẩu; `NURSE`, `CHARGE_NURSE`, `DOCTOR`, `FAMILY` gọi bất kỳ endpoint `/users` nào → 403. *(QA#36; QA#31)* — *Kiểm chứng:* test `test_admin_user_crud`, `test_admin_can_create_family_user`, `test_users_endpoints_admin_only` (tham số hóa 4 vai trò), `test_reset_password_allows_new_login`.
+- [x] **AC2.** Trùng `username` (kể cả khác hoa thường, khoảng trắng) → 409 `DUPLICATE_CODE`; tài khoản bị khóa không đăng nhập được và token cũ bị từ chối; mở khóa thì đăng nhập lại được. *(QA#36; F02)* — *Kiểm chứng:* test `test_duplicate_username_409`, `test_locked_user_cannot_login`, `test_locked_user_token_rejected`, `test_unlock_restores_login`.
+- [x] **AC3.** ADMIN tự khóa hoặc tự hạ vai trò → 409 `CANNOT_MODIFY_SELF`; khóa hoặc hạ vai trò ADMIN cuối cùng đang hoạt động → 409 `LAST_ADMIN`; khi còn ADMIN khác thì làm được. *(giả định)* — *Kiểm chứng:* test `test_cannot_lock_self`, `test_cannot_demote_self`, `test_cannot_lock_last_admin`, `test_can_lock_admin_when_another_exists`.
+- [x] **AC4.** Mọi thao tác ghi có audit đúng action; `before`/`after` không chứa mật khẩu hay hash; response không có `password_hash`. *(PDF §10.1; PRD NFR06, NFR08)* — *Kiểm chứng:* test `test_user_writes_audited`, `test_audit_never_contains_password` (quét JSON audit tìm mật khẩu thử và tiền tố hash `$2`), `test_user_out_has_no_password_hash`.
+- [x] **AC5.** Tài khoản `FAMILY` bị chặn mặc định: mọi endpoint nhân viên → 403; WebSocket bị đóng 4403; web đưa về `/family`. Đổi vai trò có hiệu lực ngay ở request kế tiếp. *(QA#31; giả định)* — *Kiểm chứng:* test `test_family_forbidden_on_staff_read_endpoints` (tham số hóa `/beds`, `/sessions`, `/overview`, `/alerts`, `/timeline`, `/handover`), `test_family_ws_closed_4403`, `test_role_change_effective_next_request`; component test `UsersPage lists users with Vietnamese role labels`, `non-admin cannot open users page`, `family user redirected to /family`.
 
 ## 6. Kế hoạch test
 
@@ -107,6 +107,9 @@ Cho ADMIN quản lý tài khoản trên giao diện thay vì chỉ tạo bằng 
 - *(giả định)* Vai trò đọc từ DB ở mỗi request.
 - *(giả định)* Khóa đóng WebSocket đang mở; khóa/mở khóa lặp là không đổi, không audit.
 - *(giả định)* `FAMILY` bị chặn mặc định ở mọi endpoint và WS cho tới khi F36 mở phần được phép.
+- *(giả định)* Lỗi định dạng request (vai trò lạ, trường thừa, `username` sai, mật khẩu ngắn) trả 422 `VALIDATION_ERROR` theo quy ước chung của api-conventions.md, không phải 400 như bảng §6.
+- *(giả định)* Thao tác vừa là tự khóa vừa là khóa ADMIN cuối cùng trả `LAST_ADMIN` (kiểm tra trước `CANNOT_MODIFY_SELF`). Qua API, `LAST_ADMIN` chỉ xảy ra khi ADMIN duy nhất tự thao tác lên mình.
+- *(giả định)* Mật khẩu tối đa 72 byte (giới hạn của bcrypt). Nút "Khóa" bị vô hiệu ở dòng của chính mình (backend vẫn chặn).
 
 ## 8. Câu hỏi mở
 
@@ -133,6 +136,28 @@ Cho ADMIN quản lý tài khoản trên giao diện thay vì chỉ tạo bằng 
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+**2026-11-18 (builder F35):** chuyển sang In review. Nhánh `feat/F35-user-management`.
+
+Bằng chứng theo AC (test ở `server/tests/api/test_users.py`, `server/tests/api/test_family_role_default_deny.py`, `web/src/pages/Management/Users/UsersPage.test.tsx`):
+
+- **AC1:** `test_admin_user_crud`, `test_admin_can_create_family_user`, `test_users_endpoints_admin_only[nurse|charge|doctor|family]` (7 endpoint, đều 403), `test_users_endpoints_require_login`, `test_reset_password_allows_new_login`; ca âm tính `test_create_user_validation` (vai trò `FOO`, thừa `password_hash`, mật khẩu 7 ký tự, `username` ngắn/có dấu/có `/`, họ tên rỗng), `test_patch_rejects_unknown_fields`, `test_reset_password_too_short`.
+- **AC2:** `test_duplicate_username_409` (khác hoa thường, khoảng trắng), `test_duplicate_username_includes_locked`, `test_username_normalized`, `test_locked_user_cannot_login`, `test_locked_user_token_rejected`, `test_unlock_restores_login`, `test_ws_closed_when_user_locked` (4401).
+- **AC3:** `test_cannot_lock_self`, `test_cannot_demote_self`, `test_cannot_lock_last_admin`, `test_last_admin_guard_in_domain`, `test_two_admins_lock_one_not_the_other`, `test_can_lock_admin_when_another_exists`.
+- **AC4:** `test_user_writes_audited` (khóa/mở khóa lặp không audit), `test_noop_update_not_audited`, `test_audit_never_contains_password` (không có mật khẩu thử, `$2`, `password`), `test_user_out_has_no_password_hash`.
+- **AC5:** `test_family_forbidden_on_staff_read_endpoints` (13 endpoint: `/beds`, `/patients`, `/cameras`, `/shifts`, `/sessions`, `/sessions/1`, `/sessions/1/timeline`, `/overview`, `/events`, `/alerts`, `/alerts/1`, `/timeline`, `/handover`), `test_family_forbidden_on_staff_write_endpoints`, `test_family_can_login_and_me`, `test_family_ws_closed_4403`, `test_role_change_effective_next_request`, `test_demoted_admin_old_token_forbidden`; component `UsersPage lists users with Vietnamese role labels`, `asks for confirmation before locking`, `shows the Vietnamese API message on 409`, `non-admin cannot open users page`, `admin sees the users menu item`, `family user redirected to /family`; `AppLayout.test.tsx` `users menu item only for ADMIN`. R1: `tests/db/test_enums_match.py::test_user_role_values_match_qa18_qa31`.
+
+Kiểm chứng:
+
+- `make check` exit 0 (396 passed; web 55 passed). `scripts\dev.ps1 check` exit 0.
+- Thủ công (curl, API dev cổng 8035, DB `postcare_f35`): tạo `" NguoiNha01 "` vai trò `FAMILY` → 201, `username` = `nguoinha01`; tạo trùng → 409 `DUPLICATE_CODE` `details.field=username`; `FAMILY` gọi `/api/v1/beds` → 403 `FORBIDDEN`, `/auth/me` → 200; đặt lại mật khẩu → 204, mật khẩu cũ 401, mới 200; khóa → 200 `is_active=false`, token cũ → 401; ADMIN duy nhất tự khóa → 409 `LAST_ADMIN`; NURSE `GET /users` → 403; mở khóa → 200.
+
+Điều người sau cần biết:
+
+- `UserOut` có thêm `is_active`, `created_at` (cả ở `/auth/login`, `/auth/me`); fixture test web đã cập nhật.
+- Đóng WS khi khóa: `WsHub` lưu `user_id` từng kết nối; route khóa gọi `notifications.disconnect_user()` sau commit. F36 cần thêm `family.access_ended` (`ACCOUNT_LOCKED`) trước khi đóng.
+- F36 thay `pages/Family/FamilyPlaceholder.tsx`, và thay nhánh đóng 4403 trong `api/realtime.py` bằng luồng `family.*`.
+- Đăng nhập (F02) chỉ bỏ khoảng trắng, không chuyển chữ thường; tài khoản tạo ở F35 luôn chữ thường.
 
 ## 11. Definition of Done
 

@@ -72,7 +72,7 @@ Mã 409 thêm ngày 17/11/2026 (đều *(giả định)*):
 | `SESSION_ALREADY_PAUSED` / `SESSION_NOT_PAUSED` | F36 | Tạm dừng khi đang tạm dừng / tiếp tục khi không tạm dừng |
 | `CAPTURE_PAUSED` | F36 | Worker gửi sự kiện engine cho phiên đang tạm dừng thu hình |
 
-Trùng `username` (F35) dùng lại `DUPLICATE_CODE` với `details.field = "username"`.
+Trùng `username` (F35) dùng lại `DUPLICATE_CODE` với `details.field = "username"`. Sai định dạng `username` (3–64 ký tự `[a-z0-9._-]` sau khi bỏ khoảng trắng và chuyển chữ thường), mật khẩu dưới 8 ký tự, vai trò lạ hoặc trường thừa → 422 `VALIDATION_ERROR`. Khi một thao tác vừa là tự khóa vừa là khóa ADMIN cuối cùng, trả `LAST_ADMIN`.
 | 422 | Lỗi validation của FastAPI | Bọc lại thành `VALIDATION_ERROR` |
 
 `message` viết tiếng Việt, dùng được để hiển thị. `code` dùng cho logic frontend.
@@ -130,6 +130,7 @@ Các loại trên chỉ gửi cho kết nối của **vai trò nhân viên**. K�
 - Chỉ phát **sau khi commit DB** (HS §4.2).
 - Khi kết nối lại, frontend refetch dữ liệu thay vì giả định không bỏ lỡ gì.
 - Token sai hoặc hết hạn: server đóng kết nối với mã **4401**. Client không thử lại mà chuyển về trang đăng nhập *(giả định; F18)*. Tài khoản bị khóa (F35): đóng các kết nối đang mở với mã 4401.
+- Trước F36, mọi kết nối của `FAMILY` vào `/api/v1/ws` bị đóng mã **4403** ngay sau khi xác thực (F35 R2).
 - `FAMILY` không còn quyền xem nào đang hiệu lực (lúc kết nối hoặc giữa chừng): đóng với mã **4403** *(giả định; F36)*. Lọc theo từng kết nối; không bao giờ gửi dữ liệu của giường/phiên khác cho `FAMILY`.
 
 ## API nội bộ cho worker
