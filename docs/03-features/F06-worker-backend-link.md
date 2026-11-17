@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F06 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 3 phiên |
@@ -109,9 +109,33 @@ Nối tiến trình worker (đọc camera, sau này chạy AI và engine) với 
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+> Lập ngày 2026-11-18 (nhánh `feat/F06-worker-link`). Prototype đã có sẵn phần lớn API nội bộ (`api/internal/cameras.py`: config, heartbeat, state, events; `domain/cameras.py`: `mark_offline_cameras(now=…)`; `require_worker` đã dùng `secrets.compare_digest`). F06 bổ sung phần còn thiếu và viết worker thật thay `postcare simulate`.
 
-1. …
+**Kéo trước theo yêu cầu người giao việc (ghi rõ để F17/F36/F30 không làm lại):**
+
+- F17 R3–R7 **phía worker**: chạy `postcare.pipeline.process_frame` (adapter pose F11 + `Engine` F10–F15/F23) cho mỗi khung; `state_changed` → `POST …/state`; mỗi `EngineEvent` → `POST /internal/v1/events` (`event_uid` uuid4, gửi lại khi lỗi mạng/5xx với **cùng** `event_uid`, hàng đợi RAM giới hạn 200); 409 (`NO_ACTIVE_SESSION`, `CAPTURE_PAUSED`) → bỏ sự kiện, không gửi lại; `active_session_id = null` → không gửi sự kiện engine, vẫn gửi state; đổi `active_session_id` → `Engine` mới; `occurred_at = t0_utc + (ts_ms − ts0_ms)`. Phía API của F17 (lưu sự kiện, alert, sự kiện camera) đã có từ prototype; F17 vẫn phải kiểm AC của mình.
+- F36 R18 **phía worker**: `capture_paused = true` → đóng nguồn, dừng engine, chỉ gửi heartbeat với `source_status = PAUSED`. Phần API bỏ `frame`/`state` khi tạm dừng vẫn để F36.
+- F30 R4 tối thiểu: nguồn `FILE` (từ cấu hình camera hoặc `--video <path>`) phát theo **nhịp thời gian thực** (một camera không chạy nhanh hơn thời gian thật); hết file → `source_status = OFFLINE`, worker vẫn heartbeat. `--loop` để F30.
+
+**Các bước:**
+
+1. **API** (`api/internal/cameras.py`, `domain/cameras.py`, `domain/runtime.py`, `api/frame_buffer.py`, `api/v1/cameras.py`, `settings.py`):
+   - Heartbeat: `source_status ∈ {ONLINE, PAUSED}` hoặc không gửi → `ONLINE`; giá trị khác (`OFFLINE`, `UNKNOWN`) → `OFFLINE` *(giả định: PAUSED = worker còn sống, tạm dừng có chủ đích, không phải mất kết nối; thiếu trường = client cũ)*. `ONLINE → OFFLINE` do nguồn mất đi chung đường với `mark_offline_cameras` (sinh `CAMERA_OFFLINE` `reason = source_offline`, trạng thái giường `NO_OBSERVATION`). Runtime lưu thêm `updated_at`.
+   - `GET /api/v1/cameras/{id}` thêm `runtime: {fps, brightness, dropped_frames, source_status, updated_at} | null` (danh sách không có). `make gen-api-types`.
+   - `POST /internal/v1/cameras/{id}/frame`: `Content-Type: image/jpeg`, ≤ `FRAME_MAX_BYTES` (2 MB) → 204; sai loại, quá lớn, rỗng → 400 `VALIDATION_ERROR`; camera không tồn tại hoặc ngừng dùng → 404. `LatestFrameStore` trong RAM (bytes + thời điểm), không ghi đĩa.
+   - Hàm R5 giữ tên đã có `mark_offline_cameras(now=…)` (spec ghi `mark_stale_cameras_offline`).
+2. **Vision**: `vision/image_stats.py` `mean_brightness(image)` (xám 0–255); `vision/render.py` `encode_jpeg(image, max_side=960, quality=70)`.
+3. **Worker** (`worker/config.py`, `worker/client.py`, `worker/loop.py`): một luồng, chạy theo `step()`; đồng hồ đơn điệu, đồng hồ UTC, `sleep`, `httpx.Client`, nhà máy nguồn và nhà máy adapter đều inject (R12, R13). Lịch: heartbeat 2 s, poll config 5 s, khung JPEG 5 fps (hạn cố định), state gửi khi `state_changed` và làm mới mỗi 5 s *(giả định: API khởi động lại vẫn có trạng thái)*. API không phản hồi → log, backoff 1→10 s, không thoát. Config 404 → dừng, exit 1 (camera ngừng dùng); 401 → exit 1 (sai `WORKER_TOKEN`). Nguồn mở lỗi → `OFFLINE`, thử lại mỗi 2 s; webcam/URL dùng `fail_fast=False` (F05 tự kết nối lại). Đổi `source_type/source` → đóng nguồn, tạo adapter mới (MediaPipe VIDEO cần `ts_ms` tăng ngặt). ROI chưa cấu hình → chỉ heartbeat + khung, không chạy engine (log cảnh báo).
+4. **CLI**: `postcare worker --camera-id N` (bí danh `--camera`), `--video PATH` (ghi đè nguồn bằng file), `--model`, `--models-dir`, `--api`; Ctrl+C → đóng gọn, exit 0. `make worker CAMERA=N`, `scripts\dev.ps1 worker -Camera N`. Giả lập gửi `source_status = ONLINE`.
+5. **Docs**: api-conventions.md (frame, runtime, PAUSED), dev-setup.md, README (chạy worker thay giả lập).
+
+**Test trước (fake API bằng `httpx.MockTransport`, `FakeFrameSource`, `FakePoseAdapter`, đồng hồ giả):**
+
+- `server/tests/api/test_internal_cameras.py`: AC1 (`test_internal_config_returns_camera_config`, `test_internal_config_includes_active_session`, `test_internal_endpoints_require_worker_token` ×3, 404), AC2 (`test_heartbeat_sets_online_and_last_seen`, `test_heartbeat_source_offline_sets_offline`, `test_heartbeat_4s_apart_stays_online`, `test_stale_camera_marked_offline`, `test_runtime_exposed_on_camera_detail`), AC4 (`test_frame_buffer_keeps_latest_only`, `test_frame_post_does_not_write_disk`, quá lớn / sai content-type → 400).
+- `server/tests/worker/test_worker_loop.py`: nhịp heartbeat, `test_worker_reloads_config_within_5s` (+ ca âm: không đổi → chỉ poll theo lịch), `test_worker_frame_rate_about_5fps`, gửi lại sự kiện cùng `event_uid`, 409 bỏ, API sập không crash, nguồn OFFLINE báo lên, state chỉ gửi khi đổi, tạm dừng không đọc khung, config 404 dừng.
+- `server/tests/worker/test_worker_api.py` (tích hợp, `TestClient` làm `httpx.Client`): `test_worker_online_then_offline` (FileSource video tổng hợp trong `tmp_path`), `test_worker_reloads_config_within_5s_api`.
+
+Commit: `docs(F06): plan` → `test(F06): …` → `feat(F06): …` → `docs(F06): …`.
 
 ## 10. Ghi chú bàn giao
 
