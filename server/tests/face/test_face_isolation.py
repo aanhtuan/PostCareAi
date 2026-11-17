@@ -6,19 +6,18 @@ import json
 from pathlib import Path
 from typing import Any
 
-from postcare.vision.inference.face_gate import FaceGate
-
 from postcare.engine import Engine
 from postcare.pipeline import process_frame
 from postcare.replay.camera_config import load_camera_config
 from postcare.replay.runner import replay_video
 from postcare.schemas.enums import FaceStatus
 from postcare.schemas.observation import FrameObservation
+from postcare.vision.inference.face_gate import FaceGate
 from tests.engine.builders import IMAGE_SIZE, PoseSequence
 from tests.face.helpers import FakeFaceDetector, face_config, with_head
 from tests.replay.helpers import fake_source_and_adapter, write_camera_yaml
 
-HEAD_HALF_WIDTH = 60.0  # vùng đầu 2 × 60 × 1.6 = 192 px ≥ 80 px
+HEAD_HALF_WIDTH = 60.0  # vùng đầu 2 × 60 × face.head_crop_scale (2.2) = 264 px ≥ 80 px
 
 
 def _scenario() -> list[FrameObservation]:

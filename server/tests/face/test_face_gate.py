@@ -7,6 +7,7 @@ import logging
 import pytest
 
 from postcare.schemas.enums import FaceStatus
+from postcare.schemas.observation import Keypoint, KeypointName, PersonPose
 from postcare.vision.inference.face_gate import FaceGate
 from tests.face.helpers import (
     FakeFaceDetector,
@@ -164,3 +165,20 @@ def test_gate_filters_unknown_blendshape_keys() -> None:
     obs = gate.observe(image_frame(0, 0), head_person(_half_width_for(160)))
     assert obs is not None
     assert obs.blendshapes == {keys[0]: 0.2}
+
+
+def test_face_gate_nan_keypoints_do_not_raise() -> None:
+    """R8 (review F25): keypoint NaN (dựng không qua validate) không được làm vỡ pipeline."""
+    nan = float("nan")
+    kps = {
+        name: Keypoint.model_construct(x=nan, y=nan, visibility=0.99)
+        for name in (KeypointName.NOSE, KeypointName.LEFT_EAR, KeypointName.RIGHT_EAR)
+    }
+    person = PersonPose.model_construct(keypoints=kps)
+    detector = FakeFaceDetector({"x": 0.1})
+    gate = _gate(detector)
+    obs = gate.observe(image_frame(0, 0), person)
+    assert obs is not None
+    assert obs.status == FaceStatus.NOT_VISIBLE
+    assert detector.calls == []
+    assert gate.error_count == 1

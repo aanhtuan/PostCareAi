@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F25 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP |
 | Milestone | M3 |
 | Ước lượng | 2 phiên |
@@ -147,12 +147,30 @@ Bằng chứng AC:
 
 Phân bố `face.status` trên clip thật (80 khung đầu, 10 FPS, 40 khung chạy face, ROI cả khung, scale 1.6 ban đầu): clip cận mặt ngồi/đứng (pexels-9902443, 6130032, 6944081, 6010961) đa số `OK`; người nằm nghiêng mặt 90° (mixkit-5457, pexels-6130226) gần như toàn `NOT_VISIBLE` dù vùng đầu > 130 px (bộ phát hiện mặt kém với mặt xoay ngang); clip toàn thân xa (pexels-8860232, mixkit-48202) chủ yếu `TOO_SMALL`. Không có lỗi face ở clip nào.
 
+So sánh `face.head_crop_scale` (căn cứ cho giả định mục 7): số khung `OK` trên 40 khung chạy face (80 khung đầu, 10 FPS, ROI cả khung, chế độ VIDEO), cùng clip, cùng máy.
+
+| Clip | 1.6 | 2.2 | 3.0 |
+|---|---|---|---|
+| pexels-3753707 | 15 | 16 | 16 |
+| pexels-4052924 | 6 | 9 | 3 |
+| pexels-6010768 | 0 | 0 | 0 |
+| pexels-6130226 (nằm, mặt xoay ngang) | 0 | 0 | 0 |
+| pexels-6130032 | 24 | 33 | 35 |
+| pexels-6010961 | 24 | 28 | 28 |
+| mixkit-5457 (nằm, mặt xoay ngang) | 0 | 4 | 1 |
+| mixkit-5568 | 9 | 9 | 9 |
+| **Tổng** | **78** | **99** | **92** |
+
+Ở 1.6, khung không `OK` của pexels-6010768 phần lớn là `NOT_VISIBLE` (28) và `TOO_SMALL` (12); ở 2.2 và 3.0 vùng đầu lớn hơn nên gần như hết `TOO_SMALL` nhưng mặt vẫn không được tìm thấy.
+
 Kiểm tra: `make check` exit 0, `scripts/dev.ps1 check` exit 0 (lần đầu MemoryError lúc import do máy hết RAM khi nhiều tác vụ song song; chạy lại xanh), `make test-vision` 6 passed (POSTCARE_MODELS_DIR, POSTCARE_DATA_DIR trỏ về checkout chính).
 
 Người sau cần biết:
 - Worker (F06/F17) chưa truyền `face` vào `process_frame`: khi nối, tạo `FaceGate.from_config(config, open_face_adapter(models_dir / manifest.face.filename, config))` nếu `config.face.enabled`, đóng bằng `gate.close()`.
 - Engine chưa đọc `obs.face` (`face_status` trong snapshot vẫn `NOT_VISIBLE`): F26 làm.
 - Mặt nằm xoay ngang hay bị bỏ lỡ: F26/F27 cần coi `NOT_VISIBLE` là "không biết", không phải "bình thường" (đã đúng theo event-engine.md mục 8).
+
+**2026-11-18, review: Đạt.** Sửa theo review (cùng nhánh): (1) thêm bảng so sánh `head_crop_scale` ở trên; (2) `cli/main.py`: tạo `FaceGate` bên trong `try/finally`, nên adapter pose luôn được đóng khi tạo cổng face lỗi (`tests/face/test_face_cli.py::test_replay_closes_pose_adapter_when_face_gate_fails`); (3) `FaceGate.observe` bọc toàn bộ phần xử lý người mục tiêu (cả `estimate_head_box`, `side_px`), keypoint NaN → `NOT_VISIBLE` + đếm lỗi thay vì raise (`test_face_gate_nan_keypoints_do_not_raise`); (4) sửa chú thích cũ "× 1.6" trong `test_face_isolation.py`. Trạng thái Done. Còn lại khi F06 vào `main`: thêm `peek_target` vào protocol `FrameEngine`, worker truyền `face` vào `process_frame`.
 
 ## 11. Definition of Done
 

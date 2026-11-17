@@ -86,6 +86,13 @@ class FaceGate:
             return None
         if target is None:
             return _obs(FaceStatus.NOT_VISIBLE)
+        try:
+            return self._observe_target(frame, target)
+        except Exception as exc:  # R8: mọi lỗi face (kể cả keypoint NaN) bị cô lập
+            self._error(frame, f"{type(exc).__name__}: {exc}")
+            return _obs(FaceStatus.NOT_VISIBLE)
+
+    def _observe_target(self, frame: Frame, target: PersonPose) -> FaceObservation:
         box = estimate_head_box(
             target, (frame.width, frame.height), min_visibility=self._min_vis, scale=self._scale
         )

@@ -461,13 +461,14 @@ def _replay_video(
         max_fps=max_fps or None,
         video_duration_s=video_duration_s(video),
     )
-    face = _face_gate(config, directory)
-    source = FileSource(video, max_fps=max_fps or None)
-    face_label = "bật" if face is not None else "tắt"
-    typer.echo(
-        f"Replay {video} (pose {entry.name}, face {face_label}, max-fps {max_fps:g}) → {out}"
-    )
+    face = None
     try:
+        face = _face_gate(config, directory)
+        source = FileSource(video, max_fps=max_fps or None)
+        face_label = "bật" if face is not None else "tắt"
+        typer.echo(
+            f"Replay {video} (pose {entry.name}, face {face_label}, max-fps {max_fps:g}) → {out}"
+        )
         return replay_video(
             source,
             adapter,
