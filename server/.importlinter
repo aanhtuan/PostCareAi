@@ -101,7 +101,7 @@ forbidden_modules =
     postcare.engine
 
 [importlinter:contract:engine-no-clock]
-name = engine khong doc dong ho he thong hay sinh ngau nhien (time, datetime, random)
+name = engine khong doc dong ho, sinh ngau nhien hay import dong (time, datetime, random, importlib)
 type = forbidden
 source_modules =
     postcare.engine
@@ -109,3 +109,4 @@ forbidden_modules =
     time
     datetime
     random
+    importlib

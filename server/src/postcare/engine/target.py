@@ -4,6 +4,7 @@
   ≤ `target.max_jump_torso_lengths × torso_length`. Mục tiêu vẫn được bám khi đã ra ngoài ROI.
 - Chưa có mục tiêu: chỉ nhận người có tâm hông trong ROI. Người ngoài ROI không bao giờ thành
   mục tiêu mới (PDF §13.1; HS §8.1).
+- Vị trí nhớ chỉ cập nhật khi hai hông có visibility ≥ `pose.min_keypoint_visibility`.
 - Frame không khớp ai: vị trí cũ vẫn được nhớ, và trong lúc nhớ không nhận người mới *(giả định)*.
   Engine gọi `forget()` khi cổng chất lượng đã đóng (NO_OBSERVATION) mà frame không có mục tiêu.
 """
@@ -14,7 +15,7 @@ from postcare.engine.features import hip_center_px, torso_length_px
 from postcare.engine.geometry import GeometryCache, Px, distance
 from postcare.schemas.context import EngineContext
 from postcare.schemas.engine_config import EngineConfig
-from postcare.schemas.observation import FrameObservation, PersonPose
+from postcare.schemas.observation import FrameObservation, KeypointName, PersonPose
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,7 @@ class TargetSelector:
     def __init__(self, config: EngineConfig, context: EngineContext) -> None:
         self._num_poses = config.pose.num_poses
         self._max_jump = config.target.max_jump_torso_lengths
+        self._min_vis = config.pose.min_keypoint_visibility
         self._geometry = GeometryCache(context.roi_polygon)
         self._last_hip: Px | None = None
         self._last_torso: float | None = None
@@ -86,10 +88,19 @@ class TargetSelector:
 
         if chosen is None:
             return TargetSelection(target=None, persons_in_roi=len(in_roi), is_new=False)
-        self._last_hip = chosen.hip
-        if chosen.torso:
-            self._last_torso = chosen.torso
+        # Chỉ cập nhật vị trí nhớ khi hai hông nhìn thấy rõ: vị trí đoán lúc bị che không được kéo
+        # mục tiêu đi (review F13). Lúc nhận mới thì luôn ghi để có mốc bám.
+        if is_new or self._hips_visible(chosen.person):
+            self._last_hip = chosen.hip
+            if chosen.torso:
+                self._last_torso = chosen.torso
         return TargetSelection(target=chosen.person, persons_in_roi=len(in_roi), is_new=is_new)
+
+    def _hips_visible(self, person: PersonPose) -> bool:
+        return all(
+            (kp := person.keypoints.get(name)) is not None and kp.visibility >= self._min_vis
+            for name in (KeypointName.LEFT_HIP, KeypointName.RIGHT_HIP)
+        )
 
     def _match_continuous(self, candidates: list[_Candidate], last_hip: Px) -> _Candidate | None:
         if not candidates:
