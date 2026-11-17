@@ -1,8 +1,8 @@
 """Dữ liệu mẫu.
 
-- `seed_base` (F01 R7–R9, `make db-seed`): tài khoản 4 vai trò, 3 ca trực, giường A01–A03,
-  1 camera gắn A01. Idempotent theo khóa tự nhiên: chỉ thêm bản ghi còn thiếu, không sửa
-  bản ghi có sẵn (R8).
+- `seed_base` (F01 R7–R9, `make db-seed`): tài khoản 4 vai trò, 3 ca trực, khu vực
+  "Khu hậu phẫu" (F37), giường A01–A03, 1 camera gắn A01. Idempotent theo khóa tự nhiên:
+  chỉ thêm bản ghi còn thiếu, không sửa bản ghi có sẵn (R8).
 - `seed_demo` + `seed_history` (prototype ADR-0010, chỉ `postcare seed --reset` / `make seed`):
   camera A02/A03, ROI mẫu, bệnh nhân mã thử nghiệm BN-001…BN-005, phiên mở và sự kiện quá khứ
   cho A02/A03 để dashboard giống HS Hình 3 (A01 Đang theo dõi, A02 Cần kiểm tra, A03 Cảnh báo
@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from postcare.db.models import (
     Alert,
+    Area,
     Bed,
     Camera,
     Event,
@@ -37,6 +38,7 @@ from postcare.schemas.enums import (
 from postcare.schemas.events import ALERT_PRIORITIES, EventCode, default_priority
 
 AREA = "Khu hậu phẫu"  # giả định F01
+AREA_CODE = "KV01"  # trùng mã migration 0005 sinh cho DB cũ có khu vực này (F37 R2)
 BED_CODES = ("A01", "A02", "A03")  # HS Hình 3
 DEMO_ROI = [[0.2, 0.25], [0.8, 0.25], [0.8, 0.85], [0.2, 0.85]]
 
@@ -69,9 +71,25 @@ def _needs_camera(db: Session, bed: Bed, name: str) -> bool:
     return not has_bed_camera and not has_named
 
 
+def _seed_area(db: Session, created: dict[str, int]) -> Area:
+    """Khu vực cho giường mẫu: tìm theo tên (kể cả đã xóa), không có thì tạo với mã còn trống."""
+    area = db.scalar(select(Area).where(Area.name == AREA).order_by(Area.id).limit(1))
+    if area is None:
+        used = set(db.scalars(select(Area.code)))
+        code = AREA_CODE
+        n = 1
+        while code in used:  # KV01 đã thuộc khu vực khác (DB cũ qua migration 0005)
+            n += 1
+            code = f"KV{n:02d}"
+        area = Area(code=code, name=AREA)
+        db.add(area)
+        created["areas"] += 1
+    return area
+
+
 def seed_base(db: Session, password: str) -> dict[str, int]:
     """Tạo danh mục nền còn thiếu rồi commit. Trả số bản ghi mới theo bảng."""
-    created = {"users": 0, "shift_definitions": 0, "beds": 0, "cameras": 0}
+    created = {"users": 0, "shift_definitions": 0, "areas": 0, "beds": 0, "cameras": 0}
     existing_users = set(db.scalars(select(User.username)))
     pw: str | None = None
     for username, full_name, role in SEED_USERS:
@@ -86,9 +104,11 @@ def seed_base(db: Session, password: str) -> dict[str, int]:
             db.add(ShiftDefinition(name=name, start_time=start, end_time=end))
             created["shift_definitions"] += 1
     beds = {b.code: b for b in db.scalars(select(Bed).where(Bed.code.in_(BED_CODES)))}
+    area: Area | None = None
     for code in BED_CODES:
         if code not in beds:
-            beds[code] = Bed(code=code, area=AREA)
+            area = area or _seed_area(db, created)
+            beds[code] = Bed(code=code, area=area)
             db.add(beds[code])
             created["beds"] += 1
     db.flush()

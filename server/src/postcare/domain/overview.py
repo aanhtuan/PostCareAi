@@ -42,7 +42,7 @@ def get_overview(db: Session, store: RuntimeStore, now: datetime) -> OverviewOut
     beds = db.scalars(
         select(Bed)
         .where(Bed.is_active.is_(True))
-        .options(selectinload(Bed.camera))
+        .options(selectinload(Bed.camera), selectinload(Bed.area))
         .order_by(Bed.code)
     )
     sessions = {
@@ -62,7 +62,7 @@ def get_overview(db: Session, store: RuntimeStore, now: datetime) -> OverviewOut
             OverviewBedOut(
                 bed_id=bed.id,
                 code=bed.code,
-                area=bed.area,
+                area=bed.area.name,
                 session=OverviewSessionOut(
                     id=s.id, patient_code=s.patient.code, started_at=s.started_at
                 )

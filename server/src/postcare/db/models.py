@@ -5,6 +5,8 @@ migration mới; test `test_models_match_migrations` bắt lệch giữa model v
 
 - 7 bảng nền của F01: users, patients, beds, cameras, monitoring_sessions, audit_logs,
   shift_definitions (migration 0001).
+- areas, beds.area_id (thay chuỗi beds.area), shift_definitions.is_active/created_at: F37,
+  migration 0005.
 - events, alerts và cột cameras.last_config_hash: phần prototype (ADR-0010) được giữ để API
   chạy được, tạo ở migration 0002; F17 tiếp nhận.
 """
@@ -84,15 +86,28 @@ class Patient(Base):
     created_at: Mapped[datetime] = _created_at()
 
 
+class Area(Base):
+    """Khu vực chứa giường (F37; PDF §10.1). Mã duy nhất kể cả đã xóa."""
+
+    __tablename__ = "areas"
+
+    id: Mapped[int] = _id()
+    code: Mapped[str] = mapped_column(Text, unique=True)
+    name: Mapped[str] = mapped_column(Text)
+    is_active: Mapped[bool] = _is_active()
+    created_at: Mapped[datetime] = _created_at()
+
+
 class Bed(Base):
     __tablename__ = "beds"
 
     id: Mapped[int] = _id()
     code: Mapped[str] = mapped_column(Text, unique=True)
-    area: Mapped[str] = mapped_column(Text)
+    area_id: Mapped[int] = _fk("areas.id")
     is_active: Mapped[bool] = _is_active()
     created_at: Mapped[datetime] = _created_at()
 
+    area: Mapped[Area] = relationship()
     camera: Mapped["Camera | None"] = relationship(back_populates="bed", uselist=False)
 
 
@@ -247,3 +262,5 @@ class ShiftDefinition(Base):
     name: Mapped[str] = mapped_column(Text)
     start_time: Mapped[time] = mapped_column(Time)
     end_time: Mapped[time] = mapped_column(Time)
+    is_active: Mapped[bool] = _is_active()  # F37
+    created_at: Mapped[datetime] = _created_at()  # F37

@@ -11,6 +11,7 @@ from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field
 
 from postcare.db.models import (
     Alert,
+    Area,
     Bed,
     Camera,
     Event,
@@ -139,14 +140,23 @@ def user_ref(u: User | None) -> UserRef | None:
 
 
 class ShiftOut(BaseModel):
+    """`end_time < start_time`: ca vắt qua nửa đêm (data-model.md)."""
+
     id: int
     name: str
     start_time: time
     end_time: time
+    is_active: bool
 
 
 def shift_out(s: ShiftDefinition) -> ShiftOut:
-    return ShiftOut(id=s.id, name=s.name, start_time=s.start_time, end_time=s.end_time)
+    return ShiftOut(
+        id=s.id,
+        name=s.name,
+        start_time=s.start_time,
+        end_time=s.end_time,
+        is_active=s.is_active,
+    )
 
 
 # ---------- Danh mục ----------
@@ -176,10 +186,25 @@ class SessionCreate(StrictIn):
     patient_id: int
 
 
+class AreaRef(BaseModel):
+    id: int
+    code: str
+    name: str
+
+
+class AreaOut(BaseModel):
+    id: int
+    code: str
+    name: str
+    is_active: bool
+    created_at: datetime
+    bed_count: int  # số giường đang dùng (chưa xóa) trong khu vực
+
+
 class BedOut(BaseModel):
     id: int
     code: str
-    area: str
+    area: AreaRef
     is_active: bool
     camera: CameraRef | None
     active_session: SessionOut | None
@@ -215,14 +240,38 @@ Note = Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)]
 
 class BedCreate(StrictIn):
     code: Code
-    area: Label
+    area_id: int  # khu vực đang dùng (F37 R3)
 
 
 class BedUpdate(StrictIn):
     """Chỉ trường gửi lên mới đổi. Không có `is_active`: xóa/khôi phục qua DELETE, restore."""
 
     code: Code | None = None
-    area: Label | None = None
+    area_id: int | None = None
+
+
+class AreaCreate(StrictIn):
+    code: Code
+    name: Label
+
+
+class AreaUpdate(StrictIn):
+    code: Code | None = None
+    name: Label | None = None
+
+
+class ShiftCreate(StrictIn):
+    """Giờ `HH:mm` (giây = 0) và `start_time ≠ end_time` kiểm tra ở domain để trả 400 (R8)."""
+
+    name: Label
+    start_time: time
+    end_time: time
+
+
+class ShiftUpdate(StrictIn):
+    name: Label | None = None
+    start_time: time | None = None
+    end_time: time | None = None
 
 
 class PatientCreate(StrictIn):
@@ -273,11 +322,26 @@ def camera_ref(c: Camera | None) -> CameraRef | None:
     return CameraRef(id=c.id, name=c.name, status=c.status) if c else None
 
 
+def area_ref(a: Area) -> AreaRef:
+    return AreaRef(id=a.id, code=a.code, name=a.name)
+
+
+def area_out(a: Area, bed_count: int) -> AreaOut:
+    return AreaOut(
+        id=a.id,
+        code=a.code,
+        name=a.name,
+        is_active=a.is_active,
+        created_at=a.created_at,
+        bed_count=bed_count,
+    )
+
+
 def bed_out(b: Bed, active: MonitoringSession | None) -> BedOut:
     return BedOut(
         id=b.id,
         code=b.code,
-        area=b.area,
+        area=area_ref(b.area),
         is_active=b.is_active,
         camera=camera_ref(b.camera),
         active_session=session_out(active) if active else None,
@@ -501,7 +565,7 @@ class OverviewSessionOut(BaseModel):
 class OverviewBedOut(BaseModel):
     bed_id: int
     code: str
-    area: str
+    area: str  # tên khu vực (F37: giữ dạng chuỗi cho F09)
     session: OverviewSessionOut | None
     camera: CameraRef | None
     pending_alert_count: int
