@@ -18,7 +18,7 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F08](F08-camera-config-roi.md) | Cấu hình camera và Bed ROI | M0 | MVP | B+C | F07 | PDF §7.2, §9.1; HS §4.1 | Todo |
 | [F09](F09-overview-dashboard-skeleton.md) | Dashboard khung (Tổng quan) | M0 | MVP | B+C | F04, F06 | PDF §9.1; HS §4.3 Hình 3 | Todo |
 | [F10](F10-observation-schema-engine-core.md) | Schema quan sát chung và khung Event Engine | M1 | MVP | A | F00 | PDF §10; HS §6.1 | Done |
-| [F11](F11-pose-adapter.md) | Pose adapter MediaPipe | M1 | MVP | A | F05, F10 | PDF §6.1; HS §5.2, §5.5 | Todo |
+| [F11](F11-pose-adapter.md) | Pose adapter MediaPipe | M1 | MVP | A | F05, F10 | PDF §6.1; HS §5.2, §5.5 | Done |
 | [F12](F12-replay-cli.md) | Replay CLI và fixture | M1 | MVP | A | F11 | PDF §12, §13; HS §8.1 | Todo |
 | [F13](F13-body-features-target-quality.md) | Đặc trưng cơ thể, người mục tiêu, chất lượng quan sát | M1 | MVP | A | F10 | PDF §6.1, §13.4; HS §5.2 | Done |
 | [F14](F14-body-state-machine.md) | State machine tư thế và vị trí | M1 | MVP | A | F13 | PDF §7; HS §5.4 | Todo |
