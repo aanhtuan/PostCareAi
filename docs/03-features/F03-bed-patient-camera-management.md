@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F03 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 3 phiên |
@@ -133,9 +133,23 @@ Cho quản trị viên khai báo giường, bệnh nhân (chỉ mã thử nghi�
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+> Lập ngày 2026-11-18 (builder F03). Không có migration mới: bảng `beds`, `patients`, `cameras` đã đủ cột (F01).
 
-1. …
+1. **Test trước** (`server/tests/api/test_beds.py`, `test_patients.py`, `test_cameras.py`, `test_catalog_delete.py`; `server/tests/domain/test_seed.py`; `web/src/pages/Management/ManagementPage.test.tsx`), xác nhận đỏ đúng lý do, commit `test(F03): ...`.
+2. **Schema** trong `postcare/domain/dto.py`: `BedCreate/BedUpdate`, `PatientCreate/PatientUpdate`, `CameraCreate/CameraUpdate` (`StrictIn`, `extra="forbid"` nên `is_active`, `full_name`, `photo` bị từ chối). `code` được `strip()` và không rỗng.
+3. **Domain** `postcare/domain/catalog.py` (giữ một module thay vì tách 3 file như §4: logic ngắn, dùng chung hàm lỗi/audit):
+   - `create_*`, `update_*`, `delete_*`, `restore_*`, `get_*`, `list_*` trả `Page`.
+   - Trùng mã: kiểm tra trước (kể cả bản ghi đã xóa) → 409 `DUPLICATE_CODE` (`details.field`, `details.inactive` + gợi ý "Khôi phục"); vẫn bắt `IntegrityError` phòng tranh chấp.
+   - Camera: kiểm tra `source` theo `source_type` (R5) → 400 `VALIDATION_ERROR`; giường đích phải tồn tại và đang dùng; giường đã có camera khác → 409 `BED_ALREADY_HAS_CAMERA`; đổi `source_type`/`source`/`bed_id` → `config_version += 1`.
+   - Xóa: khóa hàng (`SELECT ... FOR UPDATE`) rồi kiểm tra phiên mở trong cùng transaction → 409 `BED_HAS_OPEN_SESSION` / `PATIENT_HAS_OPEN_SESSION` / `CAMERA_IN_ACTIVE_SESSION` với `details.session_id`. Xóa camera đặt `bed_id = null` (và tăng `config_version` để worker tải lại). Lặp lại → 200, không audit.
+   - Audit `bed|patient|camera.create|update|delete|restore` với `before`/`after`.
+4. **Router** `postcare/api/v1/beds.py`, `patients.py`, `cameras.py` (đọc: mọi vai trò nhân viên; ghi: `require_roles(ADMIN)`); `catalog.py` chỉ còn `/shifts`. Danh sách nhận `limit` (≤ 200, mặc định 50), `offset`, `include_inactive`, trả `{items, total}`.
+5. **Seed**: `seed_base`/`seed_demo` không tạo camera mới khi đã có camera cùng tên (`Camera A01`…), kể cả đã xóa (§8).
+6. `make gen-api-types`; web: `client.ts` thêm `PATCH`/`DELETE`; hook `useBeds/usePatients/useCameras` nhận `includeInactive`, đọc `items`; mutation tạo/sửa/xóa/khôi phục.
+7. **UI** `ManagementPage.tsx` + `BedForm.tsx`, `PatientForm.tsx`, `CameraForm.tsx`, `ConfirmDeleteDialog`: ADMIN thấy Thêm/Sửa/Xóa/Khôi phục; công tắc "Hiện mục đã xóa"; nhãn "Đã xóa"; lỗi 409 hiện `message`. Text mới nằm trong khối `catalog` riêng của `vi.ts` (tránh xung đột khi gộp với F35).
+8. Docs: `api-conventions.md` (endpoint, mã lỗi, mã 400/422), `data-model.md` nếu cần. `make check`, `scripts\dev.ps1 check`, kiểm chứng thủ công bằng curl; ghi §10, trạng thái In review.
+
+**Ghi chú lệch nhỏ so với spec (không chặn):** lỗi schema (trường thừa, sai kiểu) do FastAPI bắt trả HTTP **422** với `code = VALIDATION_ERROR` theo api-conventions.md "422: Bọc lại thành VALIDATION_ERROR"; lỗi nghiệp vụ (nguồn sai theo loại) trả 400. Test kiểm `code` và đúng mã HTTP tương ứng. Ca âm tính `FAMILY` để F35 thêm khi có vai trò này.
 
 ## 10. Ghi chú bàn giao
 
