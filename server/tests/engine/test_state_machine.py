@@ -343,6 +343,26 @@ def test_lying_to_out_of_bed_marks_skipped_edge() -> None:
     assert exp["from_state"] == S.LYING.value
 
 
+def test_sitting_to_standing_to_out_of_bed_is_valid_exit_path() -> None:
+    """Ngồi ở mép < min_duration rồi đứng dậy đi ra: đứng ở mép luôn là STANDING, hợp lệ."""
+    seq = (
+        lying_established()
+        .raise_to_sitting(seconds=1.5)
+        .sitting(seconds=MIN.SITTING + 1)
+        .move_to(STANDING, seconds=0.8)
+        .standing(seconds=MIN.STANDING + 1)
+        .walk_out(seconds=2)
+        .hold(seconds=MIN.OUT_OF_BED + 1)
+        .build()
+    )
+    outs = run_engine(seq)
+    states = established(outs)
+    assert states[-3:] == [S.SITTING, S.STANDING, S.OUT_OF_BED]
+    assert S.AT_EDGE not in states
+    exp = outs[-1].state.explanation
+    assert exp is not None and "anomaly" not in exp
+
+
 def test_lying_to_out_skipped_edge_ignores_no_observation_gap() -> None:
     off_bed = LYING.moved_to((640, 700))
     # Mất quan sát khi đang nằm, thấy lại (chưa đủ lâu để xác lập LYING) rồi ra thẳng ngoài ROI
