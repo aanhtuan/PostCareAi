@@ -10,7 +10,7 @@ Mục tiêu: mọi thay đổi đều được kiểm chứng tự động bằn
 | Unit: domain | pytest | `server/tests/domain/` | Có | Dùng DB test |
 | API | pytest + FastAPI TestClient | `server/tests/api/` | Có | DB `postcare_test`, rollback mỗi test |
 | Tích hợp worker ↔ API | pytest | `server/tests/integration/` | Có | Worker chạy với `FakeFrameSource` / `FakePoseAdapter` |
-| Vision (model thật) | pytest marker `vision` | `server/tests/vision/` | **Không**; chạy `make test-vision` | Cần `models/` và video trong `data/`; bỏ qua nếu thiếu. Marker đăng ký trong `pyproject.toml` (`--strict-markers`); F00 có `test_placeholder.py` (luôn skip) để `pytest -m vision` trả exit 0 thay vì 5 cho tới F11 |
+| Vision (model thật) | pytest marker `vision` | `server/tests/vision/` | **Không**; chạy `make test-vision` | Cần `models/` và video trong `data/`; bỏ qua nếu thiếu. Marker đăng ký trong `pyproject.toml` (`--strict-markers`). F11: `test_pose_adapter.py` dùng model trong `models/` (`make models`) và video trong `data/vision/` (nếu trống thì clip stock `data/external/pexels/pexels-8090735.mp4`); đổi thư mục bằng `POSTCARE_DATA_DIR`, `POSTCARE_MODELS_DIR` |
 | Eval | pytest | `server/tests/eval/` | Có | Dữ liệu tổng hợp nhỏ |
 | Frontend unit/component | Vitest + Testing Library | `web/src/**/*.test.tsx` | Có | Mock API |
 | Từ cấm | Vitest | `web/src/i18n/vi.test.ts` (tạo ở F00) | Có | Quét `vi.ts` theo [danh sách](../01-product/glossary.md#từ-cấm-trên-ui) |
@@ -68,7 +68,7 @@ Builder hỗ trợ thêm các thao tác: `noise(frames=2)`, `drop_landmarks(seco
   - `app` / `client`: API dùng chung connection của test (dữ liệu cũng bị rollback); đầu test chạy `TRUNCATE … RESTART IDENTITY` trong transaction để id bắt đầu từ 1.
   - Test cần commit thật (ví dụ đọc từ kết nối thứ hai để kiểm tra "lưu trước, phát sau") đánh dấu `@pytest.mark.real_commit`; dữ liệu được dọn bằng `TRUNCATE` trước và sau test.
 - Test migration (`server/tests/db/`) chạy `downgrade base` rồi `upgrade head` trên DB test; không dùng `db_session` trong test đó.
-- Fixture `client` (TestClient), `auth_headers(role)` để test phân quyền.
+- Fixture `client` (TestClient), `login(username)` trả header `Authorization` của tài khoản seed (`nurse`, `charge`, `doctor`, `admin`) để test phân quyền. Router chỉ dùng cho test thì mount vào fixture `app` ngay trong test (ví dụ `server/tests/api/test_role_guard.py`).
 - Với mỗi endpoint ghi, test:
   - thành công;
   - validation sai (400/422);

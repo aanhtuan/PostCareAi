@@ -8,7 +8,12 @@ import { MemoryRouter } from 'react-router';
 import type { UserOut } from '../api/types';
 import { AuthContext, type AuthState } from '../auth/AuthContext';
 
-export function renderWithProviders(ui: ReactElement, user: UserOut, route = '/') {
+export function renderWithProviders(
+  ui: ReactElement,
+  user: UserOut,
+  route = '/',
+  authOverrides: Partial<AuthState> = {},
+) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const auth: AuthState = {
     user,
@@ -17,6 +22,7 @@ export function renderWithProviders(ui: ReactElement, user: UserOut, route = '/'
     canWrite: user.role !== 'DOCTOR',
     login: async () => {},
     logout: () => {},
+    ...authOverrides,
   };
   return render(
     <MantineProvider>

@@ -1,11 +1,11 @@
-"""Lệnh CLI `postcare`: version, seed, simulate, probe, openapi."""
+"""Lệnh CLI `postcare`: version, seed, simulate, probe, models, openapi."""
 
 import json
 import sys
 import time
 from importlib.metadata import version as package_version
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import httpx
 import typer
@@ -16,7 +16,7 @@ from postcare.db.models import Bed
 from postcare.db.session import make_engine, make_session_factory
 from postcare.db.types import utcnow
 from postcare.domain.seed import SEED_USERS, seed_base, seed_demo, seed_history
-from postcare.settings import get_settings
+from postcare.settings import REPO_ROOT, get_settings
 
 # Console Windows (cp1252) không in được tiếng Việt: ép UTF-8 cho stdout/stderr.
 for _stream in (sys.stdout, sys.stderr):
@@ -24,6 +24,10 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
 app = typer.Typer(help="PostCare AI - công cụ dòng lệnh (prototype)", no_args_is_help=True)
+
+DEFAULT_MODELS_MANIFEST = REPO_ROOT / "config" / "models.yaml"
+DEFAULT_MODELS_DIR = REPO_ROOT / "models"
+DEFAULT_ENGINE_CONFIG = REPO_ROOT / "config" / "engine.default.yaml"
 
 
 @app.command()
@@ -153,12 +157,23 @@ def probe(
     ],
     seconds: Annotated[float, typer.Option(help="Số giây đọc nguồn")] = 10.0,
     max_fps: Annotated[float, typer.Option(help="Giới hạn FPS xử lý (A03)")] = 15.0,
+    pose: Annotated[
+        bool, typer.Option("--pose", help="Chạy MediaPipe Pose trên từng khung, đo FPS/CPU/RAM")
+    ] = False,
+    model: Annotated[
+        str | None,
+        typer.Option(help="Biến thể pose: lite | full | heavy (mặc định: config/models.yaml)"),
+    ] = None,
+    models_dir: Annotated[
+        Path, typer.Option(help="Thư mục chứa file model (make models)")
+    ] = DEFAULT_MODELS_DIR,
 ) -> None:
-    """Kiểm tra nguồn video (F05): in FPS thực, độ phân giải, số khung bỏ, số lần mất kết nối."""
+    """Kiểm tra nguồn video (F05); `--pose` đo thêm hiệu năng pose (F11): FPS, CPU %, RAM MB."""
     from postcare.vision.camera import SourceOpenError, guess_source_type, open_source
 
     if seconds <= 0 or max_fps <= 0:
         raise typer.BadParameter("seconds và max-fps phải > 0")
+    runner = _PoseRunner.create(model, models_dir) if pose else None
     kind, value = guess_source_type(source)
     src = open_source(
         kind,
@@ -171,17 +186,28 @@ def probe(
         src.open()
     except SourceOpenError as exc:
         typer.echo(f"Không mở được nguồn: {exc}", err=True)
+        if runner:
+            runner.close()
         raise typer.Exit(1) from exc
     started = time.monotonic()
+    if runner:
+        runner.start()
     try:
         while time.monotonic() - started < seconds:
-            if src.read(timeout_s=1.0) is None and src.ended:
-                break
+            frame = src.read(timeout_s=1.0)
+            if frame is None:
+                if src.ended:
+                    break
+                continue
+            if runner:
+                runner.process(frame)
     except KeyboardInterrupt:
         typer.echo("Đã dừng.")
     finally:
         elapsed = time.monotonic() - started
         src.close()
+        if runner:
+            runner.close()
     stats = src.stats
     typer.echo(f"Độ phân giải: {stats.width}x{stats.height}")
     typer.echo(f"Số khung đã xử lý: {stats.frames} (trong {elapsed:.1f} s)")
@@ -189,11 +215,123 @@ def probe(
     typer.echo(f"FPS xử lý (đồng hồ máy): {stats.frames / elapsed if elapsed > 0 else 0:.1f}")
     typer.echo(f"Số khung bỏ: {stats.dropped_frames}")
     typer.echo(f"Số lần mất kết nối: {stats.disconnects}")
+    if runner:
+        runner.report(elapsed)
     if src.ended:
         typer.echo("Đã đọc hết file.")
     if stats.frames == 0:
         typer.echo("Không nhận được khung hình nào.", err=True)
         raise typer.Exit(1)
+
+
+class _PoseRunner:
+    """Phần `--pose` của `probe`: chạy adapter, đo thời gian suy luận, CPU, RAM, độ đầy đủ."""
+
+    def __init__(self, adapter: Any, label: str, coverage: Any) -> None:
+        import psutil
+
+        self.adapter = adapter
+        self.label = label
+        self.coverage = coverage
+        self.proc = psutil.Process()
+        self.n_cpu = psutil.cpu_count(logical=True) or 1
+        self.infer_s = 0.0
+        self.peak_rss = 0
+        self.cpu_percent = 0.0
+
+    @classmethod
+    def create(cls, variant: str | None, models_dir: Path) -> "_PoseRunner":
+        from postcare.schemas.engine_config import EngineConfig
+        from postcare.vision.inference.base import ModelNotFoundError
+        from postcare.vision.inference.pose_mediapipe import MediaPipePoseAdapter
+        from postcare.vision.inference.stats import PoseCoverage
+        from postcare.vision.models import ManifestError, load_manifest
+
+        config = EngineConfig.load(DEFAULT_ENGINE_CONFIG)
+        try:
+            entry = load_manifest(DEFAULT_MODELS_MANIFEST).pose_entry(variant)
+            adapter = MediaPipePoseAdapter.from_config(models_dir / entry.filename, config)
+        except (ManifestError, ModelNotFoundError) as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1) from exc
+        coverage = PoseCoverage(config.pose.required_keypoints, config.pose.min_keypoint_visibility)
+        return cls(
+            adapter, f"{entry.name} ({entry.filename}, num_poses {config.pose.num_poses})", coverage
+        )
+
+    def start(self) -> None:
+        self.proc.cpu_percent(None)  # mốc đo CPU
+
+    def process(self, frame: Any) -> None:
+        t0 = time.perf_counter()
+        obs = self.adapter.observe(frame, camera_id=0)
+        self.infer_s += time.perf_counter() - t0
+        self.coverage.add(obs)
+        self.peak_rss = max(self.peak_rss, self.proc.memory_info().rss)
+
+    def close(self) -> None:
+        if self.cpu_percent == 0.0:
+            self.cpu_percent = self.proc.cpu_percent(None)
+        self.adapter.close()
+
+    def report(self, elapsed: float) -> None:
+        n = self.coverage.frames
+        cov = self.coverage
+        typer.echo(f"Model pose: {self.label}")
+        typer.echo(f"Số khung đã chạy pose: {n}")
+        typer.echo(
+            f"FPS xử lý pose (khung đã chạy pose / giây): {n / elapsed if elapsed else 0:.1f}"
+        )
+        if n:
+            ms = self.infer_s * 1000 / n
+            typer.echo(f"Thời gian suy luận trung bình: {ms:.1f} ms/khung (≈ {1000 / ms:.1f} FPS)")
+        typer.echo(
+            f"CPU tiến trình: {self.cpu_percent:.0f} % "
+            f"(≈ {self.cpu_percent / self.n_cpu:.0f} % tổng máy, {self.n_cpu} luồng logic)"
+        )
+        typer.echo(f"RAM tiến trình (đỉnh): {self.peak_rss / 2**20:.0f} MB")
+        typer.echo(f"Khung có người: {cov.frames_with_person}/{n} ({cov.person_ratio:.0%})")
+        typer.echo(
+            f"Khung thấy đủ keypoint thân: {cov.frames_with_torso}/{n} ({cov.torso_ratio:.0%})"
+        )
+
+
+@app.command()
+def models(
+    variant: Annotated[
+        list[str] | None,
+        typer.Option(help="Chỉ tải biến thể này (lặp lại được); mặc định tải mọi biến thể"),
+    ] = None,
+    manifest: Annotated[Path, typer.Option(help="File manifest model")] = DEFAULT_MODELS_MANIFEST,
+    dest: Annotated[Path, typer.Option(help="Thư mục lưu model")] = DEFAULT_MODELS_DIR,
+) -> None:
+    """Tải model pose MediaPipe `.task` vào models/ và kiểm tra sha256 (F11; ADR-0003)."""
+    from postcare.vision.models import (
+        ChecksumMismatchError,
+        DownloadError,
+        ManifestError,
+        ensure_model,
+        load_manifest,
+    )
+
+    try:
+        loaded = load_manifest(manifest)
+        entries = [loaded.pose_entry(v) for v in variant] if variant else list(loaded.pose.variants)
+    except ManifestError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    for entry in entries:
+        typer.echo(f"{entry.filename}: kiểm tra…")
+        try:
+            result = ensure_model(entry, dest)
+        except (ChecksumMismatchError, DownloadError) as exc:
+            typer.echo(f"Lỗi: {exc}", err=True)
+            raise typer.Exit(1) from exc
+        if result.downloaded:
+            typer.echo(f"{entry.filename}: đã tải, sha256 khớp → {result.path}")
+        else:
+            typer.echo(f"{entry.filename}: đã có, sha256 khớp, bỏ qua")
+    typer.echo(f"Biến thể pose mặc định: {loaded.pose.default}")
 
 
 @app.command()

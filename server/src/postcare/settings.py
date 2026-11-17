@@ -9,6 +9,13 @@ SERVER_DIR = Path(__file__).resolve().parents[2]
 REPO_ROOT = SERVER_DIR.parent
 DEFAULT_DATABASE_URL = "postgresql+psycopg://postcare:postcare@localhost:5432/postcare"
 DEFAULT_TEST_DATABASE_URL = "postgresql+psycopg://postcare:postcare@localhost:5432/postcare_test"
+MIN_SECRET_BYTES = 32
+INSECURE_SECRET_PREFIX = "change-me"
+GENERATE_SECRET_HINT = 'python -c "import secrets; print(secrets.token_urlsafe(48))"'
+
+
+class InsecureSecretError(RuntimeError):
+    """JWT_SECRET hoặc WORKER_TOKEN còn là giá trị mặc định hoặc quá ngắn."""
 
 
 class Settings(BaseSettings):
@@ -21,6 +28,7 @@ class Settings(BaseSettings):
     # PostgreSQL 16 (ADR-0004; QA#34: chạy bằng Docker trên máy dev). Test dùng DB riêng (F01 R10).
     database_url: str = DEFAULT_DATABASE_URL
     test_database_url: str = DEFAULT_TEST_DATABASE_URL
+    # Mặc định cố ý không dùng được: API từ chối khởi động (ensure_secure_secrets). Đặt trong .env.
     jwt_secret: str = "change-me"
     jwt_expire_hours: float = 8.0  # A10
     worker_token: str = "change-me-worker"
@@ -34,6 +42,26 @@ class Settings(BaseSettings):
     @property
     def web_origin_list(self) -> list[str]:
         return [o.strip() for o in self.web_origins.split(",") if o.strip()]
+
+    def ensure_secure_secrets(self) -> None:
+        """Từ chối JWT_SECRET / WORKER_TOKEN mặc định ("change-me…") hoặc ngắn hơn 32 byte."""
+        bad = [
+            name
+            for name, value in (
+                ("JWT_SECRET", self.jwt_secret),
+                ("WORKER_TOKEN", self.worker_token),
+            )
+            if value.startswith(INSECURE_SECRET_PREFIX)
+            or len(value.encode("utf-8")) < MIN_SECRET_BYTES
+        ]
+        if bad:
+            names = ", ".join(bad)
+            raise InsecureSecretError(
+                f"{names} chưa an toàn (giá trị mặc định 'change-me…' hoặc ngắn hơn "
+                f"{MIN_SECRET_BYTES} byte). Đặt trong .env (xem .env.example), tạo bằng: "
+                f"{GENERATE_SECRET_HINT} / {names} is a default or shorter than "
+                f"{MIN_SECRET_BYTES} bytes; set it in .env."
+            )
 
 
 @lru_cache

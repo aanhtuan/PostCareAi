@@ -35,15 +35,23 @@ CREATE DATABASE postcare_test OWNER postcare;
 ## 3. Thiết lập dự án
 
 ```bash
-cp .env.example .env        # Windows PowerShell: Copy-Item .env.example .env
+cp .env.example .env        # Windows PowerShell: Copy-Item .env.example .env (bắt buộc, xem dưới)
 make setup                  # uv sync, npm ci, cài hook pre-commit và pre-push
 # PostgreSQL phải đang chạy (mục 4)
 make db-upgrade             # alembic upgrade head trên DATABASE_URL
 make db-seed                # dữ liệu mẫu nền (postcare seed), chạy lại an toàn
 make seed                   # tùy chọn, prototype: XÓA hết, migrate lại, thêm dữ liệu demo
-make models                 # tải model MediaPipe (từ F11; hiện là target giữ chỗ, exit 1)
+make models                 # tải model pose MediaPipe (lite/full/heavy) vào models/, kiểm tra sha256
 make check                  # phải xanh
 ```
+
+`JWT_SECRET` và `WORKER_TOKEN` (F02): API **từ chối khởi động** nếu một trong hai còn là giá trị mặc định (`change-me…`) hoặc ngắn hơn 32 byte, kèm thông báo lỗi chỉ cách sửa. `.env.example` có sẵn giá trị chỉ dùng cho dev (tiền tố `dev-only-`); chạy demo trong LAN thì tạo giá trị mới:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+API, worker và giả lập cùng đọc `.env` ở thư mục gốc nên `WORKER_TOKEN` tự khớp. Test (`make check`) không cần `.env`: fixture tự đặt giá trị đủ mạnh.
 
 Chạy hệ thống khi phát triển:
 
@@ -102,6 +110,8 @@ Xem thêm [camera-setup.md](camera-setup.md).
 
 | Triệu chứng | Cách xử lý |
 |---|---|
+| `make models` báo sha256 không khớp | File tải về bị hỏng hoặc URL trong `config/models.yaml` đã đổi bản: chạy lại; vẫn lỗi thì kiểm tra URL (phải có số phiên bản, không `latest`) rồi cập nhật sha256 |
+| Adapter báo không tìm thấy model (`Chạy make models`) | Chạy `make models` (Windows chưa có make: `scripts\dev.ps1 models`); model nằm ở `models/`, không commit |
 | `uv sync` báo không có wheel mediapipe | Kiểm tra Python là 3.12 (`uv run python -V`) |
 | `cv2` lỗi xung đột | Chỉ dùng `opencv-contrib-python` đi kèm mediapipe; gỡ `opencv-python` nếu lỡ cài |
 | `make: command not found` trên Windows | Cài GNU Make (mục 1), mở lại terminal |
