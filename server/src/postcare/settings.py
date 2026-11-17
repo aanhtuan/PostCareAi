@@ -7,7 +7,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 SERVER_DIR = Path(__file__).resolve().parents[2]
 REPO_ROOT = SERVER_DIR.parent
-DEFAULT_SQLITE_PATH = SERVER_DIR / "postcare.db"
+DEFAULT_DATABASE_URL = "postgresql+psycopg://postcare:postcare@localhost:5432/postcare"
+DEFAULT_TEST_DATABASE_URL = "postgresql+psycopg://postcare:postcare@localhost:5432/postcare_test"
 
 
 class Settings(BaseSettings):
@@ -17,8 +18,9 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Prototype: SQLite mặc định (ADR-0010). PostgreSQL: postgresql+psycopg://...
-    database_url: str = f"sqlite:///{DEFAULT_SQLITE_PATH.as_posix()}"
+    # PostgreSQL 16 (ADR-0004; QA#34: chạy bằng Docker trên máy dev). Test dùng DB riêng (F01 R10).
+    database_url: str = DEFAULT_DATABASE_URL
+    test_database_url: str = DEFAULT_TEST_DATABASE_URL
     jwt_secret: str = "change-me"
     jwt_expire_hours: float = 8.0  # A10
     worker_token: str = "change-me-worker"
