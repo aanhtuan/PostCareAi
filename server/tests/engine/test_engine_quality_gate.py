@@ -9,9 +9,9 @@ from collections.abc import Iterator
 from typing import ClassVar
 
 import pytest
-from postcare.engine.features import BodyFeatures
 
 from postcare.engine import engine as engine_module
+from postcare.engine.features import BodyFeatures
 from postcare.engine.pipeline import FrameAssessment
 from postcare.schemas.engine_config import EngineConfig
 from postcare.schemas.observation import FrameObservation

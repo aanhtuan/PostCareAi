@@ -2,7 +2,6 @@
 
 from postcare.engine.quality import QualityGate, assess_quality
 from postcare.engine.target import TargetSelector
-
 from postcare.schemas.observation import FrameObservation, KeypointName
 from postcare.schemas.state import ObservationQuality as Q
 from tests.engine.builders import (

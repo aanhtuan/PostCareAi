@@ -3,8 +3,8 @@
 import math
 
 import pytest
-from postcare.engine.features import BodyFeatures, FeatureExtractor
 
+from postcare.engine.features import BodyFeatures, FeatureExtractor
 from postcare.schemas.observation import FrameObservation, KeypointName, PersonPose
 from postcare.schemas.roi import RoiPolygon
 from tests.engine.builders import (
