@@ -1,0 +1,99 @@
+// Form thêm/sửa camera: tên, loại nguồn, địa chỉ nguồn, giường (F03 R5, R7).
+import { Select, TextInput } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import { useState } from 'react';
+
+import { useBeds, useSaveCatalogItem } from '../../api/hooks';
+import {
+  SOURCE_TYPES,
+  type CameraCreate,
+  type CameraOut,
+  type CameraSourceType,
+} from '../../api/types';
+import { fmt, vi } from '../../i18n/vi';
+import { CatalogFormModal } from './CatalogFormModal';
+
+type Props = { camera: CameraOut | null; onClose: () => void };
+
+const NO_BED = '';
+
+export function CameraForm({ camera, onClose }: Props) {
+  const save = useSaveCatalogItem<CameraCreate>('cameras');
+  const beds = useBeds();
+  const [name, setName] = useState(camera?.name ?? '');
+  const [sourceType, setSourceType] = useState<CameraSourceType>(camera?.source_type ?? 'WEBCAM');
+  const [source, setSource] = useState(camera?.source ?? '');
+  const [bedId, setBedId] = useState<string>(camera?.bed_id ? String(camera.bed_id) : NO_BED);
+  const [touched, setTouched] = useState(false);
+
+  // Giường đang dùng, chưa có camera khác (QA#13); giường hiện tại của camera vẫn chọn được.
+  const bedOptions = [
+    { value: NO_BED, label: vi.catalog.noBed },
+    ...(beds.data ?? [])
+      .filter((b) => !b.camera || b.camera.id === camera?.id)
+      .map((b) => ({ value: String(b.id), label: b.code })),
+  ];
+
+  const submit = () => {
+    setTouched(true);
+    if (!name.trim() || !source.trim()) return;
+    const body: CameraCreate = {
+      name: name.trim(),
+      source_type: sourceType,
+      source: source.trim(),
+      bed_id: bedId === NO_BED ? null : Number(bedId),
+    };
+    save.mutate(
+      { id: camera?.id, body },
+      {
+        onSuccess: () => {
+          notifications.show({ color: 'teal', message: vi.catalog.savedDone });
+          onClose();
+        },
+      },
+    );
+  };
+
+  return (
+    <CatalogFormModal
+      opened
+      title={camera ? fmt(vi.catalog.editCamera, { name: camera.name }) : vi.catalog.addCamera}
+      onClose={onClose}
+      onSubmit={submit}
+      saving={save.isPending}
+      error={save.error}
+    >
+      <TextInput
+        label={vi.camera.name}
+        required
+        value={name}
+        onChange={(e) => setName(e.currentTarget.value)}
+        error={touched && !name.trim() ? vi.catalog.required : undefined}
+        data-autofocus
+      />
+      <Select
+        label={vi.camera.sourceType}
+        required
+        allowDeselect={false}
+        data={SOURCE_TYPES.map((t) => ({ value: t, label: vi.sourceType[t] }))}
+        value={sourceType}
+        onChange={(v) => v && setSourceType(v as CameraSourceType)}
+      />
+      <TextInput
+        label={vi.camera.source}
+        description={vi.catalog.sourceHint[sourceType]}
+        required
+        value={source}
+        onChange={(e) => setSource(e.currentTarget.value)}
+        error={touched && !source.trim() ? vi.catalog.required : undefined}
+      />
+      <Select
+        label={vi.common.bed}
+        allowDeselect={false}
+        data={bedOptions}
+        value={bedId}
+        onChange={(v) => setBedId(v ?? NO_BED)}
+      />
+    </CatalogFormModal>
+  );
+}

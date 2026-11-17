@@ -38,7 +38,7 @@ Vai trò và ma trận quyền là *(giả định QA#18)*; cột `FAMILY` theo 
 
 - "Vai trò nhân viên" = `NURSE`, `CHARGE_NURSE`, `DOCTOR`, `ADMIN`. Endpoint đọc của nhân viên dùng guard `require_staff` (F35); `FAMILY` gọi vào → 403 `FORBIDDEN`.
 - `FAMILY` chỉ gọi được `POST /auth/login`, `GET /auth/me` và `/api/v1/family/...`.
-- Vai trò và `is_active` đọc từ DB ở mỗi request, không tin `role` trong JWT (F35 R9).
+- Vai trò và `is_active` đọc từ DB ở mỗi request, không tin `role` trong JWT (F35 R9). JWT mang `tv` = `users.token_version`; đặt lại mật khẩu tăng giá trị này nên mọi token cũ → 401 `UNAUTHORIZED` (F35).
 
 ## Lỗi
 
@@ -55,6 +55,7 @@ Mọi lỗi trả về:
 | 403 | Không đủ quyền | `FORBIDDEN`, `FAMILY_ACCESS_ENDED` (F36: quyền xem của chính người nhà đã hết hiệu lực) |
 | 404 | Không tìm thấy | `NOT_FOUND` |
 | 409 | Xung đột trạng thái | `DUPLICATE_CODE`, `BED_ALREADY_HAS_CAMERA`, `SESSION_ALREADY_OPEN`, `SESSION_ALREADY_ENDED`, `NO_ACTIVE_SESSION`, `ALERT_ALREADY_ACKNOWLEDGED`, `INVALID_ALERT_TRANSITION`, và các mã bên dưới |
+| 422 | Lỗi validation của FastAPI | Bọc lại thành `VALIDATION_ERROR` |
 
 Mã 409 thêm ngày 17/11/2026 (đều *(giả định)*):
 
@@ -72,8 +73,7 @@ Mã 409 thêm ngày 17/11/2026 (đều *(giả định)*):
 | `SESSION_ALREADY_PAUSED` / `SESSION_NOT_PAUSED` | F36 | Tạm dừng khi đang tạm dừng / tiếp tục khi không tạm dừng |
 | `CAPTURE_PAUSED` | F36 | Worker gửi sự kiện engine cho phiên đang tạm dừng thu hình |
 
-Trùng `username` (F35) dùng lại `DUPLICATE_CODE` với `details.field = "username"`.
-| 422 | Lỗi validation của FastAPI | Bọc lại thành `VALIDATION_ERROR` |
+Trùng `username` (F35) dùng lại `DUPLICATE_CODE` với `details.field = "username"`. Sai định dạng `username` (3–64 ký tự `[a-z0-9._-]` sau khi bỏ khoảng trắng và chuyển chữ thường), mật khẩu dưới 8 ký tự, vai trò lạ hoặc trường thừa → 422 `VALIDATION_ERROR`. Khi một thao tác vừa là tự khóa vừa là khóa ADMIN cuối cùng, trả `LAST_ADMIN`.
 
 `message` viết tiếng Việt, dùng được để hiển thị. `code` dùng cho logic frontend.
 
@@ -129,7 +129,8 @@ Các loại trên chỉ gửi cho kết nối của **vai trò nhân viên**. K�
 **Quy tắc:**
 - Chỉ phát **sau khi commit DB** (HS §4.2).
 - Khi kết nối lại, frontend refetch dữ liệu thay vì giả định không bỏ lỡ gì.
-- Token sai hoặc hết hạn: server đóng kết nối với mã **4401**. Client không thử lại mà chuyển về trang đăng nhập *(giả định; F18)*. Tài khoản bị khóa (F35): đóng các kết nối đang mở với mã 4401.
+- Token sai hoặc hết hạn: server đóng kết nối với mã **4401**. Client không thử lại mà chuyển về trang đăng nhập *(giả định; F18)*. Tài khoản bị khóa hoặc được đặt lại mật khẩu (F35): đóng các kết nối đang mở với mã 4401. Đổi vai trò từ nhân viên sang vai trò khác (ví dụ `FAMILY`): đóng luồng nhân viên với mã 4403.
+- Trước F36, mọi kết nối của `FAMILY` vào `/api/v1/ws` bị đóng mã **4403** ngay sau khi xác thực (F35 R2).
 - `FAMILY` không còn quyền xem nào đang hiệu lực (lúc kết nối hoặc giữa chừng): đóng với mã **4403** *(giả định; F36)*. Lọc theo từng kết nối; không bao giờ gửi dữ liệu của giường/phiên khác cho `FAMILY`.
 
 ## API nội bộ cho worker
@@ -151,3 +152,14 @@ Các loại trên chỉ gửi cho kết nối của **vai trò nhân viên**. K�
 - Schema request/response đặt tên `<Resource>Create`, `<Resource>Update`, `<Resource>Out`.
 - Mọi thao tác ghi có tác động nghiệp vụ (phiên, cảnh báo, cấu hình camera, danh mục, người dùng, quyền xem của người nhà) đều gọi `record_audit()`. `before`/`after` không bao giờ chứa mật khẩu hay hash.
 - Xóa danh mục luôn là xóa mềm qua `DELETE` + khôi phục qua `POST .../restore` (QA#36). Xóa/khôi phục lặp lại trả 200, không đổi gì, không ghi audit *(giả định)*. Không có endpoint xóa cứng.
+
+### Danh mục giường, bệnh nhân, camera (F03)
+
+- Đọc (`GET` danh sách, chi tiết): mọi vai trò nhân viên. Ghi (`POST`, `PATCH`, `DELETE`, `POST .../restore`): chỉ `ADMIN` (guard `require_admin` trong `postcare/api/deps.py`), vai trò khác → 403 `FORBIDDEN`.
+- Danh sách `GET /beds|/patients|/cameras?limit&offset&include_inactive` trả `{items, total}`; mặc định chỉ bản ghi đang dùng. Chi tiết `GET .../{id}` trả cả bản ghi đã xóa (`is_active = false`).
+- Request đặt `extra="forbid"`: trường lạ (`is_active` trong `PATCH`, `full_name`/`photo` của bệnh nhân…), sai kiểu, mã rỗng → **422** `VALIDATION_ERROR` (lỗi schema của FastAPI). Lỗi nghiệp vụ → **400** `VALIDATION_ERROR` với `details.field`: `source` không hợp lệ theo `source_type` (`WEBCAM`: số nguyên ≥ 0; `URL`: `http://`, `https://`, `rtsp://`; `FILE`: không rỗng), gắn camera vào giường đã xóa, gắn giường cho camera đã xóa.
+- `code` được bỏ khoảng trắng đầu/cuối rồi so trùng, kể cả với bản ghi đã xóa → 409 `DUPLICATE_CODE`, `details = {field: "code", existing_id, inactive}`; khi `inactive = true`, `message` gợi ý dùng "Khôi phục".
+- Gắn camera vào giường đã có camera khác → 409 `BED_ALREADY_HAS_CAMERA`, `details.camera_id` là camera đang gắn.
+- `PATCH` đổi `bed_id`, `source` hoặc `source_type` của camera là `camera_id` của phiên đang mở → 409 `CAMERA_IN_ACTIVE_SESSION` (`details.session_id`); đổi `name` vẫn được. Mở phiên (F04) khóa hàng giường và bệnh nhân (`FOR UPDATE`) nên không tranh chấp với xóa mềm.
+- `DELETE` kiểm tra phiên mở trong cùng transaction (khóa hàng `FOR UPDATE`): 409 `BED_HAS_OPEN_SESSION` / `PATIENT_HAS_OPEN_SESSION` / `CAMERA_IN_ACTIVE_SESSION`, `details.session_id`. Xóa camera đặt `bed_id = null` và tăng `config_version`; khôi phục không tự gắn lại giường. Xóa giường giữ liên kết camera.
+- Audit: `bed|patient|camera.create|update|delete|restore`, `before`/`after` là ảnh chụp các trường danh mục. `PATCH` không đổi gì thì không ghi audit.

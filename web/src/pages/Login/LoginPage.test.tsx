@@ -64,7 +64,14 @@ describe('LoginPage', () => {
         HttpResponse.json({
           access_token: 'jwt-abc',
           token_type: 'bearer',
-          user: { id: 1, username: 'nurse', full_name: 'Nguyễn Thị Hoa', role: 'NURSE' },
+          user: {
+            id: 1,
+            username: 'nurse',
+            full_name: 'Nguyễn Thị Hoa',
+            role: 'NURSE',
+            is_active: true,
+            created_at: '2026-11-17T00:00:00Z',
+          },
         }),
       ),
     );

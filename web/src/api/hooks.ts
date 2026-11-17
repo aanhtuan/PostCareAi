@@ -23,9 +23,6 @@ export const qk = {
   overview: ['overview'] as const,
   events: (p: object) => ['events', p] as const,
   alerts: (p: object) => ['alerts', p] as const,
-  beds: ['beds'] as const,
-  patients: ['patients'] as const,
-  cameras: ['cameras'] as const,
   shifts: ['shifts'] as const,
   sessions: (p: object) => ['sessions', p] as const,
   timeline: (p: object) => ['timeline', p] as const,
@@ -61,16 +58,30 @@ export function useAlerts(filter: AlertFilter) {
   });
 }
 
-export function useBeds() {
-  return useQuery({ queryKey: qk.beds, queryFn: () => api<BedOut[]>('/beds') });
+// Danh mục (F03): API phân trang; màn hình cần toàn bộ nên lấy tối đa 200 (api-conventions.md).
+const CATALOG_LIMIT = 200;
+
+function catalogQuery<T>(resource: CatalogResource, includeInactive: boolean) {
+  return {
+    queryKey: [resource, { includeInactive }] as const,
+    queryFn: () =>
+      api<Page<T>>(`/${resource}`, {
+        query: { limit: CATALOG_LIMIT, include_inactive: includeInactive || undefined },
+      }),
+    select: (page: Page<T>) => page.items,
+  };
 }
 
-export function usePatients() {
-  return useQuery({ queryKey: qk.patients, queryFn: () => api<PatientOut[]>('/patients') });
+export function useBeds(includeInactive = false) {
+  return useQuery(catalogQuery<BedOut>('beds', includeInactive));
 }
 
-export function useCameras() {
-  return useQuery({ queryKey: qk.cameras, queryFn: () => api<CameraOut[]>('/cameras') });
+export function usePatients(includeInactive = false) {
+  return useQuery(catalogQuery<PatientOut>('patients', includeInactive));
+}
+
+export function useCameras(includeInactive = false) {
+  return useQuery(catalogQuery<CameraOut>('cameras', includeInactive));
 }
 
 export function useShifts() {
@@ -134,6 +145,7 @@ function useInvalidateMonitoring() {
       'beds',
       'sessions',
       'patients',
+      'cameras',
     ]) {
       void qc.invalidateQueries({ queryKey: [key] });
     }
@@ -177,6 +189,40 @@ export function useEndSession() {
   return useMutation({
     mutationFn: (sessionId: number) =>
       api<SessionOut>(`/sessions/${sessionId}/end`, { method: 'POST' }),
+    onSettled: invalidate,
+  });
+}
+
+export type CatalogResource = 'beds' | 'patients' | 'cameras';
+
+/** Thêm (`id` rỗng) hoặc sửa (`PATCH`) một mục danh mục. Chỉ ADMIN (F03 R2). */
+export function useSaveCatalogItem<TBody>(resource: CatalogResource) {
+  const invalidate = useInvalidateMonitoring();
+  return useMutation({
+    mutationFn: ({ id, body }: { id?: number; body: TBody }) =>
+      id === undefined
+        ? api<unknown>(`/${resource}`, { method: 'POST', body })
+        : api<unknown>(`/${resource}/${id}`, { method: 'PATCH', body }),
+    onSettled: invalidate,
+  });
+}
+
+/** Xóa mềm (`DELETE`) hoặc khôi phục (`POST .../restore`) (QA#36). */
+export function useCatalogLifecycle() {
+  const invalidate = useInvalidateMonitoring();
+  return useMutation({
+    mutationFn: ({
+      resource,
+      id,
+      action,
+    }: {
+      resource: CatalogResource;
+      id: number;
+      action: 'delete' | 'restore';
+    }) =>
+      action === 'delete'
+        ? api<unknown>(`/${resource}/${id}`, { method: 'DELETE' })
+        : api<unknown>(`/${resource}/${id}/restore`, { method: 'POST' }),
     onSettled: invalidate,
   });
 }

@@ -5,8 +5,22 @@ import type { AlertOut, EventOut, OverviewOut, UserOut } from '../../api/types';
 import { mockFetch, renderWithProviders } from '../../test/render';
 import { OverviewPage } from './OverviewPage';
 
-const nurse: UserOut = { id: 1, username: 'nurse', full_name: 'Nguyễn Thị Hoa', role: 'NURSE' };
-const doctor: UserOut = { id: 3, username: 'doctor', full_name: 'Lê Quốc Bảo', role: 'DOCTOR' };
+const nurse: UserOut = {
+  id: 1,
+  username: 'nurse',
+  full_name: 'Nguyễn Thị Hoa',
+  role: 'NURSE',
+  is_active: true,
+  created_at: '2026-11-17T00:00:00Z',
+};
+const doctor: UserOut = {
+  id: 3,
+  username: 'doctor',
+  full_name: 'Lê Quốc Bảo',
+  role: 'DOCTOR',
+  is_active: true,
+  created_at: '2026-11-17T00:00:00Z',
+};
 const T = '2026-10-12T07:38:34Z'; // 14:38:34 giờ VN
 
 function bed(
