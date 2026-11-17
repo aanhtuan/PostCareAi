@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import AwareDatetime
 from sqlalchemy.orm import Session
 
-from postcare.api.deps import get_current_user, get_session, get_store
+from postcare.api.deps import get_session, get_store, require_staff
 from postcare.db.types import utcnow
 from postcare.domain import events as ev
 from postcare.domain import handover as ho
@@ -17,7 +17,7 @@ from postcare.domain.runtime import RuntimeStore
 from postcare.schemas.enums import Priority
 from postcare.schemas.events import EventCode
 
-router = APIRouter(tags=["monitoring"], dependencies=[Depends(get_current_user)])
+router = APIRouter(tags=["monitoring"], dependencies=[Depends(require_staff)])
 
 
 @router.get("/overview", response_model=OverviewOut)

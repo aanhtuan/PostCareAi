@@ -39,9 +39,9 @@ EngineContext                     # truyền khi tạo Engine(config, context), 
   roi_polygon: RoiPolygon         # points: list[(x, y)] chuẩn hóa 0–1, ≥3 điểm; đổi ROI → worker tạo Engine mới
 
 EngineOutput
-  state: BodyStateSnapshot        # body_state, observation_quality, activity_level, rest_status, face_status, face_signals
+  state: BodyStateSnapshot        # body_state, observation_quality, activity_level, rest_status, face_status, face_signals, explanation (lần chuyển body_state gần nhất; F14)
   state_changed: bool
-  events: list[EngineEvent]       # code, priority, occurred_at_ms, detected_at_ms, confidence, observation_quality, explanation
+  events: list[EngineEvent]       # code, priority, occurred_at_ms, detected_at_ms, confidence, observation_quality, explanation, config_hash (F15)
 ```
 
 - `face = None` nghĩa là frame này không chạy face (do `face.run_every_n_frames`). Engine giữ tín hiệu mặt gần nhất trong tối đa `face.run_every_n_frames` frame, sau đó coi là `NOT_VISIBLE` *(giả định)*.
@@ -70,7 +70,7 @@ Quy ước của code (F10, file trong `postcare/schemas/`: `observation.py`, `s
 | 8 | Khuôn mặt + kết hợp | `engine/face.py`, `engine/rules/face.py`, `engine/rest.py` | F26, F27 | face_signals; FACE_ATTENTION (có nâng ưu tiên); rest_status |
 | 9 | Debounce + quan sát | `engine/debounce.py`, `engine/rules/observation.py` | F15 (engine); F17 chỉ lưu | Lọc lặp; OBSERVATION_LOST / RESTORED |
 
-`engine/engine.py` có lớp `Engine` ghép các bước trên. Khung các bước (chữ ký sẵn, chưa có logic) nằm ở `engine/pipeline.py` (F10): `TargetSelector`, `QualityAssessor`, `StateMachine`, `RuleSet`; feature sau tách ra module riêng như bảng trên. Method `Engine.process(obs) -> EngineOutput` là API duy nhất mà worker và replay gọi (F10).
+`engine/engine.py` có lớp `Engine` ghép các bước trên. Khung các bước (chữ ký sẵn, chưa có logic) nằm ở `engine/pipeline.py` (F10): `TargetSelector`, `QualityAssessor`, `StateMachine`, `RuleSet`; feature sau tách ra module riêng như bảng trên. `RuleSet` (bước 6–9) nằm ở `engine/rules/__init__.py` từ F15: gọi các rule rồi lọc bằng `Debouncer`, gắn `priority` từ catalog và `config_hash`. Method `Engine.process(obs) -> EngineOutput` là API duy nhất mà worker và replay gọi (F10).
 
 Quy ước bước 1–3 (F13; `engine/target.py`, `features.py`, `smoothing.py`, `quality.py`, `geometry.py`):
 - Góc và khoảng cách tính theo **pixel** (toạ độ chuẩn hóa × `image_size`). Trục dài giường = trục chính (PCA) của các đỉnh ROI *(giả định)*.
@@ -98,8 +98,19 @@ Quy ước bước 1–3 (F13; `engine/target.py`, `features.py`, `smoothing.py`
 - Có **hysteresis**: ngưỡng vào ≠ ngưỡng ra (PDF §7).
 - Từ `NO_OBSERVATION` quay lại một trạng thái khác phải giữ ≥ `restore_duration`.
 - **Mất landmark hoặc bị che không bao giờ dẫn tới `OUT_OF_BED`**. Trường hợp này luôn dẫn tới `NO_OBSERVATION` (HS §5.2).
-- Chuỗi hợp lệ để có BED_EXIT: `… → AT_EDGE → (STANDING) → OUT_OF_BED` (PDF §7.2). Đoạn `NO_OBSERVATION` xen giữa chuỗi được bỏ qua khi xét chuỗi. Đi thẳng từ `LYING` sang `OUT_OF_BED` không sinh BED_EXIT; engine chỉ ghi `explanation.anomaly = "skipped_edge"` vào state *(giả định)*.
+- Chuỗi hợp lệ để có BED_EXIT: `… → AT_EDGE → (STANDING) → OUT_OF_BED` hoặc `… → STANDING → OUT_OF_BED` (PDF §7.2). **Điều kiện trước cho BED_EXIT (F15): trạng thái ổn định ngay trước `OUT_OF_BED` là `AT_EDGE` hoặc `STANDING`**, bỏ qua đoạn `NO_OBSERVATION` xen giữa. Lý do: đứng ở mép giường luôn là `STANDING`, nên người ngồi mép chưa đủ `min_duration_s.AT_EDGE` rồi đứng dậy đi ra vẫn là lần rời giường thật, không được bỏ sót. Đi thẳng từ `LYING`/`RAISING`/`SITTING` sang `OUT_OF_BED` không sinh BED_EXIT; engine chỉ ghi `explanation.anomaly = "skipped_edge"` vào state *(giả định)*.
 - **Ưu tiên khi chồng lấn:** tư thế đứng → `STANDING`, kể cả khi ở gần biên ROI. `AT_EDGE` chỉ dành cho **ngồi** gần biên hoặc ngồi có cổ chân ra ngoài ROI *(giả định; khớp ví dụ trong testing.md)*.
+
+**Cách phân loại cụ thể (F14, `engine/posture.py`, `engine/state_machine.py`)** *(giả định; hiệu chỉnh ở F16)*:
+- Thứ tự ứng viên: cổng chất lượng đóng → `NO_OBSERVATION`; vị trí `OUT` → `OUT_OF_BED`; tư thế đứng → `STANDING`; ngồi/nâng thân + vị trí `EDGE` → `AT_EDGE`; còn lại theo tư thế (`LYING`/`RAISING`/`SITTING`). Tư thế không xác định khi chất lượng tốt → giữ trạng thái.
+- Thân "thẳng": góc > `sitting_enter_deg`; đang ở trạng thái thân thẳng (`SITTING`, `AT_EDGE`, `STANDING`, `OUT_OF_BED`) thì chỉ cần ≥ `sitting_exit_deg`. Vùng nằm: < `lying_enter_deg`; đang `LYING` thì ≤ `lying_exit_deg`. Thân thẳng mà vai không cao hơn hông → không xác định.
+- Rời `LYING` luôn qua `RAISING` (mọi góc ngoài vùng nằm khi đang `LYING` là `RAISING`, kể cả khi thân đã thẳng và chân đã duỗi). **Ngoại lệ của quy tắc "đứng thắng mép"**: từ `LYING`, tư thế đứng được xếp là `RAISING`, nên nếu hông ở mép giường thì ứng viên là `AT_EDGE` (`RAISING` + `EDGE`); chỉ sau khi đã rời `LYING` mới phân loại được `STANDING`.
+- Góc ở vùng giữa chỉ là `RAISING` khi đang `LYING`/`RAISING`/`NO_OBSERVATION`. Từ trạng thái thân thẳng (`SITTING`, `AT_EDGE`…) ngả lưng về góc giữa `lying_enter_deg` và `sitting_exit_deg` (mặc định 25°–45°) là tư thế không xác định → **giữ nguyên trạng thái** (ví dụ vẫn `SITTING` khi nửa nằm) cho tới khi vào vùng nằm (`SITTING → LYING`). Hành vi giữ trạng thái này là **mục hiệu chỉnh của F16** (đo trên tập dev xem có làm trễ `LYING` hay che `SIT_UP` lần sau không).
+- Tỷ lệ `torso_length` chỉ dùng khi góc báo vùng nằm (góc 2D không phân biệt được); tham chiếu là `torso_length` lúc `LYING` ổn định, xóa khi vào `NO_OBSERVATION`.
+- Đứng: thân thẳng, thấy gối và cổ chân, gối thấp hơn hông, cổ chân thấp hơn gối, `(knee_y − hip_y) ≥ standing_hip_above_knee_ratio × (ankle_y − knee_y)`, **và** vector hông → cổ chân cũng thẳng theo cùng ngưỡng góc của thân (loại ca chân nằm ngang trên giường).
+- Vị trí: `OUT` khi `dist_to_roi_edge < −out_of_roi_margin_torso` (đang `OUT_OF_BED` thì `OUT` tới khi hông vào trong ROI); `EDGE` khi `dist_to_roi_edge < edge_distance_torso` hoặc có cổ chân ra ngoài ROI; còn lại `IN_BED`.
+- Ứng viên phải giữ liên tục (không bị ứng viên khác, tư thế không xác định hay frame kém xen vào) ≥ `min_duration_s.<đích>`. Sau `NO_OBSERVATION`: cổng phục hồi `restore_duration_s` rồi mới bắt đầu đếm min_duration.
+- `explanation` của mỗi lần chuyển: `rule_id` (`state.<đích>`), `from_state`, `to_state`, `held_ms`, `observation_quality`, và với trạng thái quan sát được: `posture`, `location`, `trunk_angle_deg`, `dist_to_roi_edge`, `ankles_outside_roi`, `torso_length_ratio`. `anomaly = "skipped_edge"` khi vào `OUT_OF_BED` mà trạng thái gần nhất trước đó (bỏ qua `NO_OBSERVATION`) là `LYING`/`RAISING`/`SITTING`, tức không qua `AT_EDGE` hay `STANDING`. `Engine.state_history` giữ tối đa 32 trạng thái ổn định gần nhất cho F15.
 
 ## 5. Catalog sự kiện
 
@@ -121,6 +132,15 @@ Nguồn sự thật trong code là `postcare/schemas/events.py`. Bảng dưới 
 | `OBSERVATION_RESTORED` | Đã quan sát lại được | LOG | Không | Thoát NO_OBSERVATION | F17 | — *(giả định)* |
 | `CAMERA_OFFLINE` | Mất kết nối camera | MEDIUM *(giả định A11)* | **Có** | **API** sinh khi không nhận heartbeat quá ngưỡng (không phải engine) | F17 | PDF §10 |
 | `CAMERA_ONLINE` | Camera hoạt động lại | LOG | Không | API sinh khi nhận heartbeat lại | F17 | — *(giả định)* |
+
+**Cách sinh sự kiện cơ thể (F15, `engine/rules/body.py`)** *(giả định; hiệu chỉnh ở F16)*:
+- Rule chỉ đọc chuỗi trạng thái ổn định (`Engine.state_history`), explanation của state và đặc trưng đã làm mượt. Sự kiện chỉ phát ở frame trạng thái đích được xác lập (khi **vào**), không phát lặp khi ở yên. Không phát khi đang `NO_OBSERVATION`.
+- `SIT_UP`: vào `SITTING`, hai trạng thái ổn định ngay trước là `RAISING` rồi `LYING`. `STAND_UP`: vào `STANDING`, ngay trước là `SITTING` hoặc `AT_EDGE`.
+- `BED_EDGE`: vào `AT_EDGE` khi trạng thái quan sát gần nhất trước đó (bỏ qua `NO_OBSERVATION`) là `LYING`/`RAISING`/`SITTING`; cũng phát khi đây là trạng thái ổn định đầu tiên, chưa có trạng thái quan sát nào trước đó (bắt đầu theo dõi hoặc worker khởi động lại khi người bệnh đã ở mép) *(giả định, chốt 18/11/2026 theo hướng an toàn)*; quay về qua mép (từ `STANDING`/`OUT_OF_BED`) thì không phát.
+- `BED_EXIT`: vào `OUT_OF_BED` khi trạng thái quan sát gần nhất trước đó là `AT_EDGE` hoặc `STANDING` (mục 4); `explanation.state_chain` = chuỗi trạng thái từ sau lần `OUT_OF_BED` trước.
+- `RETURN_TO_BED`: sau `OUT_OF_BED`, trạng thái ổn định là `SITTING` hoặc `LYING` liên tục (tính từ đầu khoảng min_duration của trạng thái đó; `SITTING ↔ LYING` không đếm lại) ≥ `min_duration_s.RETURN_TO_BED`, phát ở frame chất lượng `GOOD`. Mỗi lần ra ngoài phát tối đa một lần. Chỉ cần đã `OUT_OF_BED`, nên `RETURN_TO_BED` có thể xuất hiện **không có `BED_EXIT` trước đó** (lần ra ngoài có `skipped_edge`, hoặc lần ra ngoài bị chặn bởi debounce) *(giả định)*.
+- `POSTURE_CHANGE`: đang `LYING`, tham chiếu = `shoulder_line_angle_deg` ở frame đầu sau khi vào `LYING` và sau mỗi lần phát; lệch (0°–180°) > `posture_change.shoulder_angle_delta_deg` liên tục ≥ `posture_change.stable_s`.
+- Trường: `occurred_at_ms` = đầu khoảng giữ (min_duration hoặc stable), `detected_at_ms` = `ts_ms` lúc phát; `confidence` = trung bình visibility của `pose.required_keypoints` trên các frame trong khoảng đó; `explanation` có `rule_id` (`body.<mã viết thường>`), `from_state`, `to_state`, `held_ms` và đặc trưng chính; `config_hash` = `Engine.config_hash`.
 
 Các sự kiện mức LOG/INFO chỉ vào timeline. MEDIUM/HIGH tạo cảnh báo PENDING *(giả định QA#17)*. Mức ưu tiên là ưu tiên **workflow**, không phải phân tầng nguy cơ lâm sàng (PDF §7).
 
@@ -224,7 +244,7 @@ Engine tính `config_hash` (sha256 của cấu hình đã hợp nhất, dạng J
 
 ## 7. Debounce và chống trùng
 
-- Engine: không phát lại cùng `code` trong `same_code_same_session_s` giây, tính từ lần phát trước. "Session" ở đây là vòng đời một instance `Engine` (mục 2).
+- Engine (`engine/debounce.py`, `Debouncer(window_s).allow(key, ts_ms)`, F15): không phát lại cùng `code` trong `same_code_same_session_s` giây, tính từ lần **phát** trước (lần bị chặn không dời mốc). "Session" ở đây là vòng đời một instance `Engine` (mục 2).
 - Worker: mỗi sự kiện có `event_uid` (UUID v4). Khi gửi lại do lỗi mạng, dùng lại uid cũ.
 - API: chống trùng theo `event_uid` (F17).
 

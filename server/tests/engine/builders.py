@@ -9,6 +9,7 @@ seq = PoseSequence(fps=15).lying(seconds=3).raise_to_sitting(seconds=1.5).build(
 ```
 """
 
+import math
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -16,7 +17,7 @@ from pathlib import Path
 from postcare.engine import Engine
 from postcare.schemas.context import EngineContext
 from postcare.schemas.engine_config import EngineConfig
-from postcare.schemas.events import EngineOutput
+from postcare.schemas.events import EngineEvent, EngineOutput
 from postcare.schemas.observation import FrameObservation, Keypoint, KeypointName, PersonPose
 from postcare.schemas.roi import RoiPolygon
 
@@ -48,6 +49,16 @@ def run_engine(
 ) -> list[EngineOutput]:
     engine = Engine(config or default_config(), context(roi))
     return [engine.process(obs) for obs in seq]
+
+
+def events(outs: Iterable[EngineOutput]) -> list[EngineEvent]:
+    """Mọi sự kiện engine phát ra, theo thứ tự (F15)."""
+    return [e for o in outs for e in o.events]
+
+
+def codes(outs: Iterable[EngineOutput]) -> list[str]:
+    """Mã các sự kiện engine phát ra, theo thứ tự (testing.md mục 2)."""
+    return [e.code.value for e in events(outs)]
 
 
 def _clamp(v: float) -> float:
@@ -128,10 +139,19 @@ def _lerp(a: Px, b: Px, t: float) -> Px:
     return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
 
 
+def _rotate_lerp(a: Px, b: Px, t: float) -> Px:
+    """Nội suy vector theo góc (cung ngắn nhất) và độ dài: thân xoay chứ không co lại (F14)."""
+    ang_a, ang_b = math.atan2(a[1], a[0]), math.atan2(b[1], b[0])
+    diff = (ang_b - ang_a + math.pi) % (2 * math.pi) - math.pi
+    ang = ang_a + diff * t
+    length = math.hypot(*a) + (math.hypot(*b) - math.hypot(*a)) * t
+    return (length * math.cos(ang), length * math.sin(ang))
+
+
 def _lerp_body(a: Body, b: Body, t: float) -> Body:
     return Body(
         hip=_lerp(a.hip, b.hip, t),
-        shoulder=_lerp(a.shoulder, b.shoulder, t),
+        shoulder=_rotate_lerp(a.shoulder, b.shoulder, t),
         knee=_lerp(a.knee, b.knee, t),
         ankle=_lerp(a.ankle, b.ankle, t),
         half_width=_lerp(a.half_width, b.half_width, t),
@@ -147,11 +167,13 @@ SITTING = Body(
     hip=(640, 400), shoulder=(0, -TORSO_PX), knee=(180, 0), ankle=(360, 0), half_width=(40, 0)
 )
 AT_EDGE = Body(
-    hip=(640, 550), shoulder=(0, -TORSO_PX), knee=(30, 90), ankle=(30, 160), half_width=(40, 0)
+    hip=(640, 550), shoulder=(0, -TORSO_PX), knee=(40, 30), ankle=(40, 130), half_width=(40, 0)
 )
+"""Ngồi ở mép giường: đùi gần nằm ngang, cẳng chân thả xuống, hai cổ chân ra ngoài ROI."""
 STANDING = Body(
     hip=(640, 590), shoulder=(0, -TORSO_PX), knee=(0, 60), ankle=(0, 120), half_width=(40, 0)
 )
+"""Đứng sát mép dưới giường (hông ngoài ROI 14 px): thân và chân thẳng đứng."""
 OUTSIDE = STANDING.moved_to((1180, 590))
 """Đứng ngoài ROI, bên phải giường."""
 NURSE = STANDING.moved_to((1150, 400))
@@ -241,6 +263,28 @@ class PoseSequence:
 
     def move_to(self, body: Body, seconds: float) -> "PoseSequence":
         return self._move(body, seconds)
+
+    def turn_over(self, seconds: float, degrees: float = 60) -> "PoseSequence":
+        """Trở mình khi nằm (F15): xoay đường vai/hông `degrees` độ, thân vẫn nằm yên chỗ."""
+        start = self.body
+        w = start.half_width
+        n = self._n(seconds)
+        for i in range(1, n + 1):
+            a = math.radians(degrees) * i / n
+            rotated = (
+                w[0] * math.cos(a) - w[1] * math.sin(a),
+                w[0] * math.sin(a) + w[1] * math.cos(a),
+            )
+            self.body = replace(start, half_width=rotated)
+            self._emit(self.body.person(self.image_size))
+        return self
+
+    def frames(self, bodies: Iterable[Body]) -> "PoseSequence":
+        """Mỗi `Body` là một frame (dùng cho chuỗi góc/vị trí tùy ý)."""
+        for body in bodies:
+            self.body = body
+            self._emit(body.person(self.image_size))
+        return self
 
     # ---- nhiễu, mất quan sát ----
 

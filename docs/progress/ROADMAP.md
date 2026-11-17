@@ -9,7 +9,7 @@ Cột trạng thái ở bảng dưới phải khớp với spec và với [03-fe
 
 | Milestone | Tuần | Mục tiêu (HS §7.3) | Feature | Điều kiện kết thúc | Trạng thái |
 |---|---|---|---|---|---|
-| **M0 Nền tảng** | 1–2 | Camera input, ROI, database, API, dashboard khung, phiên theo dõi, quản lý tài khoản / khu vực / ca trực | F00–F09, F35, F37 | Xem được camera thật trên web, vẽ được ROI, mở được phiên | Todo |
+| **M0 Nền tảng** | 1–2 | Camera input, ROI, database, API, dashboard khung, phiên theo dõi, quản lý tài khoản / khu vực / ca trực | F00–F09, F35, F37 | Xem được camera thật trên web, vẽ được ROI, mở được phiên | Done |
 | **M1 Body AI** | 3–4 | Pose, nằm/ngồi/đứng, ngồi dậy, mép giường, rời/quay lại giường | F10–F16 | Replay video dev ra đúng chuỗi sự kiện cơ thể; có báo cáo eval dev đầu tiên | Done |
 | **M2 Event + workflow** | 5–6 | Temporal rule, mức ưu tiên, cảnh báo, tiếp nhận, timeline, audit | F17–F24 | **Mốc tối thiểu** (HS §7.3): chạy trọn kịch bản demo chính bằng camera thật | Todo |
 | **M3 Face + hoạt động** | 7–8 | Tín hiệu mắt/lông mày/nheo mắt, biểu hiện cần kiểm tra, mức hoạt động tham khảo | F25–F27 | Có tín hiệu mặt khi đủ rõ, FACE_ATTENTION, trạng thái nghỉ/hoạt động | Todo |
@@ -79,10 +79,10 @@ F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được tr�
 | F09 | Dashboard khung (Tổng quan) | M0 | Todo |
 | F10 | Schema quan sát chung và khung Event Engine | M1 | Todo |
 | F11 | Pose adapter MediaPipe | M1 | Done |
-| F12 | Replay CLI và fixture | M1 | Todo |
+| F12 | Replay CLI và fixture | M1 | Done |
 | F13 | Đặc trưng cơ thể, người mục tiêu, chất lượng quan sát | M1 | Done |
-| F14 | State machine tư thế và vị trí | M1 | Todo |
-| F15 | Sự kiện cơ thể và vị trí | M1 | Todo |
+| F14 | State machine tư thế và vị trí | M1 | Done |
+| F15 | Sự kiện cơ thể và vị trí | M1 | Done |
 | F16 | Công cụ đánh giá trên tập phát triển | M1 | Todo |
 | F17 | Lưu sự kiện và tạo cảnh báo | M2 | Todo |
 | F18 | Realtime gateway (WebSocket) | M2 | Todo |

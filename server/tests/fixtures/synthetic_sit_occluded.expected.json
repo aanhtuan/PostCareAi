@@ -1,0 +1,33 @@
+{
+  "camera": {
+    "version": 1,
+    "camera_id": 1,
+    "roi_polygon": [
+      [
+        0.2,
+        0.3
+      ],
+      [
+        0.8,
+        0.3
+      ],
+      [
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.8
+      ]
+    ],
+    "thresholds": {}
+  },
+  "range_s": null,
+  "config_hash": "782ec9464289e127a976451565bc0d8d8c48db3847037623612733c76264ffec",
+  "events": [
+    {
+      "code": "SIT_UP",
+      "occurred_at_ms": 6100
+    }
+  ]
+}

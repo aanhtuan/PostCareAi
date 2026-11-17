@@ -23,6 +23,7 @@ from postcare.api.v1 import (
     monitoring,
     patients,
     sessions,
+    users,
 )
 from postcare.db.session import make_engine, make_session_factory
 from postcare.domain.cameras import mark_offline_cameras
@@ -106,6 +107,7 @@ def create_app(settings: Settings | None = None, *, watch_cameras: bool = True) 
         sessions.router,
         alerts.router,
         monitoring.router,
+        users.router,
     )
     for r in v1_routers:
         app.include_router(r, prefix="/api/v1")

@@ -5,8 +5,11 @@ chỉ lấy từ `obs.ts_ms` (AGENTS.md quy tắc 5; event-engine.md mục 1).
 """
 
 from postcare.engine.features import FeatureExtractor
-from postcare.engine.pipeline import FrameAssessment, RuleSet, StateMachine
+from postcare.engine.pipeline import FrameAssessment
 from postcare.engine.quality import QualityGate, assess_quality
+from postcare.engine.rules import RuleSet
+from postcare.engine.state_machine import BodyStateMachine as StateMachine
+from postcare.engine.state_machine import Explanation, StateRecord
 from postcare.engine.target import TargetSelector
 from postcare.schemas.context import EngineContext
 from postcare.schemas.engine_config import EngineConfig
@@ -34,10 +37,15 @@ class Engine:
         self._features = FeatureExtractor(config, context.roi_polygon)
         self._gate = QualityGate(config)
         self._state_machine = StateMachine(config)
-        self._rules = RuleSet(config)
+        self._rules = RuleSet(config, self.config_hash)
         self._last_ts_ms: int | None = None
         self._last_snapshot: BodyStateSnapshot | None = None
         self._body_state = BodyState.NO_OBSERVATION
+
+    @property
+    def state_history(self) -> tuple[StateRecord, ...]:
+        """Các trạng thái ổn định gần nhất (cũ → mới) kèm explanation, cho F15 (F14 R11)."""
+        return self._state_machine.history
 
     @property
     def state(self) -> BodyStateSnapshot:
@@ -51,15 +59,20 @@ class Engine:
         self._check_input(obs)
         assessment = self._assess(obs)
         if not assessment.observable:
+            # Cổng chất lượng đóng: luôn NO_OBSERVATION, không bao giờ OUT_OF_BED (F14 R8).
+            self._state_machine.lose_observation(assessment.quality, obs.ts_ms)
             body_state = BodyState.NO_OBSERVATION
         elif assessment.features is None:
-            # Frame kém nhưng chưa đủ lâu: giữ trạng thái, không phân loại từ frame xấu (R7).
-            body_state = self._body_state
+            # Frame kém nhưng chưa đủ lâu: giữ trạng thái, không phân loại từ frame xấu (F13 R7).
+            body_state = self._state_machine.interrupt(obs.ts_ms)
         else:
             body_state = self._state_machine.update(assessment, obs.ts_ms)
         self._body_state = body_state
-        snapshot = _snapshot(body_state, assessment.quality)
-        events = self._rules.evaluate(obs, assessment, self._last_snapshot, snapshot)
+        snapshot = _snapshot(body_state, assessment.quality, self._state_machine.explanation)
+        # Bước 6–9: sự kiện từ chuỗi trạng thái ổn định + debounce (F15)
+        events = self._rules.evaluate(
+            obs.ts_ms, assessment, body_state, self._state_machine.history
+        )
         # Output đầu tiên luôn là "đổi" để worker gửi trạng thái ban đầu (giả định F10).
         changed = snapshot != self._last_snapshot
         self._last_ts_ms = obs.ts_ms
@@ -101,7 +114,9 @@ class Engine:
             )
 
 
-def _snapshot(body_state: BodyState, quality: ObservationQuality) -> BodyStateSnapshot:
+def _snapshot(
+    body_state: BodyState, quality: ObservationQuality, explanation: Explanation | None = None
+) -> BodyStateSnapshot:
     # Vận động, nghỉ, khuôn mặt chưa suy ra (F23, F26, F27): luôn UNKNOWN / NOT_VISIBLE,
     # không bao giờ mặc định là "bình thường" (HS §9.1).
     return BodyStateSnapshot(
@@ -111,4 +126,5 @@ def _snapshot(body_state: BodyState, quality: ObservationQuality) -> BodyStateSn
         rest_status=RestStatus.UNKNOWN,
         face_status=FaceStatus.NOT_VISIBLE,
         face_signals=FaceSignals(),
+        explanation=explanation,
     )

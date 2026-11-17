@@ -38,7 +38,7 @@ Vai trò và ma trận quyền là *(giả định QA#18)*; cột `FAMILY` theo 
 
 - "Vai trò nhân viên" = `NURSE`, `CHARGE_NURSE`, `DOCTOR`, `ADMIN`. Endpoint đọc của nhân viên dùng guard `require_staff` (F35); `FAMILY` gọi vào → 403 `FORBIDDEN`.
 - `FAMILY` chỉ gọi được `POST /auth/login`, `GET /auth/me` và `/api/v1/family/...`.
-- Vai trò và `is_active` đọc từ DB ở mỗi request, không tin `role` trong JWT (F35 R9).
+- Vai trò và `is_active` đọc từ DB ở mỗi request, không tin `role` trong JWT (F35 R9). JWT mang `tv` = `users.token_version`; đặt lại mật khẩu tăng giá trị này nên mọi token cũ → 401 `UNAUTHORIZED` (F35).
 
 ## Lỗi
 
@@ -55,6 +55,7 @@ Mọi lỗi trả về:
 | 403 | Không đủ quyền | `FORBIDDEN`, `FAMILY_ACCESS_ENDED` (F36: quyền xem của chính người nhà đã hết hiệu lực) |
 | 404 | Không tìm thấy | `NOT_FOUND` |
 | 409 | Xung đột trạng thái | `DUPLICATE_CODE`, `BED_ALREADY_HAS_CAMERA`, `SESSION_ALREADY_OPEN`, `SESSION_ALREADY_ENDED`, `NO_ACTIVE_SESSION`, `ALERT_ALREADY_ACKNOWLEDGED`, `INVALID_ALERT_TRANSITION`, và các mã bên dưới |
+| 422 | Lỗi validation của FastAPI | Bọc lại thành `VALIDATION_ERROR` |
 
 Mã 409 thêm ngày 17/11/2026 (đều *(giả định)*):
 
@@ -72,8 +73,7 @@ Mã 409 thêm ngày 17/11/2026 (đều *(giả định)*):
 | `SESSION_ALREADY_PAUSED` / `SESSION_NOT_PAUSED` | F36 | Tạm dừng khi đang tạm dừng / tiếp tục khi không tạm dừng |
 | `CAPTURE_PAUSED` | F36 | Worker gửi sự kiện engine cho phiên đang tạm dừng thu hình |
 
-Trùng `username` (F35) dùng lại `DUPLICATE_CODE` với `details.field = "username"`.
-| 422 | Lỗi validation của FastAPI | Bọc lại thành `VALIDATION_ERROR` |
+Trùng `username` (F35) dùng lại `DUPLICATE_CODE` với `details.field = "username"`. Sai định dạng `username` (3–64 ký tự `[a-z0-9._-]` sau khi bỏ khoảng trắng và chuyển chữ thường), mật khẩu dưới 8 ký tự, vai trò lạ hoặc trường thừa → 422 `VALIDATION_ERROR`. Khi một thao tác vừa là tự khóa vừa là khóa ADMIN cuối cùng, trả `LAST_ADMIN`.
 
 `message` viết tiếng Việt, dùng được để hiển thị. `code` dùng cho logic frontend.
 
@@ -129,7 +129,8 @@ Các loại trên chỉ gửi cho kết nối của **vai trò nhân viên**. K�
 **Quy tắc:**
 - Chỉ phát **sau khi commit DB** (HS §4.2).
 - Khi kết nối lại, frontend refetch dữ liệu thay vì giả định không bỏ lỡ gì.
-- Token sai hoặc hết hạn: server đóng kết nối với mã **4401**. Client không thử lại mà chuyển về trang đăng nhập *(giả định; F18)*. Tài khoản bị khóa (F35): đóng các kết nối đang mở với mã 4401.
+- Token sai hoặc hết hạn: server đóng kết nối với mã **4401**. Client không thử lại mà chuyển về trang đăng nhập *(giả định; F18)*. Tài khoản bị khóa hoặc được đặt lại mật khẩu (F35): đóng các kết nối đang mở với mã 4401. Đổi vai trò từ nhân viên sang vai trò khác (ví dụ `FAMILY`): đóng luồng nhân viên với mã 4403.
+- Trước F36, mọi kết nối của `FAMILY` vào `/api/v1/ws` bị đóng mã **4403** ngay sau khi xác thực (F35 R2).
 - `FAMILY` không còn quyền xem nào đang hiệu lực (lúc kết nối hoặc giữa chừng): đóng với mã **4403** *(giả định; F36)*. Lọc theo từng kết nối; không bao giờ gửi dữ liệu của giường/phiên khác cho `FAMILY`.
 
 ## API nội bộ cho worker

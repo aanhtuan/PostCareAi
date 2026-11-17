@@ -3,10 +3,11 @@
 API không trả câu tiếng Việt cho sự kiện; frontend ánh xạ mã → câu (api-conventions.md).
 """
 
+import re
 from datetime import datetime, time
 from typing import Annotated, Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints
 
 from postcare.db.models import (
     Alert,
@@ -53,10 +54,59 @@ class UserRef(BaseModel):
 
 
 class UserOut(BaseModel):
+    """Không bao giờ có `password_hash` (F02 R4; F35 R4; PRD NFR06)."""
+
     id: int
     username: str
     full_name: str
     role: UserRole
+    is_active: bool
+    created_at: datetime
+
+
+_USERNAME_RE = re.compile(r"[a-z0-9._-]{3,64}")
+
+
+def _username(v: str) -> str:
+    v = v.strip().lower()
+    if not _USERNAME_RE.fullmatch(v):
+        raise ValueError("Tên đăng nhập gồm 3–64 ký tự a-z, 0-9, dấu chấm, gạch dưới, gạch ngang")
+    return v
+
+
+def _full_name(v: str) -> str:
+    v = v.strip()
+    if not v:
+        raise ValueError("Họ tên không được để trống")
+    return v
+
+
+def _password(v: str) -> str:
+    if len(v.encode()) > 72:  # bcrypt chỉ dùng 72 byte đầu
+        raise ValueError("Mật khẩu tối đa 72 byte")
+    return v
+
+
+# F35 R5, R6 (giả định): username bỏ khoảng trắng, chữ thường; mật khẩu tối thiểu 8 ký tự.
+Username = Annotated[str, AfterValidator(_username)]
+FullName = Annotated[str, Field(max_length=200), AfterValidator(_full_name)]
+Password = Annotated[str, Field(min_length=8), AfterValidator(_password)]
+
+
+class UserCreate(StrictIn):
+    username: Username
+    full_name: FullName
+    role: UserRole
+    password: Password
+
+
+class UserUpdate(StrictIn):
+    full_name: FullName | None = None
+    role: UserRole | None = None
+
+
+class PasswordReset(StrictIn):
+    new_password: Password
 
 
 class LoginIn(StrictIn):
@@ -71,7 +121,14 @@ class LoginOut(BaseModel):
 
 
 def user_out(u: User) -> UserOut:
-    return UserOut(id=u.id, username=u.username, full_name=u.full_name, role=u.role)
+    return UserOut(
+        id=u.id,
+        username=u.username,
+        full_name=u.full_name,
+        role=u.role,
+        is_active=u.is_active,
+        created_at=u.created_at,
+    )
 
 
 def user_ref(u: User | None) -> UserRef | None:

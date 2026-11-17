@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from postcare.api.deps import get_current_user, get_session, require_admin
+from postcare.api.deps import get_session, require_admin, require_staff
 from postcare.db.models import User
 from postcare.domain import catalog
 from postcare.domain.dto import CameraCreate, CameraOut, CameraUpdate, Page
@@ -11,7 +11,7 @@ from postcare.domain.dto import CameraCreate, CameraOut, CameraUpdate, Page
 router = APIRouter(prefix="/cameras", tags=["catalog"])
 
 
-@router.get("", response_model=Page[CameraOut], dependencies=[Depends(get_current_user)])
+@router.get("", response_model=Page[CameraOut], dependencies=[Depends(require_staff)])
 def list_cameras(
     include_inactive: bool = False,
     limit: int = Query(50, ge=1, le=200),
@@ -28,7 +28,7 @@ def create_camera(
     return catalog.create_camera(db, body, user)
 
 
-@router.get("/{camera_id}", response_model=CameraOut, dependencies=[Depends(get_current_user)])
+@router.get("/{camera_id}", response_model=CameraOut, dependencies=[Depends(require_staff)])
 def get_camera(camera_id: int, db: Session = Depends(get_session)) -> CameraOut:
     return catalog.get_camera(db, camera_id)
 

@@ -9,9 +9,30 @@ import { server } from '../../test/msw';
 import { renderWithProviders } from '../../test/render';
 import { ManagementPage } from './ManagementPage';
 
-const admin: UserOut = { id: 4, username: 'admin', full_name: 'Phạm Thu Hà', role: 'ADMIN' };
-const nurse: UserOut = { id: 1, username: 'nurse', full_name: 'Nguyễn Thị Hoa', role: 'NURSE' };
-const doctor: UserOut = { id: 3, username: 'doctor', full_name: 'Lê Quốc Bảo', role: 'DOCTOR' };
+const admin: UserOut = {
+  id: 4,
+  username: 'admin',
+  full_name: 'Phạm Thu Hà',
+  role: 'ADMIN',
+  is_active: true,
+  created_at: '2026-11-17T00:00:00Z',
+};
+const nurse: UserOut = {
+  id: 1,
+  username: 'nurse',
+  full_name: 'Nguyễn Thị Hoa',
+  role: 'NURSE',
+  is_active: true,
+  created_at: '2026-11-17T00:00:00Z',
+};
+const doctor: UserOut = {
+  id: 3,
+  username: 'doctor',
+  full_name: 'Lê Quốc Bảo',
+  role: 'DOCTOR',
+  is_active: true,
+  created_at: '2026-11-17T00:00:00Z',
+};
 const T = '2026-10-12T07:38:34Z';
 
 const a01: BedOut = {

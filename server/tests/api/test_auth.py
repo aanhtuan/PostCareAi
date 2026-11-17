@@ -101,7 +101,8 @@ def test_login_success_returns_jwt(client: TestClient, settings: Settings, db: S
     body = r.json()
     assert set(body) == {"access_token", "token_type", "user"}
     assert body["token_type"] == "bearer"
-    assert set(body["user"]) == {"id", "username", "full_name", "role"}
+    # F35 R4 thêm is_active, created_at; không bao giờ có password_hash.
+    assert set(body["user"]) == {"id", "username", "full_name", "role", "is_active", "created_at"}
     payload = jwt.decode(body["access_token"], settings.jwt_secret, algorithms=["HS256"])
     assert payload["sub"] == str(_user(db, "doctor").id)
     assert payload["role"] == "DOCTOR"

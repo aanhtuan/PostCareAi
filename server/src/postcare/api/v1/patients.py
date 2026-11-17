@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from postcare.api.deps import get_current_user, get_session, require_admin
+from postcare.api.deps import get_session, require_admin, require_staff
 from postcare.db.models import User
 from postcare.domain import catalog
 from postcare.domain.dto import Page, PatientCreate, PatientOut, PatientUpdate
@@ -11,7 +11,7 @@ from postcare.domain.dto import Page, PatientCreate, PatientOut, PatientUpdate
 router = APIRouter(prefix="/patients", tags=["catalog"])
 
 
-@router.get("", response_model=Page[PatientOut], dependencies=[Depends(get_current_user)])
+@router.get("", response_model=Page[PatientOut], dependencies=[Depends(require_staff)])
 def list_patients(
     include_inactive: bool = False,
     limit: int = Query(50, ge=1, le=200),
@@ -28,7 +28,7 @@ def create_patient(
     return catalog.create_patient(db, body, user)
 
 
-@router.get("/{patient_id}", response_model=PatientOut, dependencies=[Depends(get_current_user)])
+@router.get("/{patient_id}", response_model=PatientOut, dependencies=[Depends(require_staff)])
 def get_patient(patient_id: int, db: Session = Depends(get_session)) -> PatientOut:
     return catalog.get_patient(db, patient_id)
 

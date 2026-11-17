@@ -69,8 +69,8 @@ def test_source_not_ok_gives_camera_issue() -> None:
     assert out.events == []
 
 
-def test_persons_without_f14_stay_no_observation() -> None:
-    """Chưa có phân loại tư thế (F14) thì không kết luận tư thế, càng không rời giường."""
+def test_degenerate_persons_stay_no_observation() -> None:
+    """Mọi keypoint trùng một điểm (thân dài 0): không đủ căn cứ, không kết luận tư thế."""
     outs = _run([_obs(i, persons=1) for i in range(60)])
     assert {o.state.body_state for o in outs} == {BodyState.NO_OBSERVATION}
     assert all(o.events == [] for o in outs)

@@ -11,7 +11,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from postcare.db.models import AuditLog
+from postcare.db.models import AuditLog, User
+from postcare.domain.security import hash_password
+from postcare.schemas.enums import UserRole
+from tests.conftest import PASSWORD
 
 BEDS = "/api/v1/beds"
 NON_ADMIN = ("nurse", "charge", "doctor")
@@ -134,3 +137,34 @@ def test_beds_list_includes_camera_and_current_patient(
     assert a01["active_session"]["patient_code"] == "BN-001"
     # Giường không có phiên mở: không có bệnh nhân hiện tại.
     assert a02["active_session"] is None
+
+
+@pytest.fixture
+def family(client: TestClient, db: Session, login) -> dict[str, str]:
+    db.add(
+        User(
+            username="family",
+            full_name="Người nhà thử nghiệm",
+            password_hash=hash_password(PASSWORD),
+            role=UserRole.FAMILY,
+        )
+    )
+    db.commit()
+    return login("family")
+
+
+@pytest.mark.parametrize("resource", ["beds", "patients", "cameras"])
+def test_family_cannot_read_or_write_catalog(
+    client: TestClient, family: dict[str, str], resource: str
+) -> None:
+    """F03 R2, F35 R2: người nhà không xem danh mục (require_staff)."""
+    for method, path in [
+        ("get", f"/api/v1/{resource}"),
+        ("get", f"/api/v1/{resource}?include_inactive=true"),
+        ("get", f"/api/v1/{resource}/1"),
+        ("delete", f"/api/v1/{resource}/1"),
+        ("post", f"/api/v1/{resource}/1/restore"),
+    ]:
+        r = client.request(method, path, headers=family)
+        assert r.status_code == 403, (method, path, r.text)
+        assert r.json()["error"]["code"] == "FORBIDDEN"

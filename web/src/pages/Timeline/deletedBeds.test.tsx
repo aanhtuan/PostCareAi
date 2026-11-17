@@ -10,7 +10,14 @@ import { renderWithProviders } from '../../test/render';
 import { AlertsPage } from '../Alerts/AlertsPage';
 import { TimelinePage } from './TimelinePage';
 
-const nurse: UserOut = { id: 1, username: 'nurse', full_name: 'Nguyễn Thị Hoa', role: 'NURSE' };
+const nurse: UserOut = {
+  id: 1,
+  username: 'nurse',
+  full_name: 'Nguyễn Thị Hoa',
+  role: 'NURSE',
+  is_active: true,
+  created_at: '2026-11-17T00:00:00Z',
+};
 
 const bed = (id: number, code: string, is_active: boolean): BedOut => ({
   id,

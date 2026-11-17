@@ -19,10 +19,10 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F09](F09-overview-dashboard-skeleton.md) | Dashboard khung (Tổng quan) | M0 | MVP | B+C | F04, F06 | PDF §9.1; HS §4.3 Hình 3 | Todo |
 | [F10](F10-observation-schema-engine-core.md) | Schema quan sát chung và khung Event Engine | M1 | MVP | A | F00 | PDF §10; HS §6.1 | Done |
 | [F11](F11-pose-adapter.md) | Pose adapter MediaPipe | M1 | MVP | A | F05, F10 | PDF §6.1; HS §5.2, §5.5 | Done |
-| [F12](F12-replay-cli.md) | Replay CLI và fixture | M1 | MVP | A | F11 | PDF §12, §13; HS §8.1 | Todo |
+| [F12](F12-replay-cli.md) | Replay CLI và fixture | M1 | MVP | A | F11 | PDF §12, §13; HS §8.1 | Done |
 | [F13](F13-body-features-target-quality.md) | Đặc trưng cơ thể, người mục tiêu, chất lượng quan sát | M1 | MVP | A | F10 | PDF §6.1, §13.4; HS §5.2 | Done |
-| [F14](F14-body-state-machine.md) | State machine tư thế và vị trí | M1 | MVP | A | F13 | PDF §7; HS §5.4 | Todo |
-| [F15](F15-body-events.md) | Sự kiện cơ thể và vị trí | M1 | MVP | A | F14 | PDF §7.1–7.2; HS §5.1–5.4 | Todo |
+| [F14](F14-body-state-machine.md) | State machine tư thế và vị trí | M1 | MVP | A | F13 | PDF §7; HS §5.4 | Done |
+| [F15](F15-body-events.md) | Sự kiện cơ thể và vị trí | M1 | MVP | A | F14 | PDF §7.1–7.2; HS §5.1–5.4 | Done |
 | [F16](F16-dev-evaluation-tool.md) | Công cụ đánh giá trên tập phát triển | M1 | MVP | A | F12, F15 | PDF §13; HS §8.1–8.2 | Todo |
 | [F17](F17-event-persistence-alerts.md) | Lưu sự kiện và tạo cảnh báo | M2 | MVP | B | F06, F15 | PDF §5, §10; HS §4.2, §6.2 | Todo |
 | [F18](F18-realtime-gateway.md) | Realtime gateway (WebSocket) | M2 | MVP | B+C | F17 | PDF §10; HS §6.1 | Todo |
@@ -42,6 +42,6 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F32](F32-alert-escalation.md) | Chuyển tiếp cảnh báo chưa được tiếp nhận | Sau MVP | Sau MVP | B | F19 | HS §9.2; PDF §18 | Todo |
 | [F33](F33-mobile-notifications.md) | Thông báo di động cho điều dưỡng | Sau MVP | Sau MVP | B+C | F18 | HS §9.2; PDF §18, tr.10 | Todo |
 | [F34](F34-long-term-statistics.md) | Dashboard thống kê dài hạn theo ca | Sau MVP | Sau MVP | B+C | F24 | HS §9.2; PDF §18 | Todo |
-| [F35](F35-user-management.md) | Quản lý người dùng trên UI | M0 | MVP | B+C | F02 | Yêu cầu người dùng (2026-11-17); QA#36 | Todo |
+| [F35](F35-user-management.md) | Quản lý người dùng trên UI | M0 | MVP | B+C | F02 | Yêu cầu người dùng (2026-11-17); QA#36 | Done |
 | [F36](F36-family-access.md) | Quyền xem của người nhà theo phiên | M4 | MVP | B+C | F02, F04, F18, F22, F28, F35 | Yêu cầu người dùng (2026-11-17); QA#31 | Todo |
 | [F37](F37-area-shift-management.md) | Quản lý khu vực và ca trực | M0 | MVP | B+C | F03 | Yêu cầu người dùng (2026-11-17); QA#36 | Todo |

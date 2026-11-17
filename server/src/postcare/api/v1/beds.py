@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from postcare.api.deps import get_current_user, get_session, require_admin
+from postcare.api.deps import get_session, require_admin, require_staff
 from postcare.db.models import User
 from postcare.domain import catalog
 from postcare.domain.dto import BedCreate, BedOut, BedUpdate, Page
@@ -11,7 +11,7 @@ from postcare.domain.dto import BedCreate, BedOut, BedUpdate, Page
 router = APIRouter(prefix="/beds", tags=["catalog"])
 
 
-@router.get("", response_model=Page[BedOut], dependencies=[Depends(get_current_user)])
+@router.get("", response_model=Page[BedOut], dependencies=[Depends(require_staff)])
 def list_beds(
     include_inactive: bool = False,
     limit: int = Query(50, ge=1, le=200),
@@ -28,7 +28,7 @@ def create_bed(
     return catalog.create_bed(db, body, user)
 
 
-@router.get("/{bed_id}", response_model=BedOut, dependencies=[Depends(get_current_user)])
+@router.get("/{bed_id}", response_model=BedOut, dependencies=[Depends(require_staff)])
 def get_bed(bed_id: int, db: Session = Depends(get_session)) -> BedOut:
     return catalog.get_bed(db, bed_id)
 
