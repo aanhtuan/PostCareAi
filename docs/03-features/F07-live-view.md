@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F07 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -96,9 +96,29 @@ Cho người dùng xem hình ảnh camera của một giường trên màn hình
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+> Lập ngày 2026-11-18 (nhánh `feat/F07-live-view`). F06 đã có `LatestFrameStore` (RAM), worker gửi JPEG ~5 fps (RAW tới F28). Màn hình `LiveViewPage` hiện vẽ hình người que **cố định** theo `body_state` (`SkeletonView`, thời giả lập): F07 thay bằng ảnh thật từ MJPEG.
 
-1. …
+**Quyết định khi lập kế hoạch:**
+
+- **Phân quyền R1:** theo bảng phân quyền mới của api-conventions.md (F35/F36) thì MJPEG chỉ cho **vai trò nhân viên** (`require_staff`); `FAMILY` → 403 `FORBIDDEN` (F36 AC2 đã liệt kê `stream.mjpeg`). Câu "mọi vai trò đã đăng nhập" ở R1 viết trước khi có `FAMILY`.
+- **Chưa có khung / khung cũ lúc mở stream** → 404 `NOT_FOUND` (không gửi byte ảnh nào), để `<img onError>` chuyển sang "Mất kết nối camera" và thử lại.
+- **ROI:** `GET /api/v1/cameras/{id}` (`CameraDetailOut`) thêm `roi_polygon` (danh sách không đổi). `make gen-api-types`.
+- **Polling R5:** dùng `GET /overview` (đã có phiên + mã bệnh nhân + trạng thái camera + `bed.state`) và `GET /cameras/{id}` mỗi 2 s, thay cho `GET /sessions?active=true` (cùng dữ liệu, ít request hơn).
+- **Không** thêm keypoint vào trạng thái giường: skeleton/làm mờ là việc của F28 (render trong worker), skeleton cho người nhà là F36 (`target_keypoints`). F07 chỉ chuyển tiếp JPEG nên F28 cắm vào được mà không đổi API/UI (chỉ thêm nhãn chế độ).
+- Khối thông tin bên phải (trạng thái cơ thể, chất lượng, sự kiện gần nhất) đã có từ prototype: giữ nguyên, không mở rộng (ngoài phạm vi, §8).
+
+**Các bước:**
+
+1. **API:** `settings.stream_stale_frame_s = 3.0`, `stream_poll_interval_s = 0.05`. `api/deps.py::require_staff_query(token)`: tự mở/đóng DB session (không giữ kết nối DB suốt stream), 401 thiếu/sai/hết hạn, 403 `FAMILY`. `api/v1/stream.py`: `mjpeg_parts(frames, camera_id, stale_after_s, poll_s, now, sleep)` (async generator, đồng hồ inject) gửi khung khi có khung **mới** (so đối tượng), dừng khi khung cũ hơn `stale_frame_s`; route `GET /cameras/{id}/stream.mjpeg` → `StreamingResponse` `multipart/x-mixed-replace; boundary=frame`, `Cache-Control: no-store`; camera không tồn tại → 404.
+2. **Web:** `hooks.ts` thêm `useCameraDetail(id)` (poll 2 s); `components/CameraStream.tsx` (`<img>` MJPEG + token query; offline hoặc lỗi ảnh → khối "Mất kết nối camera", thử lại sau 3 s; camera online lại → mở lại stream); `components/RoiOverlay.tsx` (SVG `viewBox 0 0 1 1`, `preserveAspectRatio="none"` phủ đúng khung ảnh nên tự co giãn theo cửa sổ); `LiveViewPage.tsx` dùng hai component trên, bỏ `SkeletonView.tsx` và text "mô phỏng"; text mới trong khối `live`/`camera` của `vi.ts`.
+3. **Docs:** api-conventions.md (MJPEG: quyền, 404, đóng khi khung cũ; `roi_polygon` ở `GET /cameras/{id}`), dev-setup/README nếu nhắc màn hình mô phỏng.
+
+**Test trước:**
+
+- `server/tests/api/test_stream_mjpeg.py`: `test_mjpeg_requires_token` (thiếu/sai/hết hạn → 401), `test_mjpeg_family_forbidden`, `test_mjpeg_all_staff_roles_allowed`, `test_mjpeg_no_frame_404`, `test_mjpeg_unknown_camera_404`, `test_mjpeg_streams_latest_frame` (2 khung → phần đầu là khung mới, content-type multipart), `test_mjpeg_closes_when_frame_stale`, `test_mjpeg_parts_skips_unchanged_frame` (đồng hồ giả), `test_mjpeg_does_not_write_disk`; `test_cameras.py`: `roi_polygon` trong chi tiết camera.
+- Web: `LiveViewPage.test.tsx` (`shows bed, session and camera status`, `shows no-session label`, `no camera → "Chưa gắn camera", không có <img>`, `hides stream when camera offline`, `hides stream on image error`, `stream comes back when camera online again`, không có mã nội bộ), `RoiOverlay.test.tsx` (`scales normalized points to image size`, `renders nothing without polygon`).
+
+Commit: `docs(F07): plan` → `test(F07): …` → `feat(F07): …` → `docs(F07): …`.
 
 ## 10. Ghi chú bàn giao
 
