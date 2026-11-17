@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F05 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -103,6 +103,10 @@ Cung cấp Camera Service: nhận luồng hình ảnh từ smartphone (DroidCam 
 - *(giả định)* `probe` mặc định chạy 10 giây; quy tắc đoán loại nguồn ở R8.
 - *(giả định)* Callback `on_status_change` để báo trạng thái cho worker.
 - *(giả định)* Enum `CameraSourceType` dùng chung ở `postcare.schemas`; feature nào làm trước thì tạo.
+- *(giả định)* "Đọc lỗi liên tiếp" = 5 lần `read()` lỗi liên tiếp (tham số `max_read_failures`).
+- *(giả định)* Webcam/URL mở lần đầu lỗi: mặc định báo lỗi ngay (`SourceOpenError`, cho `probe`); `fail_fast=False` thì chuyển `OFFLINE` và tự kết nối lại (cho worker).
+- *(giả định)* URL mở bằng backend FFMPEG, timeout mở/đọc 5 s.
+- *(giả định)* File: `ts_ms` = chỉ số khung trong video × 1000 / FPS của file; nếu file không báo FPS thì dùng `CAP_PROP_POS_MSEC`.
 
 ## 8. Câu hỏi mở
 
@@ -110,9 +114,31 @@ Cung cấp Camera Service: nhận luồng hình ảnh từ smartphone (DroidCam 
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+Điều kiện bắt đầu: F00 `Done`; không còn câu hỏi mở. `CameraSourceType` và `CameraStatus` đã có sẵn ở `server/src/postcare/schemas/enums.py` (F00), F05 dùng lại, không sửa `schemas/`.
 
-1. …
+1. **Phụ thuộc OpenCV.** Thêm `opencv-contrib-python` (4.x) vào `dependencies` của `server/pyproject.toml` bằng `uv add`, khóa trong `uv.lock`. Lý do: F05 cần đọc webcam/URL/file (R9, PDF bảng §8); chọn bản `contrib` vì mediapipe (F11) kéo theo đúng gói này, tránh xung đột với `opencv-python`. Cập nhật cột "Phiên bản đã khóa" ở `tech-stack.md`. Commit `build(F05): add opencv-contrib-python`.
+2. **Test trước** (`server/tests/camera/`, chạy trong `make check`, không cần camera/mạng; video tổng hợp hình khối bằng `cv2.VideoWriter` trong `tmp_path`, codec MJPG/AVI):
+   - `test_file_source.py`: `test_open_source_dispatch` (3 loại + `source_type` sai → `ValueError`), `test_file_source_reads_all_frames`, `test_file_missing_cannot_open`, `test_timestamps_strictly_increasing`, `test_equal_timestamps_bumped_by_1ms`, `test_file_source_uses_video_time`, `test_file_source_deterministic`, `test_file_eof_is_not_offline`, `test_guess_source_type`.
+   - `test_reconnect.py`: `test_reconnect_with_backoff` (capture giả: mở lỗi n lần rồi phục hồi; `sleep` và đồng hồ inject, kiểm dãy chờ 1, 2, 4, 8, 10, 10 s), `test_status_callback_order` (ONLINE → OFFLINE → ONLINE), `test_read_failures_trigger_offline`, `test_initial_open_failure_raises`.
+   - `test_fps_limit.py`: `test_fps_limit_file_source` (30 fps → 15, `dropped_frames` = một nửa), `test_slow_file_source_drops_nothing`, `test_latest_frame_buffer_keeps_newest`, `test_live_source_returns_latest_frame` (luồng đọc thật + capture giả nhanh), `test_slow_live_source_drops_nothing`.
+   - `test_cli_probe.py` (ở `server/tests/`): `test_probe_on_file_prints_stats`, `test_probe_bad_source_exits_nonzero`.
+   - `FakeFrameSource` có test riêng ngắn (`test_fake_source.py`) vì F06 sẽ dùng.
+   Chạy, xác nhận fail vì thiếu module `postcare.vision.camera`. Commit `test(F05): …`.
+3. **`server/src/postcare/vision/camera.py`:** `Frame` (dataclass frozen: `image`, `ts_ms`, `frame_index`, `width`, `height`), `FrameSource` (Protocol: `open`, `read`, `close`, `status`, `stats`, `ended`), `SourceStats`, `SourceOpenError`, `Capture` (Protocol tối thiểu của `cv2.VideoCapture` để inject capture giả), `FileSource`, `WebcamSource`, `UrlSource` (chung lớp `_LiveSource`), `LatestFrameBuffer`, `guess_source_type`, `open_source`.
+   - File: `ts_ms` = vị trí khung / FPS của video (không dùng đồng hồ máy); chọn khung theo "ô thời gian" `floor(i · max_fps / video_fps)` → xác định; khung bỏ đếm vào `dropped_frames`; hết khung → `read()` trả `None`, `ended = True`, trạng thái vẫn `ONLINE`.
+   - Webcam/URL: luồng đọc nền giữ khung mới nhất (ghi đè khung chưa lấy → `dropped_frames += 1`); `read(timeout_s)` chờ khung mới và giãn cách ≥ 1/`max_fps`; `ts_ms` từ `time.monotonic_ns` tính từ lúc mở; mất nguồn (≥ `max_read_failures` lần đọc lỗi liên tiếp, mặc định 5 *(giả định)*) → `OFFLINE`, kết nối lại theo backoff 1, 2, 4… tối đa 10 s; `on_status_change(status)` gọi khi trạng thái đổi. Mở lần đầu lỗi → `SourceOpenError` (để `probe` báo lỗi ngay); `fail_fast=False` thì chuyển `OFFLINE` và để luồng nền tự kết nối lại (cho worker F06) *(giả định)*.
+   - URL: backend FFMPEG với timeout mở/đọc 5 s *(giả định)* để mất mạng được phát hiện.
+   - `ts_ms` luôn tăng ngặt: `ts = max(ts, ts_trước + 1)` (R3).
+   - `server/src/postcare/vision/fake.py`: `FakeCapture` (giống `cv2.VideoCapture`, kịch bản mở lỗi / đọc lỗi) và `FakeFrameSource` (dãy `ts_ms` cho trước, giả lập `OFFLINE`).
+   - Không ghi khung ra đĩa (R10). Module chỉ import `schemas`, `cv2`, `numpy`, stdlib (R9); `lint-imports` giữ xanh.
+   Commit `feat(F05): …`.
+4. **Lệnh `postcare probe`** trong `server/src/postcare/cli/main.py` (spec §4 ghi `cli.py`; repo hiện dùng gói `cli/`): `--source`, `--seconds` (10), `--max-fps` (15); đoán loại nguồn theo R8; in loại nguồn, độ phân giải, số khung, FPS (theo `ts_ms` và theo đồng hồ), số khung bỏ, số lần mất kết nối; `SourceOpenError` → thông báo rõ, exit 1. Commit `feat(F05): add probe command`.
+5. **Tài liệu:** `tech-stack.md` (phiên bản khóa + lý do), `dev-setup.md` §5 và `camera-setup.md` §3 (cú pháp `probe` cho webcam, URL, file), `docs/02-architecture/overview.md` nếu tên file khác. Commit `docs(F05): …`.
+6. **Kiểm chứng:** `make check` và `scripts\dev.ps1 check` exit 0; chạy tay `postcare probe` trên file ở `data/external/pexels/` (đường dẫn tuyệt đối, không chép media vào repo) và webcam index 0. Điện thoại (DroidCam/IP Webcam) và thử tắt app giữa chừng (AC3) cần người làm với thiết bị thật, ghi vào mục 10.
+
+Ngoài phạm vi, không làm ở F05: phát lại file với tốc độ thực `--realtime` (§2 → F30), heartbeat (F06), đo FPS pose (F11).
+
+Rủi ro: codec `VideoWriter` khác nhau giữa Windows/Linux → test dùng MJPG/AVI (có sẵn trong wheel OpenCV); `CAP_PROP_FPS` của một số file trả 0 → dùng `CAP_PROP_POS_MSEC` dự phòng; luồng đọc nền phải dừng sạch khi `close()` (join có timeout).
 
 ## 10. Ghi chú bàn giao
 
