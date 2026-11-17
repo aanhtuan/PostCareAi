@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F02 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -101,9 +101,35 @@ Cho phép nhân viên đăng nhập bằng tên đăng nhập và mật khẩu, 
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+**Khảo sát (2026-11-17):** prototype đã có phần lớn F02. Không viết lại code đang chạy; chỉ bổ sung test theo đúng tên trong §5 và lấp chỗ thiếu.
 
-1. …
+| Yêu cầu / AC | Đã có | Bằng chứng | Còn thiếu |
+|---|---|---|---|
+| R1, R2 / AC1 | `api/v1/auth.py`, `domain/users.py::authenticate` (cùng lỗi cho sai tên, sai mật khẩu, tài khoản ngừng) | `tests/test_auth.py::test_login_returns_token_and_user`, `test_login_wrong_password_and_unknown_user_same_error` | Test tài khoản ngừng; test cùng `message` |
+| R3 / AC4 | `api/deps.py::create_token` (HS256, `sub`, `role`, `exp`), `Settings.jwt_expire_hours = 8` | Chưa có test | Test 8 giờ, token quá hạn → 401 (cần cho `create_token` nhận `now` để giả lập thời điểm) |
+| R4 / AC4 | `domain/security.py` (`hash_password`, `verify_password`), `UserOut` không có `password_hash` | Một phần trong test login | Test hash trong DB, `/auth/me` không có `password_hash` |
+| R5, R6 / AC2 | `deps.py::get_current_user`, `require_roles`, `require_writer`; vai trò và `is_active` đọc từ DB mỗi request | `tests/test_auth.py::test_missing_or_bad_token_is_401`, `test_doctor_is_read_only` | Test sai chữ ký, người dùng bị ngừng giữa chừng, ma trận 4 vai trò với router tạm |
+| R7 | `GET /auth/me` | test login | — |
+| R8 | `domain/errors.py::DomainError`, `api/errors.py` | `test_validation_error_is_wrapped` | Test định dạng đủ `{code,message,details}` |
+| WS `?token=` 4401 (F18) | `api/realtime.py` dùng `user_from_token` | `tests/test_realtime_seed.py` | Thêm ca token hết hạn → 4401 |
+| R9, R11, R13 / AC3 | `pages/Login/LoginPage.tsx`, `auth/AuthContext.tsx`, `components/AppLayout.tsx`, `vi.ts` (`auth.*`, `role.*`) | Chưa có component test | `LoginPage.test.tsx`, test header |
+| R10 / AC3 | `api/client.ts` (gắn token, 401 → xóa token + handler) | Chưa có test | `client.test.ts` (msw) |
+| R12 | Nút ghi ẩn theo `canWrite` (`AlertActions`, `ManagementPage`) | — | `auth/RequireRole.tsx` dùng lại được (chưa có màn hình chỉ ADMIN; F03/F08/F35 sẽ dùng) + test |
+
+**Bước:**
+
+1. Chuyển `server/tests/test_auth.py` → `server/tests/api/test_auth.py`, thêm `test_login_success_returns_jwt`, `test_login_wrong_password_401`, `test_login_unknown_user_401`, `test_login_inactive_user_401`, `test_password_stored_as_hash`, `test_me_does_not_expose_password_hash`, `test_token_expiry_is_8_hours`, `test_expired_token_401`, `test_deactivated_user_token_401`, `test_ws_expired_token_closes_4401`.
+2. `server/tests/api/test_role_guard.py`: router ghi tạm chỉ mount trong test; `test_role_matrix` tham số hóa 4 vai trò, `test_doctor_write_forbidden`, `test_missing_token_401`, `test_bad_signature_401`.
+3. `server/tests/api/test_errors.py`: `test_validation_error_format`, `test_domain_error_format`.
+4. Code: `create_token(user, settings, now=None)` để test giả lập thời điểm (không đổi API).
+5. Web test: `web/src/api/client.test.ts` (gắn header, 401 → xóa token + về đăng nhập; 401 của `/auth/login` không gọi handler), `web/src/pages/Login/LoginPage.test.tsx` (lỗi tiếng Việt khi 401, đăng nhập xong về `/`), `web/src/components/AppLayout.test.tsx` (`header shows full name and role label`, nút Đăng xuất).
+6. `web/src/auth/RequireRole.tsx` + `RequireRole.test.tsx`.
+7. Doc: cập nhật §4 spec (guard nằm ở `api/deps.py`, không tách `api/auth.py`), `api-conventions.md` nếu cần. Không đổi API → không cần `make gen-api-types` (chạy để xác nhận không có diff).
+8. `make check`, `scripts\dev.ps1 check`, kiểm tra thủ công bằng curl, ghi §10.
+
+**Không làm (F35/F36):** vai trò `FAMILY`, `require_staff`, quản lý người dùng. `require_roles(*roles)` nhận tập vai trò bất kỳ nên thêm vai trò sau không phải sửa guard.
+
+**Rủi ro:** test cũ giả định vị trí file `tests/test_auth.py` (không có). Thêm `tests/api/__init__.py` để tránh trùng tên module.
 
 ## 10. Ghi chú bàn giao
 
