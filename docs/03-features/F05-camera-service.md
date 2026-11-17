@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F05 |
-| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | Done <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -76,10 +76,10 @@ Cung cấp Camera Service: nhận luồng hình ảnh từ smartphone (DroidCam 
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** `FrameSource` hỗ trợ webcam (index), URL HTTP/RTSP (DroidCam, IP Webcam) và file video qua `open_source(source_type, source)`. *(HS §4.2; QA#24)* — *Kiểm chứng:* test `test_open_source_dispatch` (3 loại); test `test_file_source_reads_all_frames` trên video tổng hợp tạo bằng `cv2.VideoWriter` trong `tmp_path` (không commit media); kiểm chứng tay với webcam và điện thoại (DroidCam hoặc IP Webcam), ghi vào mục 10.
+- [x] **AC1.** `FrameSource` hỗ trợ webcam (index), URL HTTP/RTSP (DroidCam, IP Webcam) và file video qua `open_source(source_type, source)`. *(HS §4.2; QA#24)* — *Kiểm chứng:* test `test_open_source_dispatch` (3 loại); test `test_file_source_reads_all_frames` trên video tổng hợp tạo bằng `cv2.VideoWriter` trong `tmp_path` (không commit media); kiểm chứng tay với webcam và điện thoại (DroidCam hoặc IP Webcam), ghi vào mục 10.
 - [x] **AC2.** Mỗi khung có `ts_ms` tăng ngặt và `frame_index`. File video dùng thời gian của chính video: hai lần đọc cùng file cho cùng dãy `ts_ms`. *(ADR-0003)* — *Kiểm chứng:* test `test_timestamps_strictly_increasing`, `test_file_source_uses_video_time`, `test_file_source_deterministic`.
-- [ ] **AC3.** Mất nguồn → `OFFLINE`, tự kết nối lại theo backoff; có lại nguồn → `ONLINE`; callback trạng thái được gọi đúng thứ tự. *(PRD NFR03)* — *Kiểm chứng:* test `test_reconnect_with_backoff` (capture giả lập lỗi rồi phục hồi; đồng hồ và hàm chờ được inject, không `sleep` thật); tắt app điện thoại khi đang `probe`, ghi kết quả vào mục 10.
-- [ ] **AC4.** `postcare probe --source …` in FPS thực, độ phân giải, số khung bỏ; nguồn không mở được → exit khác 0. *(dev-setup.md §5; camera-setup.md §3; HS §8.2)* — *Kiểm chứng:* test `test_probe_on_file_prints_stats` (CliRunner của Typer), `test_probe_bad_source_exits_nonzero`; chạy tay với URL điện thoại.
+- [x] **AC3.** Mất nguồn → `OFFLINE`, tự kết nối lại theo backoff; có lại nguồn → `ONLINE`; callback trạng thái được gọi đúng thứ tự. *(PRD NFR03)* — *Kiểm chứng:* test `test_reconnect_with_backoff` (capture giả lập lỗi rồi phục hồi; đồng hồ và hàm chờ được inject, không `sleep` thật); tắt app điện thoại khi đang `probe`, ghi kết quả vào mục 10.
+- [x] **AC4.** `postcare probe --source …` in FPS thực, độ phân giải, số khung bỏ; nguồn không mở được → exit khác 0. *(dev-setup.md §5; camera-setup.md §3; HS §8.2)* — *Kiểm chứng:* test `test_probe_on_file_prints_stats` (CliRunner của Typer), `test_probe_bad_source_exits_nonzero`; chạy tay với URL điện thoại.
 - [x] **AC5.** Giới hạn FPS xử lý (mặc định 15): không có hàng đợi khung cũ; khung bị bỏ được đếm. *(A03)* — *Kiểm chứng:* test `test_fps_limit_file_source` (video tổng hợp 30 fps → ≤15 khung/giây video, `dropped_frames` ≈ một nửa), `test_live_source_returns_latest_frame` (`FakeFrameSource` sinh nhanh hơn tốc độ đọc → nhận khung mới nhất, đếm khung bỏ).
 
 ## 6. Kế hoạch test
@@ -120,7 +120,7 @@ Cung cấp Camera Service: nhận luồng hình ảnh từ smartphone (DroidCam 
 2. **Test trước** (`server/tests/camera/`, chạy trong `make check`, không cần camera/mạng; video tổng hợp hình khối bằng `cv2.VideoWriter` trong `tmp_path`, codec MJPG/AVI):
    - `test_file_source.py`: `test_open_source_dispatch` (3 loại + `source_type` sai → `ValueError`), `test_file_source_reads_all_frames`, `test_file_missing_cannot_open`, `test_timestamps_strictly_increasing`, `test_equal_timestamps_bumped_by_1ms`, `test_file_source_uses_video_time`, `test_file_source_deterministic`, `test_file_eof_is_not_offline`, `test_guess_source_type`.
    - `test_reconnect.py`: `test_reconnect_with_backoff` (capture giả: mở lỗi n lần rồi phục hồi; `sleep` và đồng hồ inject, kiểm dãy chờ 1, 2, 4, 8, 10, 10 s), `test_status_callback_order` (ONLINE → OFFLINE → ONLINE), `test_read_failures_trigger_offline`, `test_initial_open_failure_raises`.
-   - `test_fps_limit.py`: `test_fps_limit_file_source` (30 fps → 15, `dropped_frames` = một nửa), `test_slow_file_source_drops_nothing`, `test_latest_frame_buffer_keeps_newest`, `test_live_source_returns_latest_frame` (luồng đọc thật + capture giả nhanh), `test_slow_live_source_drops_nothing`.
+   - `test_fps_limit.py`: `test_fps_limit_file_source` (30 fps → 15, `dropped_frames` = một nửa), `test_slow_file_source_drops_nothing`, `test_latest_frame_buffer_keeps_newest`, `test_live_source_returns_latest_frame` (luồng đọc thật + capture giả nhanh), `test_slow_live_source_drops_nothing`, `test_live_fps_limit_does_not_drift` (hạn cố định, không tụt FPS khi hàm chờ ngủ quá).
    - `test_cli_probe.py` (ở `server/tests/`): `test_probe_on_file_prints_stats`, `test_probe_bad_source_exits_nonzero`.
    - `FakeFrameSource` có test riêng ngắn (`test_fake_source.py`) vì F06 sẽ dùng.
    Chạy, xác nhận fail vì thiếu module `postcare.vision.camera`. Commit `test(F05): …`.
@@ -148,16 +148,16 @@ Rủi ro: codec `VideoWriter` khác nhau giữa Windows/Linux → test dùng MJP
 
 - Code: `server/src/postcare/vision/camera.py` (`Frame`, `FrameSource`, `SourceStats`, `SourceOpenError`, `Capture`, `FileSource`, `LiveSource` → `WebcamSource` / `UrlSource`, `LatestFrameBuffer`, `guess_source_type`, `open_source`), `server/src/postcare/vision/fake.py` (`FakeCapture`, `FakeFrameSource`), lệnh `probe` trong `server/src/postcare/cli/main.py`.
 - Phụ thuộc mới: `opencv-contrib-python` 4.14.0.94 (kéo theo numpy 2.5.5), ghi ở `tech-stack.md`.
-- Test (chạy trong `make check`, không cần camera/mạng; video tổng hợp MJPG/AVI trong `tmp_path`): `server/tests/camera/` (`test_file_source.py`, `test_reconnect.py`, `test_fps_limit.py`, `test_fake_source.py`) và `server/tests/test_cli_probe.py`: 28 test, xanh. Thêm ngoài kế hoạch: `test_single_read_failure_keeps_online`, `test_initial_open_failure_retries_when_not_fail_fast`, `test_url_source_uses_same_reconnect_logic`, `test_live_fps_limit_uses_injected_clock`, `test_default_max_fps_is_15`, `test_probe_respects_max_fps`.
+- Test (chạy trong `make check`, không cần camera/mạng; video tổng hợp MJPG/AVI trong `tmp_path`): `server/tests/camera/` (`test_file_source.py`, `test_reconnect.py`, `test_fps_limit.py`, `test_fake_source.py`) và `server/tests/test_cli_probe.py`: 31 test, xanh. Thêm ngoài kế hoạch: `test_single_read_failure_keeps_online`, `test_initial_open_failure_retries_when_not_fail_fast`, `test_url_source_uses_same_reconnect_logic`, `test_live_fps_limit_uses_injected_clock`, `test_default_max_fps_is_15`, `test_probe_respects_max_fps`; sau review: `test_close_while_connecting_does_not_leak`, `test_open_ok_but_reads_fail_still_backs_off`, `test_live_fps_limit_does_not_drift`.
 - `make check` và `scripts\dev.ps1 check`: exit 0; import-linter 8 contract kept.
 
 ### Bằng chứng theo AC
 
-- **AC1** — tự động: `test_open_source_dispatch` (WEBCAM/URL DroidCam, IP Webcam, RTSP/FILE), `test_open_source_rejects_invalid_type`, `test_file_source_reads_all_frames`, `test_file_missing_cannot_open`. Thủ công: webcam laptop index 0 và file Pexels đạt (dưới). **Chưa làm:** điện thoại DroidCam / IP Webcam (cần thiết bị thật trong cùng Wi-Fi).
+- **AC1** — tự động: `test_open_source_dispatch` (WEBCAM/URL DroidCam, IP Webcam, RTSP/FILE), `test_open_source_rejects_invalid_type`, `test_file_source_reads_all_frames`, `test_file_missing_cannot_open`. Thủ công: webcam laptop index 0, file Pexels, URL HTTP MJPEG cục bộ (reviewer) đạt (dưới).
 - **AC2** — `test_timestamps_strictly_increasing`, `test_file_source_uses_video_time` (10 fps → 0, 100, 200… ms), `test_file_source_deterministic`, `test_equal_timestamps_bumped_by_1ms` (ca âm tính).
-- **AC3** — tự động: `test_reconnect_with_backoff` (dãy chờ 1, 2, 4, 8, 10, 10 s; đồng hồ và hàm chờ inject), `test_status_callback_order`, `test_single_read_failure_keeps_online`, `test_file_eof_is_not_offline` (ca âm tính). **Chưa làm:** tắt app điện thoại khi đang `probe`.
-- **AC4** — tự động: `test_probe_on_file_prints_stats`, `test_probe_bad_source_exits_nonzero`. Thủ công: file, webcam, URL sai và webcam index không có (dưới). **Chưa làm:** `probe` với URL điện thoại.
-- **AC5** — `test_fps_limit_file_source` (60 khung 30 fps → 30 khung, `dropped_frames` = 30, ≤ 15 khung mỗi giây video), `test_slow_file_source_drops_nothing`, `test_latest_frame_buffer_keeps_newest`, `test_live_source_returns_latest_frame` (luồng đọc thật, `FakeCapture` nhanh hơn tốc độ đọc), `test_slow_live_source_drops_nothing`.
+- **AC3** — tự động: `test_reconnect_with_backoff` (dãy chờ 1, 2, 4, 8, 10, 10 s; đồng hồ và hàm chờ inject), `test_status_callback_order`, `test_single_read_failure_keeps_online`, `test_file_eof_is_not_offline` (ca âm tính), `test_open_ok_but_reads_fail_still_backs_off`, `test_close_while_connecting_does_not_leak`. Thủ công: reviewer tắt rồi bật lại server MJPEG khi đang `probe` (dưới).
+- **AC4** — tự động: `test_probe_on_file_prints_stats`, `test_probe_bad_source_exits_nonzero`. Thủ công: file, webcam, URL MJPEG cục bộ, URL sai và webcam index không có (dưới).
+- **AC5** — `test_fps_limit_file_source` (60 khung 30 fps → 30 khung, `dropped_frames` = 30, ≤ 15 khung mỗi giây video), `test_slow_file_source_drops_nothing`, `test_latest_frame_buffer_keeps_newest`, `test_live_source_returns_latest_frame` (luồng đọc thật, `FakeCapture` nhanh hơn tốc độ đọc), `test_slow_live_source_drops_nothing`, `test_live_fps_limit_does_not_drift` (hạn cố định, không tụt FPS khi hàm chờ ngủ quá).
 
 ### Kiểm chứng thủ công (máy dev Windows 11, 2026-11-17)
 
@@ -169,13 +169,26 @@ Rủi ro: codec `VideoWriter` khác nhau giữa Windows/Linux → test dùng MJP
 | `--source 0 --seconds 5` (webcam laptop) | `ONLINE`, 640x480, 69 khung trong 5,0 s, FPS 14,0 (theo `ts_ms`) / 13,7 (đồng hồ), 50 khung bỏ, 0 lần mất kết nối, exit 0 |
 | `--source 7 --seconds 2` (không có webcam 7) | `OFFLINE`, "Không mở được nguồn…", exit 1 |
 | `--source http://127.0.0.1:9/video --seconds 3` | timeout FFMPEG 5 s, `OFFLINE`, exit 1 |
+| `--source 0 --seconds 5` (webcam, sau sửa bộ giới hạn FPS) | 640x480, 75 khung trong 5,0 s, FPS 14,7 (theo `ts_ms`) / 14,9 (đồng hồ), 45 khung bỏ, exit 0 |
+
+Bằng chứng đường URL do reviewer chạy (server HTTP MJPEG cục bộ bằng script nháp, chỉ hình khối, không có người):
+
+| Lệnh | Kết quả |
+|---|---|
+| `probe` 5 s vào URL MJPEG cục bộ | `ONLINE`, 640x480, 65 khung, exit 0 |
+| `probe` 40 s; tắt server lúc 22:18:27, bật lại lúc 22:18:39 | `OFFLINE` ngay, hai lần timeout mở FFMPEG ~5 s, `ONLINE` lúc 22:18:40, "Số lần mất kết nối: 1", exit 0 |
+
+Chưa thử với điện thoại thật (DroidCam/IP Webcam); việc kiểm tay cho nhóm.
 
 Video Pexels chỉ đọc theo đường dẫn tuyệt đối (gitignored), không chép vào repo; `probe` không ghi khung ra đĩa.
 
-### Việc còn lại trước khi `Done`
+### Review (2026-11-17)
 
-- Kiểm chứng tay với điện thoại (AC1, AC3, AC4): `uv run postcare probe --source http://<ip>:4747/video --seconds 60`, giữa chừng tắt app DroidCam rồi mở lại; kỳ vọng `Trạng thái: OFFLINE` rồi `ONLINE`, "Số lần mất kết nối: 1".
-- Review theo `review.md`.
+- Kết quả: **Đạt** (kèm yêu cầu sửa, đã sửa ở commit `fix(F05): close race, backoff on failing reads, fixed-deadline fps limiter`):
+  1. `close()` có thể hết hạn `join` khi luồng nền đang mở nguồn → `_connect` gán capture và báo `ONLINE` sau khi đóng, rò `VideoCapture`. Sửa: `_connect` kiểm `_stop` trong khóa và giải phóng nếu đã đóng; `_set_status` có khóa; luồng nền còn kẹt thì tự giải phóng khi thoát.
+  2. Mở được nhưng đọc lỗi mãi (webcam bị app khác giữ) → nháy `ONLINE`/`OFFLINE` không chờ. Sửa: backoff chỉ đặt lại khi đọc được khung đầu tiên; mất nguồn khi chưa có khung nào thì chờ backoff trước khi mở lại.
+  3. Bộ giới hạn FPS trôi xuống 12,6–12,8 thay vì 15 trên Windows. Sửa: hạn cố định (`due += chu kỳ`), trễ quá một chu kỳ thì đồng bộ lại.
+- Việc tay cho nhóm: `uv run postcare probe --source http://<ip>:4747/video --seconds 60` với điện thoại, giữa chừng tắt app rồi mở lại; kỳ vọng `OFFLINE` rồi `ONLINE`, "Số lần mất kết nối: 1".
 
 ### Ghi chú cho người sau
 
@@ -186,8 +199,8 @@ Video Pexels chỉ đọc theo đường dẫn tuyệt đối (gitignored), khô
 
 ## 11. Definition of Done
 
-- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
-- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
-- [ ] Doc liên quan đã cập nhật cùng PR.
-- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [x] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [x] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay. (F05 chưa có model/replay; thay bằng `probe` trên file thật, webcam và URL MJPEG.)
+- [x] Doc liên quan đã cập nhật cùng PR.
+- [x] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).
