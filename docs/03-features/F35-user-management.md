@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F35 |
-| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | Done <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -158,6 +158,14 @@ Kiểm chứng:
 - Đóng WS khi khóa: `WsHub` lưu `user_id` từng kết nối; route khóa gọi `notifications.disconnect_user()` sau commit. F36 cần thêm `family.access_ended` (`ACCOUNT_LOCKED`) trước khi đóng.
 - F36 thay `pages/Family/FamilyPlaceholder.tsx`, và thay nhánh đóng 4403 trong `api/realtime.py` bằng luồng `family.*`.
 - Đăng nhập (F02) chỉ bỏ khoảng trắng, không chuyển chữ thường; tài khoản tạo ở F35 luôn chữ thường.
+
+**2026-11-18 (review F35): Cần sửa → đã sửa.** Kết quả review và cách xử lý:
+
+1. *Blocker:* đổi vai trò của nhân viên đang kết nối sang `FAMILY` không đóng WebSocket nhân viên. Sửa: `domain/users.py::update_user` trả `(user, left_staff)`; `api/v1/users.py` gọi `disconnect_user(publisher, id, 4403)` sau commit. Test `test_ws_closed_when_role_changed_to_family` (4403), ca âm tính `test_staff_role_change_keeps_ws`.
+2. Đặt lại mật khẩu làm token cũ hết hiệu lực: migration `0004` thêm `users.token_version`; JWT mang `tv`; `user_from_token` từ chối `tv` lệch (401); `reset_password` tăng `token_version` và đóng WS (4401). Token cấp trước F35 (không có `tv`) coi là `tv = 0`. Test `test_reset_password_revokes_old_tokens`, `test_reset_password_closes_ws`, `test_other_users_tokens_survive_reset`; `tests/db/test_migrations.py` có cột mới.
+3. `api-conventions.md`: sửa bảng lỗi (dòng 422 về bảng HTTP, đoạn F35 tách ra sau bảng 409); thêm `tv` và mã đóng WS khi đặt lại mật khẩu / đổi vai trò. `data-model.md`: cột `token_version`, migration 0004. `STAFF_ROLES` chuyển về `postcare.schemas.enums` (domain dùng được, `api.deps` import lại).
+
+Sau khi gộp `main` (tới `dc59689`): `make check` exit 0, `scripts\dev.ps1 check` exit 0.
 
 ## 11. Definition of Done
 
