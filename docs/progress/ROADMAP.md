@@ -104,4 +104,4 @@ F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được tr�
 | F34 | Dashboard thống kê dài hạn theo ca | Sau MVP | Todo |
 | F35 | Quản lý người dùng trên UI | M0 | Todo |
 | F36 | Quyền xem của người nhà theo phiên | M4 | Todo |
-| F37 | Quản lý khu vực và ca trực | M0 | Todo |
+| F37 | Quản lý khu vực và ca trực | M0 | Done |
