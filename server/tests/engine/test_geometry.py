@@ -3,8 +3,8 @@
 import math
 
 import pytest
-from postcare.engine.geometry import BedGeometry, angle_to_axis_deg
 
+from postcare.engine.geometry import BedGeometry, angle_to_axis_deg
 from postcare.schemas.roi import RoiPolygon
 from tests.engine.builders import BED_ROI, IMAGE_SIZE
 
@@ -68,3 +68,16 @@ def test_long_axis_uses_pixels_not_normalized() -> None:
 )
 def test_angle_to_axis_folded(vec: tuple[float, float], axis: float, expected: float) -> None:
     assert angle_to_axis_deg(vec, axis) == pytest.approx(expected)
+
+
+def test_square_roi_axis_is_degenerate_and_falls_back_to_horizontal() -> None:
+    """ROI vuông theo pixel: hiệp phương sai đẳng hướng, atan2(0, 0) = 0 → trục nằm ngang.
+
+    Ghi lại hành vi hiện tại (mục 8 của spec F13): với ROI gần vuông, trục dài không xác định rõ;
+    F16 kiểm tra trên video dev, nếu kém thì đổi sang cạnh dài nhất.
+    """
+    w, h = IMAGE_SIZE
+    side = 400
+    pts = [(440, 160), (440 + side, 160), (440 + side, 160 + side), (440, 160 + side)]
+    roi = RoiPolygon(points=[(x / w, y / h) for x, y in pts])
+    assert BedGeometry.from_roi(roi, IMAGE_SIZE).axis_angle_deg == 0.0

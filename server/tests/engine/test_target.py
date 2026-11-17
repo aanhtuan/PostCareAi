@@ -1,11 +1,12 @@
 """F13 AC2: chọn người mục tiêu trong ROI, liên tục với vị trí trước (QA#20; HS §8.1)."""
 
 import pytest
+
 from postcare.engine.features import hip_center_px
 from postcare.engine.target import TargetSelector
-
 from postcare.schemas.observation import FrameObservation, PersonPose
 from tests.engine.builders import (
+    LOW_VISIBILITY,
     LYING,
     NURSE,
     OUTSIDE,
@@ -118,3 +119,16 @@ def test_only_num_poses_persons_considered() -> None:
     r = sel.select(frame([*extra, LYING.person()], ts_ms=0))
     assert r.target is None
     assert r.persons_in_roi == 0
+
+
+def test_occluded_frames_do_not_drag_remembered_position() -> None:
+    """Frame bị che (hông visibility thấp) không kéo vị trí nhớ; hồi phục thì khớp lại người cũ."""
+    sel = _selector()
+    assert sel.select(frame([LYING.person()], ts_ms=0)).is_new is True
+    # Vị trí đoán khi bị che trôi dần 120 px/frame; mỗi bước nằm trong ngưỡng nhảy so với bước trước
+    for i, x in enumerate((520, 400, 280), start=1):
+        hidden = LYING.moved_to((x, 400)).person(visibility=LOW_VISIBILITY)
+        sel.select(frame([hidden], ts_ms=i * 66))
+    r = sel.select(frame([LYING.person()], ts_ms=4 * 66))
+    assert r.target is not None
+    assert r.is_new is False

@@ -1,7 +1,8 @@
 """Chặn tĩnh: `postcare.engine` không đọc đồng hồ hệ thống (AGENTS.md quy tắc 5; review F10).
 
 Import-linter (contract `engine-no-clock`) chặn import trực tiếp; test này quét AST để bắt cả
-`__import__` động. Các module này cho phép đọc thời gian hoặc sinh ngẫu nhiên (phá tính xác định).
+`__import__` và cấm `importlib` (import động). Các module bị cấm cho phép đọc thời gian, sinh
+ngẫu nhiên hoặc import vòng qua kiểm tra (phá tính xác định).
 """
 
 import ast
@@ -9,7 +10,7 @@ from pathlib import Path
 
 import postcare.engine
 
-FORBIDDEN = {"time", "datetime", "random"}
+FORBIDDEN = {"time", "datetime", "random", "importlib"}
 ENGINE_DIR = Path(postcare.engine.__file__).parent
 
 
