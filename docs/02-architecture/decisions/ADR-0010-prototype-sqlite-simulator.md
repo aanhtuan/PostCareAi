@@ -20,7 +20,7 @@ ADR-0004 chọn PostgreSQL và Alembic. ADR-0002 định nghĩa worker gửi d�
 3. **Bộ giả lập thay worker AI:** `uv run postcare simulate --bed A01 [--scenario …]` đóng vai worker, gọi đúng API nội bộ của ADR-0002 (`config`, `heartbeat` 2 s, `state`, `events` với `event_uid` UUID, header `X-Worker-Token`). Kịch bản mặc định theo HS §8.3: Nằm → SIT_UP → BED_EDGE → STAND_UP → BED_EXIT (HIGH) → (chờ) → RETURN_TO_BED. Kịch bản phụ: `observation-lost`, `abnormal-movement`, `face-attention`, `posture-change`, dùng đúng mã trong event-engine.md mục 5.
    - Màn hình "Theo dõi trực tiếp" vẽ hình người que + vùng giường từ `bed.state`, ghi rõ là dữ liệu mô phỏng. Không có MJPEG.
    - Module `engine`, `vision`, `pipeline`, `worker`, `replay`, `eval` mới chỉ có `__init__.py`.
-4. Thư viện thêm ngoài tech-stack.md: `tzdata` (zoneinfo trên Windows cần dữ liệu múi giờ), `jsdom` (môi trường test Vitest). Chưa dùng `msw`, `import-linter`, `mypy`, `pre-commit`, `honcho`, `alembic` trong prototype.
+4. Thư viện thêm ngoài tech-stack.md: `tzdata` (zoneinfo trên Windows cần dữ liệu múi giờ), `jsdom` (môi trường test Vitest). Chưa dùng `msw`, `import-linter`, `mypy`, `pre-commit`, `honcho`, `alembic` trong prototype. *(Cập nhật F00, 17/11/2026: `msw`, `import-linter`, `mypy`, `pre-commit`, `honcho` đã được thêm ở F00; `alembic` vẫn để F01.)*
 
 ## Phương án đã cân nhắc
 

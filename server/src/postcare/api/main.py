@@ -13,7 +13,7 @@ from postcare.api.errors import install_error_handlers
 from postcare.api.internal import cameras as internal_cameras
 from postcare.api.realtime import WsHub
 from postcare.api.realtime import router as ws_router
-from postcare.api.v1 import alerts, auth, catalog, monitoring, sessions
+from postcare.api.v1 import alerts, auth, catalog, health, monitoring, sessions
 from postcare.db.session import create_schema, make_engine, make_session_factory
 from postcare.domain.cameras import mark_offline_cameras
 from postcare.domain.runtime import RuntimeStore
@@ -84,11 +84,15 @@ def create_app(settings: Settings | None = None, *, watch_cameras: bool = True) 
     )
     install_error_handlers(app)
 
-    @app.get("/api/v1/health", tags=["health"])
-    def health() -> dict[str, str]:
-        return {"status": "ok"}
-
-    for r in (auth.router, catalog.router, sessions.router, alerts.router, monitoring.router):
+    v1_routers = (
+        health.router,
+        auth.router,
+        catalog.router,
+        sessions.router,
+        alerts.router,
+        monitoring.router,
+    )
+    for r in v1_routers:
         app.include_router(r, prefix="/api/v1")
     app.include_router(internal_cameras.router)
     app.include_router(ws_router)

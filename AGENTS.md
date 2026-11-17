@@ -47,7 +47,7 @@ Có sau F00. Chạy từ thư mục gốc, dùng được trên Windows (cài GN
 | Lệnh | Mục đích |
 |---|---|
 | `make setup` | Cài phụ thuộc (uv, npm) và git hook (pre-commit) |
-| `make check` | **Bắt buộc xanh trước khi xong việc**: format-check, lint, typecheck, lint-imports, test, build web |
+| `make check` | **Bắt buộc xanh trước khi xong việc**: format-check, lint, typecheck, lint-imports, check-api-types, test, build web |
 | `make format` | Tự format code (ruff, prettier) |
 | `make test` / `make test-vision` / `make e2e` | Test thường / test cần model + video / Playwright |
 | `make dev` / `make dev-api` / `make dev-web` | Chạy API + web khi phát triển |

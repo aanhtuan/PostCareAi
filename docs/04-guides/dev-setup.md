@@ -32,14 +32,15 @@ CREATE DATABASE postcare OWNER postcare;
 CREATE DATABASE postcare_test OWNER postcare;
 ```
 
-## 3. Thiết lập dự án (sau khi F00 hoàn thành)
+## 3. Thiết lập dự án
 
 ```bash
 cp .env.example .env        # Windows PowerShell: Copy-Item .env.example .env
-make setup                  # uv sync, npm ci, cài pre-commit hook
-make db-upgrade             # chạy migration (từ F01)
-make db-seed                # dữ liệu mẫu (từ F01)
-make models                 # tải model MediaPipe (từ F11)
+make setup                  # uv sync, npm ci, cài hook pre-commit và pre-push
+make seed                   # dữ liệu mẫu SQLite của prototype (tới khi F01 có db-upgrade/db-seed)
+make db-upgrade             # chạy migration (từ F01; hiện là target giữ chỗ, exit 1)
+make db-seed                # dữ liệu mẫu (từ F01; hiện là target giữ chỗ, exit 1)
+make models                 # tải model MediaPipe (từ F11; hiện là target giữ chỗ, exit 1)
 make check                  # phải xanh
 ```
 
@@ -51,6 +52,12 @@ make worker CAMERA=1        # worker cho camera id 1 (terminal riêng)
 ```
 
 Nếu `make dev` (honcho) lỗi trên Windows, mở 2 terminal và chạy riêng `make dev-api`, `make dev-web`.
+
+Git hook do `make setup` cài (`.pre-commit-config.yaml`):
+- **pre-commit:** `ruff format --check`, `ruff check` (file trong `server/`), `prettier --check`, `eslint` (file trong `web/`). Hook chỉ kiểm tra, không tự sửa: bị chặn thì chạy `make format`, `git add` lại rồi commit.
+- **pre-push:** `make check`.
+- Hook gọi `uv`, `node` và `make` qua PATH. Trên Windows, Git chạy hook bằng bash của Git for Windows: `uv`, `node` và `make` phải có trong PATH **của người dùng** (không chỉ trong terminal đang mở), nếu không hook báo không tìm thấy lệnh.
+- Không dùng `--no-verify`.
 
 ## 4. PostgreSQL bằng Docker (mặc định, Windows và Linux)
 
@@ -95,4 +102,7 @@ Xem thêm [camera-setup.md](camera-setup.md).
 | `make: command not found` trên Windows | Cài GNU Make (mục 1), mở lại terminal |
 | `uv` / `npm` báo "is not recognized" dù đã cài | Terminal (nhất là trong VS Code) giữ PATH cũ. Tạm thời: `$env:Path = "$env:USERPROFILE\.local\bin;$env:USERPROFILE\.local\node\node-v24.21.0-win-x64;$env:Path"` (dán vào mỗi terminal PowerShell mới). Lâu dài: đóng toàn bộ VS Code rồi mở lại |
 | Hook pre-commit đổi file CRLF | Đặt `core.autocrlf false`, chạy `git add --renormalize .` |
+| Commit bị hook chặn (`ruff format --check`, `prettier --check`, `eslint`) | Chạy `make format` (hoặc `scripts\dev.ps1 format`), sửa lỗi eslint, `git add` lại rồi commit |
+| Hook báo `make` / `uv` not found khi push hoặc commit | Thêm thư mục chứa `make`, `uv`, `node` vào PATH người dùng, mở lại terminal/IDE |
+| `npm ci` báo `EPERM ... rolldown-binding...node` trên Windows | Một tiến trình Vite/Vitest đang chạy giữ file. Dừng `make dev-web` rồi chạy lại `make setup` |
 | Không đọc được URL điện thoại | Ping IP, kiểm tra cùng mạng, thử mở URL trong trình duyệt laptop |

@@ -1,0 +1,77 @@
+# Ngưỡng mặc định của Event Detection Engine.
+# Nguồn: docs/02-architecture/event-engine.md §6 (chép nguyên khối; sửa doc và file này cùng lúc).
+# F00 chỉ tạo file; F10 (EngineConfig) đọc và kiểm tra file này.
+
+version: 1
+pose:
+  num_poses: 2                    # A04
+  min_keypoint_visibility: 0.5
+  required_keypoints: [left_shoulder, right_shoulder, left_hip, right_hip]
+quality:
+  low_quality_to_no_observation_s: 2.0
+  restore_duration_s: 1.0
+  observation_lost_event_s: 10.0
+target:
+  max_jump_torso_lengths: 1.5      # nhảy xa hơn → coi là người khác
+smoothing:
+  ema_alpha: 0.4
+posture:                           # góc giữa thân (hông→vai) và trục dài của giường (lấy từ ROI), độ
+  lying_enter_deg: 25              # thân gần song song trục giường
+  lying_exit_deg: 35               # hysteresis
+  sitting_enter_deg: 55
+  sitting_exit_deg: 45
+  torso_length_ratio_sitting: 0.8  # coi là ngồi khi |torso_length / torso_length_lúc_nằm − 1| ≥ (1 − 0.8); phối cảnh có thể làm thân ngắn hoặc dài ra
+  standing_hip_above_knee_ratio: 0.8  # đứng khi (knee_y − hip_y) ≥ 0.8 × (ankle_y − knee_y), tính theo pixel ảnh (y hướng xuống)
+location:
+  edge_distance_torso: 0.3         # hip_center cách biên ROI < 0.3 × torso_length
+  out_of_roi_margin_torso: 0.2
+min_duration_s:
+  RAISING: 0.5
+  SITTING: 2.0
+  AT_EDGE: 1.5
+  STANDING: 1.0
+  OUT_OF_BED: 1.0
+  LYING: 2.0
+  RETURN_TO_BED: 3.0
+posture_change:
+  shoulder_angle_delta_deg: 35
+  stable_s: 3.0
+debounce:
+  same_code_same_session_s: 60     # A01
+activity:
+  window_s: 5.0
+  low_threshold: 0.02
+  high_threshold: 0.15
+  low_prolonged_s: 300
+  increased_hold_s: 3.0
+abnormal_movement:
+  window_s: 1.5
+  hip_drop_speed_torso_per_s: 1.5
+  displacement_torso: 1.0
+  trunk_angle_change_deg: 50
+  final_low_position_ratio: 0.8     # hip_y ≥ 0.8 × chiều cao khung hình
+  hold_after_s: 2.0
+  min_conditions: 3
+face:
+  enabled: true                    # tắt để đo FPS hoặc khi thu hẹp M3 (F25)
+  min_head_box_px: 80              # A05
+  run_every_n_frames: 2            # A05
+  head_crop_scale: 1.6             # nới vùng đầu khi cắt (F25)
+  # Gộp nhiều khóa của một tín hiệu (trái/phải, mouth*) bằng max (F26)
+  signals:                         # ngưỡng blendshape 0..1
+    eyes_closed: {keys: [eyeBlinkLeft, eyeBlinkRight], threshold: 0.6}
+    brow_down: {keys: [browDownLeft, browDownRight], threshold: 0.5}
+    eye_squint: {keys: [eyeSquintLeft, eyeSquintRight], threshold: 0.5}
+    nose_sneer: {keys: [noseSneerLeft, noseSneerRight], threshold: 0.4}
+    mouth_change: {keys: [mouthPressLeft, mouthPressRight, mouthStretchLeft, mouthStretchRight], threshold: 0.5}
+  eyes_closed_prolonged_s: 10.0
+  attention_min_signals: 2
+  attention_hold_s: 5.0
+rest:
+  low_activity_s: 60.0
+  eyes_closed_s: 30.0
+  active_hold_s: 2.0               # giữ trước khi RESTING → ACTIVE (F27)
+privacy:                           # chỉ ảnh hưởng hiển thị, KHÔNG tính vào config_hash (F28)
+  head_box_scale: 1.8
+  pixelate_blocks: 12
+  head_hold_s: 1.0
