@@ -5,7 +5,6 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from postcare.eval.matching import Prediction
-
 from postcare.schemas.enums import Priority
 from postcare.schemas.events import EventCode, default_priority
 

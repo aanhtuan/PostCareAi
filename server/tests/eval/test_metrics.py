@@ -1,6 +1,7 @@
 """F16 AC3, R5: P/R/F1, false alerts/giờ, latency, coverage, hiệu năng (số liệu tính tay)."""
 
 import pytest
+
 from postcare.eval.manifest import TruthRow
 from postcare.eval.matching import MatchResult, match_events
 from postcare.eval.metrics import (
@@ -11,7 +12,6 @@ from postcare.eval.metrics import (
     prf,
 )
 from postcare.eval.perf import aggregate_perf
-
 from postcare.schemas.enums import BodyState, Priority
 from postcare.schemas.events import EventCode
 from tests.eval.helpers import pred

@@ -2,7 +2,6 @@
 
 from postcare.eval.manifest import TruthRow
 from postcare.eval.matching import match_events
-
 from postcare.schemas.events import EventCode
 from tests.eval.helpers import pred
 
