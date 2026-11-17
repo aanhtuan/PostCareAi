@@ -153,6 +153,12 @@ Nguồn sự thật trong code là `postcare/schemas/events.py`. Bảng dưới 
   4. Điều kiện hạ thấp bắt buộc để đứng dậy nhanh từ sàn rồi đứng yên (C2 + C3 + C5) hoặc đi rồi dừng không cảnh báo (HS §8.1 "chuyển động nhanh xuống nệm"; ADR-0009). Giới hạn còn lại: C4 là vị trí tuyệt đối trong khung, nên đi rồi dừng khi hông đã ở thấp trong khung (≥ `final_low_position_ratio`) vẫn có thể đủ điều kiện; ngưỡng C4 cần đặt theo góc camera. Trên clip thật C5 hiếm khi thỏa với `low_threshold = 0,02` (nhiễu tĩnh ~0,02–0,07): xem F23 mục 10. Từ hiệu chỉnh dev 18/11/2026 (`window_s` 1,0, `hold_after_s` 1,0, C4 0,75; [calibration-2026-11-18.md](../04-guides/calibration-2026-11-18.md)), khoảng giữ bằng `activity.sample_interval_s` nên C5 còn thấy đuôi chuyển động và càng khó thỏa.
 - Mọi mã vận động qua cùng `Debouncer` với rule cơ thể.
 
+**Sự kiện quan sát (F17, `engine/rules/observation.py`)** *(giả định)*:
+- Chuỗi mất quan sát: từ frame đầu có `body_state = NO_OBSERVATION` (kể cả lúc engine khởi động với cổng đóng) tới frame đầu không còn `NO_OBSERVATION` (cổng mở **và** state machine đã xác lập lại trạng thái ổn định).
+- `OBSERVATION_LOST`: chuỗi giữ ≥ `quality.observation_lost_event_s` → phát một lần mỗi chuỗi; `occurred_at_ms` = đầu chuỗi, `detected_at_ms` = frame đạt ngưỡng; `confidence = 1.0`; `explanation`: `rule_id = observation.observation_lost`, `held_ms`, `threshold_s`, `observation_quality`.
+- `OBSERVATION_RESTORED`: phát ở frame thoát chuỗi, **chỉ khi** `OBSERVATION_LOST` của chính chuỗi đó đã qua debounce (mất quan sát ngắn, hoặc LOST bị debounce chặn → không RESTORED); `occurred_at_ms = detected_at_ms`; `explanation`: `rule_id = observation.observation_restored`, `lost_ms`, `body_state`.
+- Hai mã đi qua cùng `Debouncer` với các rule khác. Mất quan sát không bao giờ sinh `BED_EXIT`.
+
 Các sự kiện mức LOG/INFO chỉ vào timeline. MEDIUM/HIGH tạo cảnh báo PENDING *(giả định QA#17)*. Mức ưu tiên là ưu tiên **workflow**, không phải phân tầng nguy cơ lâm sàng (PDF §7).
 
 **Trạng thái hiển thị (không phải sự kiện):**
