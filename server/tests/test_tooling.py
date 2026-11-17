@@ -55,7 +55,7 @@ CHECK_STEPS = [
     "test",
     "build-web",
 ]
-PLACEHOLDER_TARGETS = {"worker": "F06"}
+PLACEHOLDER_TARGETS: dict[str, str] = {}  # F06: `worker` là lệnh thật
 
 
 # --------------------------------------------------------------------------- helpers
@@ -248,8 +248,13 @@ def test_models_target_calls_postcare_models() -> None:
 
 
 def test_worker_takes_camera_variable() -> None:
-    _, _, _, text = _makefile()
+    _, recipes, _, text = _makefile()
     assert re.search(r"^CAMERA\s*\?=", text, re.M)
+    body = "\n".join(recipes.get("worker", []))
+    assert "postcare worker --camera-id $(CAMERA)" in body, body
+    assert not re.search(r"\bexit\s+1\b", body), body
+    ps1 = DEV_PS1.read_text(encoding="utf-8")
+    assert re.search(r"'worker', '--camera-id', \$Camera", ps1)
 
 
 def test_test_target_excludes_vision_and_test_vision_selects_it() -> None:

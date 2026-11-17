@@ -6,9 +6,9 @@ Phần kéo trước từ F17 R3–R7 (sự kiện, state) và F36 R18 (tạm d�
 import itertools
 
 import pytest
-from postcare.worker.loop import WorkerStop
 
 from postcare.schemas.enums import BodyState, CameraStatus
+from postcare.worker.loop import WorkerStopError
 from tests.worker.helpers import T0_UTC, frames_script, make_harness
 
 
@@ -196,14 +196,14 @@ def test_capture_paused_stops_reading_and_engine() -> None:
 def test_config_404_stops_worker() -> None:
     h = make_harness()
     h.api.config_status = 404
-    with pytest.raises(WorkerStop):
+    with pytest.raises(WorkerStopError):
         h.run_until(5.0)
 
 
 def test_config_401_stops_worker() -> None:
     h = make_harness()
     h.api.config_status = 401
-    with pytest.raises(WorkerStop):
+    with pytest.raises(WorkerStopError):
         h.run_until(5.0)
 
 
