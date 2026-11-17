@@ -22,3 +22,9 @@ pose:
       url: https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task
       filename: pose_landmarker_heavy.task
       sha256: "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b"
+# Face Landmarker (F25; ADR-0003): nhánh phụ, chạy trên ảnh cắt vùng đầu; bật blendshapes.
+face:
+  name: face
+  url: https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
+  filename: face_landmarker.task
+  sha256: "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff"
