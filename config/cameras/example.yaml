@@ -1,0 +1,22 @@
+# Cấu hình camera mẫu cho `postcare replay --camera-config` (F12 R3; evaluation.md §4).
+# Một file cho mỗi cách đặt camera khi quay. Không chứa dữ liệu người.
+#
+# - roi_polygon: vùng giường (Bed ROI), toạ độ chuẩn hóa 0–1 theo khung hình (x sang phải,
+#   y xuống dưới), theo thứ tự vẽ, ≥ 3 đỉnh, không tự cắt (validate_roi_polygon).
+# - thresholds: override `config/engine.default.yaml`, hợp nhất sâu theo khối; để {} nếu dùng
+#   ngưỡng mặc định. Khóa sai hoặc giá trị sai kiểu → replay báo lỗi và dừng.
+# - camera_id: tuỳ chọn (mặc định 0), ghi vào observation khi replay video.
+
+version: 1
+camera_id: 0
+roi_polygon:
+  - [0.2, 0.3]
+  - [0.8, 0.3]
+  - [0.8, 0.8]
+  - [0.2, 0.8]
+thresholds: {}
+# Ví dụ override:
+# thresholds:
+#   min_duration_s:
+#     AT_EDGE: 2.0
+notes: "ROI mẫu: giường nằm ngang giữa khung, camera nhìn từ đầu giường."

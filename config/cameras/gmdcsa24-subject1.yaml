@@ -1,0 +1,15 @@
+# GMDCSA24 Subject 1 (Alam et al., MIT; datasets.md §3.2): camera cố định nhìn ngang giường.
+# Video ở data/external/gmdcsa24/extracted/<repo>/Subject 1/{ADL,Fall}/*.mp4 (không commit),
+# 1280×720, ~29 fps. Dùng cho ADL "sleeping ↔ sitting on the bed" (01–06).
+# (giả định) ROI ước lượng bằng mắt từ ADL/04.mp4 ở 0,5 s: giường x ≈ 0,10–0,85, mặt nệm
+# y ≈ 0,53–0,62; ROI gồm cả phần thân người nằm phía trên nệm.
+
+version: 1
+camera_id: 0
+roi_polygon:
+  - [0.10, 0.38]
+  - [0.86, 0.38]
+  - [0.86, 0.66]
+  - [0.10, 0.66]
+thresholds: {}
+notes: "ROI ước lượng (giả định) cho Subject 1; subject khác có thể đổi góc camera, cần kiểm tra."

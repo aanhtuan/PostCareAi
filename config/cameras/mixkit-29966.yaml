@@ -1,0 +1,15 @@
+# Clip stock Mixkit 29966 "Woman getting out of bed in the morning" (Mixkit Free License;
+# datasets.md §3.4). Video ở data/external/mixkit/mixkit-29966.mp4 (không commit), 1280×720,
+# 24 fps, 25 s. Camera gần, giường chiếm nửa dưới khung.
+# (giả định) ROI ước lượng bằng mắt từ khung ở 1 s: chăn/nệm từ y ≈ 0,3 (trái) – 0,4 (phải)
+# xuống đáy khung.
+
+version: 1
+camera_id: 0
+roi_polygon:
+  - [0.0, 0.30]
+  - [1.0, 0.40]
+  - [1.0, 1.0]
+  - [0.0, 1.0]
+thresholds: {}
+notes: "Stock footage - diễn viên. ROI ước lượng (giả định)."

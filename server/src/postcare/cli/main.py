@@ -1,11 +1,12 @@
-"""Lệnh CLI `postcare`: version, seed, simulate, probe, models, openapi."""
+"""Lệnh CLI `postcare`: version, seed, simulate, probe, replay, models, openapi."""
 
 import json
+import os
 import sys
 import time
 from importlib.metadata import version as package_version
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, NoReturn
 
 import httpx
 import typer
@@ -294,6 +295,227 @@ class _PoseRunner:
         typer.echo(
             f"Khung thấy đủ keypoint thân: {cov.frames_with_torso}/{n} ({cov.torso_ratio:.0%})"
         )
+
+
+def _fail(message: str, code: int = 1) -> NoReturn:
+    typer.echo(message, err=True)
+    raise typer.Exit(code)
+
+
+def _default_models_dir() -> Path:
+    env = os.environ.get("POSTCARE_MODELS_DIR")
+    return Path(env) if env else DEFAULT_MODELS_DIR
+
+
+@app.command()
+def replay(
+    camera_config: Annotated[
+        Path, typer.Option(help="File cấu hình camera config/cameras/<setup>.yaml (ROI, ngưỡng)")
+    ],
+    video: Annotated[
+        Path | None, typer.Option(help="File video (chạy pose MediaPipe + engine)")
+    ] = None,
+    from_observations: Annotated[
+        Path | None,
+        typer.Option(help="observations.jsonl của lần chạy trước: chạy lại chỉ engine"),
+    ] = None,
+    out: Annotated[
+        Path | None, typer.Option(help="Thư mục kết quả, ví dụ runs/<id>/ (không commit)")
+    ] = None,
+    overwrite: Annotated[
+        bool, typer.Option("--overwrite", help="Ghi đè khi --out đã có dữ liệu")
+    ] = False,
+    preview: Annotated[
+        bool,
+        typer.Option("--preview", help="Ghi preview.mp4: skeleton, ROI, trạng thái (chỉ --video)"),
+    ] = False,
+    engine_config: Annotated[
+        Path, typer.Option(help="Ngưỡng mặc định của engine")
+    ] = DEFAULT_ENGINE_CONFIG,
+    model: Annotated[
+        str | None,
+        typer.Option(help="Biến thể pose: lite | full | heavy (mặc định: config/models.yaml)"),
+    ] = None,
+    models_dir: Annotated[
+        Path | None,
+        typer.Option(help="Thư mục model (mặc định POSTCARE_MODELS_DIR hoặc models/)"),
+    ] = None,
+    max_fps: Annotated[
+        float, typer.Option(help="Giới hạn FPS xử lý theo thời gian video (A03); 0 = mọi khung")
+    ] = 15.0,
+    start_s: Annotated[
+        float | None, typer.Option(help="Chỉ lấy observation từ giây này (--from-observations)")
+    ] = None,
+    end_s: Annotated[
+        float | None, typer.Option(help="Chỉ lấy observation tới giây này (--from-observations)")
+    ] = None,
+    save_observations: Annotated[
+        Path | None,
+        typer.Option(help="Ghi đoạn đã cắt làm fixture, ví dụ tests/fixtures/<scenario>.jsonl"),
+    ] = None,
+    save_expected: Annotated[
+        bool,
+        typer.Option("--save-expected", help="Ghi thêm <scenario>.expected.json (sự kiện engine)"),
+    ] = False,
+) -> None:
+    """Chạy pipeline worker trên file video, hoặc chỉ engine trên observations.jsonl (F12).
+
+    Ghi observations.jsonl, events.jsonl, frames.jsonl, run.json vào --out. Không gọi API, không
+    cần DB. Cắt fixture: --from-observations … --start-s A --end-s B --save-observations F
+    --save-expected.
+    """
+    from postcare.replay.camera_config import CameraConfigError, load_camera_config
+    from postcare.replay.runner import OutputExistsError
+
+    if (video is None) == (from_observations is None):
+        _fail("Cần đúng một trong hai: --video hoặc --from-observations.", 2)
+    if video is not None:
+        if start_s is not None or end_s is not None or save_observations or save_expected:
+            _fail(
+                "--start-s, --end-s, --save-observations, --save-expected chỉ dùng với "
+                "--from-observations.",
+                2,
+            )
+        if out is None:
+            _fail("Thiếu --out (ví dụ runs/<id>/).", 2)
+    else:
+        if preview:
+            _fail("--preview cần --video (observations không có khung hình).", 2)
+        if save_expected and save_observations is None:
+            _fail("--save-expected cần --save-observations.", 2)
+        if out is None and save_observations is None:
+            _fail("Thiếu --out (hoặc --save-observations khi cắt fixture).", 2)
+        if start_s is not None and end_s is not None and start_s > end_s:
+            _fail(f"--start-s ({start_s:g}) phải ≤ --end-s ({end_s:g}).", 2)
+    if max_fps < 0:
+        _fail("--max-fps phải ≥ 0.", 2)
+
+    try:
+        camera = load_camera_config(camera_config)
+        config = camera.engine_config(engine_config)
+    except CameraConfigError as exc:
+        _fail(str(exc))
+    meta: dict[str, Any] = {
+        "camera_config": str(camera_config),
+        "engine_config": str(engine_config),
+    }
+    try:
+        if video is not None:
+            assert out is not None
+            summary = _replay_video(
+                video, camera, config, out, overwrite, preview, model, models_dir, max_fps, meta
+            )
+        else:
+            assert from_observations is not None
+            summary = _replay_observations(
+                from_observations,
+                camera,
+                config,
+                out,
+                overwrite,
+                (start_s, end_s),
+                save_observations,
+                save_expected,
+                meta,
+            )
+    except OutputExistsError as exc:
+        _fail(str(exc))
+    if summary is not None:
+        run = summary.run
+        typer.echo(f"Đã ghi {summary.out_dir}: {summary.frames} khung, {summary.events} sự kiện")
+        typer.echo(
+            f"config_hash {run['config_hash'][:12]}…, FPS xử lý {run['fps_processing']}, "
+            f"CPU {run['cpu_percent']} %, RAM đỉnh {run['ram_peak_mb']} MB, "
+            f"khung bỏ {run['dropped_frames']}"
+        )
+
+
+def _replay_video(
+    video: Path,
+    camera: Any,
+    config: Any,
+    out: Path,
+    overwrite: bool,
+    preview: bool,
+    model: str | None,
+    models_dir: Path | None,
+    max_fps: float,
+    meta: dict[str, Any],
+) -> Any:
+    from postcare.replay.runner import replay_video, video_duration_s
+    from postcare.vision.camera import FileSource, SourceOpenError
+    from postcare.vision.inference.base import ModelNotFoundError
+    from postcare.vision.inference.pose_mediapipe import MediaPipePoseAdapter
+    from postcare.vision.models import ManifestError, load_manifest
+
+    directory = models_dir or _default_models_dir()
+    try:
+        entry = load_manifest(DEFAULT_MODELS_MANIFEST).pose_entry(model)
+        adapter = MediaPipePoseAdapter.from_config(directory / entry.filename, config)
+    except (ManifestError, ModelNotFoundError) as exc:
+        _fail(str(exc))
+    meta.update(
+        video=str(video),
+        model={"variant": entry.name, "file": entry.filename},
+        max_fps=max_fps or None,
+        video_duration_s=video_duration_s(video),
+    )
+    source = FileSource(video, max_fps=max_fps or None)
+    typer.echo(f"Replay {video} (pose {entry.name}, max-fps {max_fps:g}) → {out}")
+    try:
+        return replay_video(
+            source, adapter, camera, config, out, overwrite=overwrite, preview=preview, meta=meta
+        )
+    except SourceOpenError as exc:
+        _fail(f"Không mở được video: {exc}")
+    finally:
+        adapter.close()
+
+
+def _replay_observations(
+    path: Path,
+    camera: Any,
+    config: Any,
+    out: Path | None,
+    overwrite: bool,
+    range_s: tuple[float | None, float | None],
+    save_observations: Path | None,
+    save_expected: bool,
+    meta: dict[str, Any],
+) -> Any:
+    from postcare.replay.fixtures import (
+        ObservationFileError,
+        cut_range,
+        read_observations,
+        write_fixture,
+    )
+    from postcare.replay.runner import replay_observations, summarize
+
+    try:
+        observations = cut_range(read_observations(path), *range_s)
+    except ObservationFileError as exc:
+        _fail(str(exc))
+    if not observations:
+        _fail(f"Không có observation nào trong {path} ở khoảng đã chọn.")
+    meta.update(observations=str(path), range_s=list(range_s))
+    summary = None
+    if out is not None:
+        summary = replay_observations(
+            observations, camera, config, out, overwrite=overwrite, meta=meta
+        )
+    if save_observations is not None:
+        expected = write_fixture(
+            save_observations,
+            observations,
+            camera,
+            config,
+            range_s=range_s,
+            save_expected=save_expected,
+        )
+        typer.echo(f"Fixture {save_observations}: {summarize(observations)}")
+        if expected is not None:
+            typer.echo(f"Kỳ vọng {expected}: xem lại so với ground truth trước khi commit.")
+    return summary
 
 
 @app.command()
