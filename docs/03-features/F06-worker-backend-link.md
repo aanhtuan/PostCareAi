@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F06 |
-| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 3 phiên |
@@ -76,11 +76,11 @@ Nối tiến trình worker (đọc camera, sau này chạy AI và engine) với 
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** `postcare worker --camera-id N` lấy cấu hình qua `GET /internal/v1/cameras/{id}/config`; sai hoặc thiếu `X-Worker-Token` → 401. *(ADR-0002)* — *Kiểm chứng:* test `test_internal_config_returns_camera_config`, `test_internal_config_includes_active_session`, `test_internal_endpoints_require_worker_token` (tham số hóa 3 endpoint).
-- [ ] **AC2.** Heartbeat mỗi 2 giây cập nhật `cameras.status` và `last_seen_at`; quá 5 giây không có heartbeat → `OFFLINE`. *(A02)* — *Kiểm chứng:* test `test_heartbeat_sets_online_and_last_seen`, `test_heartbeat_source_offline_sets_offline`, `test_stale_camera_marked_offline` (gọi `mark_stale_cameras_offline(now = last_seen + 6 s)`), `test_runtime_exposed_on_camera_detail`.
-- [ ] **AC3.** Đổi cấu hình camera trên API thì worker áp dụng trong ≤5 giây. *(ADR-0002)* — *Kiểm chứng:* test tích hợp `test_worker_reloads_config_within_5s` (đồng hồ giả lập: sửa camera → tăng `config_version` → trong ≤5 s giả lập worker đang dùng cấu hình mới).
-- [ ] **AC4.** Worker gửi JPEG khoảng 5 fps; API giữ khung mới nhất trong RAM và **không ghi đĩa**. *(A03; QA#29)* — *Kiểm chứng:* test `test_frame_buffer_keeps_latest_only`, `test_frame_post_does_not_write_disk` (đếm file trong thư mục làm việc tạm trước/sau), `test_worker_frame_rate_about_5fps` (đồng hồ giả lập, 10 s → 45–55 khung).
-- [ ] **AC5.** Test tích hợp với file video: chạy worker → camera `ONLINE`; dừng worker → sau >5 giây camera `OFFLINE`. *(testing.md §1 "Tích hợp worker ↔ API"; A02)* — *Kiểm chứng:* test `test_worker_online_then_offline` (`FileSource` trên video tổng hợp trong `tmp_path`, worker dùng `TestClient` làm HTTP client); chạy tay `make dev-api` + `make worker CAMERA=1` với webcam, ghi vào mục 10.
+- [x] **AC1.** `postcare worker --camera-id N` lấy cấu hình qua `GET /internal/v1/cameras/{id}/config`; sai hoặc thiếu `X-Worker-Token` → 401. *(ADR-0002)* — *Kiểm chứng:* test `test_internal_config_returns_camera_config`, `test_internal_config_includes_active_session`, `test_internal_endpoints_require_worker_token` (tham số hóa 3 endpoint).
+- [x] **AC2.** Heartbeat mỗi 2 giây cập nhật `cameras.status` và `last_seen_at`; quá 5 giây không có heartbeat → `OFFLINE`. *(A02)* — *Kiểm chứng:* test `test_heartbeat_sets_online_and_last_seen`, `test_heartbeat_source_offline_sets_offline`, `test_stale_camera_marked_offline` (gọi `mark_stale_cameras_offline(now = last_seen + 6 s)`), `test_runtime_exposed_on_camera_detail`.
+- [x] **AC3.** Đổi cấu hình camera trên API thì worker áp dụng trong ≤5 giây. *(ADR-0002)* — *Kiểm chứng:* test tích hợp `test_worker_reloads_config_within_5s` (đồng hồ giả lập: sửa camera → tăng `config_version` → trong ≤5 s giả lập worker đang dùng cấu hình mới).
+- [x] **AC4.** Worker gửi JPEG khoảng 5 fps; API giữ khung mới nhất trong RAM và **không ghi đĩa**. *(A03; QA#29)* — *Kiểm chứng:* test `test_frame_buffer_keeps_latest_only`, `test_frame_post_does_not_write_disk` (đếm file trong thư mục làm việc tạm trước/sau), `test_worker_frame_rate_about_5fps` (đồng hồ giả lập, 10 s → 45–55 khung).
+- [x] **AC5.** Test tích hợp với file video: chạy worker → camera `ONLINE`; dừng worker → sau >5 giây camera `OFFLINE`. *(testing.md §1 "Tích hợp worker ↔ API"; A02)* — *Kiểm chứng:* test `test_worker_online_then_offline` (`FileSource` trên video tổng hợp trong `tmp_path`, worker dùng `TestClient` làm HTTP client); chạy tay `make dev-api` + `make worker CAMERA=1` với webcam, ghi vào mục 10.
 
 ## 6. Kế hoạch test
 
@@ -140,6 +140,38 @@ Commit: `docs(F06): plan` → `test(F06): …` → `feat(F06): …` → `docs(F0
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+**2026-11-18 – triển khai (nhánh `feat/F06-worker-link`), trạng thái In review.**
+
+Bằng chứng theo AC (test tự động):
+
+| AC | Test |
+|---|---|
+| AC1 | `server/tests/api/test_internal_cameras.py`: `test_internal_config_returns_camera_config`, `test_internal_config_includes_active_session`, `test_internal_config_unknown_or_inactive_camera_404`, `test_internal_endpoints_require_worker_token` (3 endpoint × thiếu/sai token); `server/tests/worker/test_worker_loop.py`: `test_worker_fetches_config_on_start`, `test_config_404_stops_worker`, `test_config_401_stops_worker`; `tests/test_cli.py::test_worker_command_help_lists_camera_id` |
+| AC2 | `test_heartbeat_sets_online_and_last_seen`, `test_heartbeat_source_offline_sets_offline` (+ `CAMERA_OFFLINE` `reason = source_offline`, giường `NO_OBSERVATION`), `test_heartbeat_paused_keeps_online`, `test_heartbeat_4s_apart_stays_online` (ca âm), `test_stale_camera_marked_offline` (`mark_offline_cameras(now = last_seen + 6 s)`), `test_runtime_exposed_on_camera_detail`; worker: `test_heartbeat_every_2s_with_stats`, `test_source_offline_reported_in_heartbeat` |
+| AC3 | `test_worker_reloads_config_within_5s` (đồng hồ giả, ROI mới → engine mới), `test_unchanged_config_fetched_only_on_poll_schedule` (ca âm: chỉ poll 5 s), `test_source_reopened_when_source_changes`, `test_session_change_creates_new_engine`; tích hợp `server/tests/worker/test_worker_api.py::test_worker_reloads_config_within_5s_api` (PATCH camera qua API thật) |
+| AC4 | `test_frame_buffer_keeps_latest_only`, `test_frame_buffer_unit`, `test_frame_post_does_not_write_disk`, `test_frame_too_large_or_wrong_type_400`, `test_frame_unknown_camera_404`; `test_worker_frame_rate_about_5fps` (10 s giả lập → 45–55 khung); `tests/vision/test_image_stats.py` (JPEG thu nhỏ ≤960, độ sáng 0–255) |
+| AC5 | `test_worker_online_then_offline` (FileSource video tổng hợp trong `tmp_path`, `TestClient` làm `httpx.Client`, engine thật: camera `ONLINE`, trạng thái giường trong RAM, khung trong RAM, `runtime`; dừng → sau 6 s `OFFLINE`); `test_api_down_worker_keeps_running_and_recovers`, `test_api_down_midway_then_recovers` (ca âm) |
+
+Phần kéo trước (F17 R3–R7 phía worker, F36 R18 phía worker): `test_state_posted_only_on_change_and_refresh`, `test_event_posted_with_utc_times_and_config_hash`, `test_event_retried_with_same_uid_on_5xx_and_network_error` (503, 500, API sập rồi 201; một `event_uid`), `test_event_409_dropped_not_retried`, `test_no_active_session_sends_state_but_no_events`, `test_capture_paused_stops_reading_and_engine`, `test_no_roi_sends_frames_but_no_engine`, `test_close_releases_source_and_adapter`.
+
+Chạy tay end-to-end (2026-11-18, DB `postcare_f06`, `alembic upgrade head` + `postcare seed`, uvicorn cổng 8016; camera 1 của A01; ROI từ `config/cameras/pexels-8090735.yaml` đặt bằng SQL vì F08 chưa có; bệnh nhân BN-F06, mở phiên):
+
+| Lần chạy | Kết quả |
+|---|---|
+| `postcare worker --camera-id 1 --api http://127.0.0.1:8016`, nguồn FILE `data/external/pexels/pexels-8090735.mp4` (7,7 s, pose mặc định) | API nhận 3 lần GET config, 6 heartbeat, 9 state, 38 khung (≈ 4,9 fps), 1 sự kiện 201. Sự kiện engine thật **`BED_EDGE` (MEDIUM)**, `rule_id = body.bed_edge`, `config_hash 209d60d22e16…`, `detected_at − occurred_at = 1,5 s` → cảnh báo `PENDING`. Hết file → heartbeat `source_status = OFFLINE` → camera `OFFLINE`, `CAMERA_OFFLINE` (cảnh báo PENDING), `/overview` A01 `NO_OBSERVATION / CAMERA_ISSUE`. `runtime`: fps 14,79, brightness 90,4, dropped 69 |
+| Đóng phiên, PATCH camera → WEBCAM 0, mở phiên mới, chạy worker 15 s (webcam laptop) | `ONLINE`, `runtime` fps 15,09, brightness 3,5 (ống kính bị che/tối), 32 khung trong ~7 s; dừng worker → `mark_offline_cameras` đặt `OFFLINE` + `CAMERA_OFFLINE` sau >5 s |
+
+Kiểm tra (2026-11-18): `make check` exit 0 (server 842 passed, web 77 passed, build OK); `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0.
+
+Điều người sau cần biết:
+- **Lệch phạm vi có chủ đích** (theo yêu cầu người giao việc, §9): worker đã chạy engine và gửi state/sự kiện (F17 R3–R7 phía worker), tôn trọng `capture_paused` (F36 R18 phía worker), phát file theo nhịp thời gian thực (một phần F30 R4; chưa có `--loop`, `ts_ms` vẫn theo video, worker quy đổi sang UTC). F17/F36/F30 chỉ cần kiểm AC và làm phần còn lại.
+- `source_status` hợp lệ: `ONLINE`, `OFFLINE`, `PAUSED`; thiếu trường → coi như `ONLINE` (giả lập cũ). Giả lập nay gửi `ONLINE`, brightness 150.
+- Hàm R5 giữ tên `mark_offline_cameras(now=…)` (spec ghi `mark_stale_cameras_offline`).
+- `GET /api/v1/cameras/{id}` trả `CameraDetailOut` (có `runtime`); danh sách vẫn `CameraOut`. Đã `make gen-api-types`.
+- `pipeline.process_frame` nhận `Engine | FrameEngine` (Protocol) để test worker dùng engine giả; hành vi không đổi.
+- Khung gửi đi là RAW cho tới F28 (câu hỏi mở §8, mặc định chấp nhận; README đã ghi).
+- ROI camera chưa đặt → worker chỉ gửi heartbeat + khung, log cảnh báo (cần F08 để đặt ROI trên UI).
 
 ## 11. Definition of Done
 
