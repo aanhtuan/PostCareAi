@@ -186,7 +186,7 @@ class Simulator:
     def heartbeat_once(self) -> None:
         self._hb_client.post(
             f"/internal/v1/cameras/{self.camera_id}/heartbeat",
-            json={"fps": 15.0, "brightness": 0.6, "dropped_frames": 0, "source_status": "SIM"},
+            json={"fps": 15.0, "brightness": 150.0, "dropped_frames": 0, "source_status": "ONLINE"},
         )
 
     def start_heartbeat(self) -> None:

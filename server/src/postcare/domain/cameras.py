@@ -39,6 +39,11 @@ def _camera(db: Session, camera_id: int) -> Camera:
     return camera
 
 
+def ensure_worker_camera(db: Session, camera_id: int) -> None:
+    """Camera tồn tại và còn dùng, nếu không → 404 (F06 R2, R8)."""
+    _camera(db, camera_id)
+
+
 def camera_config(db: Session, camera_id: int) -> CameraConfigOut:
     camera = _camera(db, camera_id)
     session = session_at(db, camera.bed_id, utcnow()) if camera.bed_id else None
@@ -66,12 +71,40 @@ def _status_out(camera: Camera, runtime: CameraRuntime) -> CameraStatusOut:
     )
 
 
+# Worker còn sống nhưng không đọc nguồn có chủ đích (tạm dừng thu hình, F36 R18): vẫn ONLINE.
+_SOURCE_STATUSES_ONLINE = {CameraStatus.ONLINE.value, "PAUSED"}
+
+
+def _camera_status_from(source_status: str | None) -> CameraStatus:
+    """F06 R4: nguồn ONLINE (hoặc PAUSED) → ONLINE; nguồn khác (OFFLINE, UNKNOWN…) → OFFLINE.
+
+    Không gửi `source_status` (client cũ, giả lập) coi như ONLINE *(giả định)*.
+    """
+    if source_status is None or source_status.upper() in _SOURCE_STATUSES_ONLINE:
+        return CameraStatus.ONLINE
+    return CameraStatus.OFFLINE
+
+
 def heartbeat(
     db: Session, camera_id: int, data: HeartbeatIn, store: RuntimeStore, publisher: Publisher
 ) -> HeartbeatOut:
     camera = _camera(db, camera_id)
     now = utcnow()
     previous = camera.status
+    new_status = _camera_status_from(data.source_status)
+    runtime = CameraRuntime(
+        data.fps, data.brightness, data.dropped_frames, data.source_status, updated_at=now
+    )
+    store.set_camera(camera.id, runtime)
+    if new_status is CameraStatus.OFFLINE:
+        camera.last_seen_at = now
+        if previous == CameraStatus.ONLINE:
+            # Worker còn sống nhưng mất nguồn video: cùng đường với mất heartbeat (F17 R17).
+            _go_offline(db, camera, store, publisher, runtime, reason="source_offline", now=now)
+        else:
+            camera.status = CameraStatus.OFFLINE
+            db.commit()
+        return HeartbeatOut(config_version=camera.config_version)
     camera.last_seen_at = now
     camera.status = CameraStatus.ONLINE
     created = None
@@ -80,8 +113,6 @@ def heartbeat(
             db, camera, code=EventCode.CAMERA_ONLINE, occurred_at=now, reason="heartbeat"
         )
     db.commit()
-    runtime = CameraRuntime(data.fps, data.brightness, data.dropped_frames, data.source_status)
-    store.set_camera(camera.id, runtime)
     if previous != CameraStatus.ONLINE:
         safe_publish(publisher, "camera.status", _status_out(camera, runtime))
     if created:
@@ -133,32 +164,56 @@ def mark_offline_cameras(
     )
     changed: list[int] = []
     for camera in cameras:
-        camera.status = CameraStatus.OFFLINE
         assert camera.last_seen_at is not None
-        created = create_camera_event(
+        _go_offline(
             db,
             camera,
-            code=EventCode.CAMERA_OFFLINE,
-            occurred_at=camera.last_seen_at,
+            store,
+            publisher,
+            CameraRuntime(),
             reason="heartbeat_timeout",
+            now=now,
+            occurred_at=camera.last_seen_at,
         )
-        db.commit()
         changed.append(camera.id)
-        safe_publish(publisher, "camera.status", _status_out(camera, CameraRuntime()))
-        if created:
-            publish_created(db, publisher, *created)
-        if camera.bed_id is not None:
-            # Mất camera: không còn quan sát được, không coi là "an toàn" (PRD US07).
-            state = BedStateOut(
-                bed_id=camera.bed_id,
-                body_state=BodyState.NO_OBSERVATION,
-                observation_quality=ObservationQuality.CAMERA_ISSUE,
-                activity_level=ActivityLevel.UNKNOWN,
-                rest_status=RestStatus.UNKNOWN,
-                face_status=FaceStatus.NOT_VISIBLE,
-                face_signals=FaceSignalsIn(),
-                updated_at=now,
-            )
-            store.set_bed_state(state)
-            safe_publish(publisher, "bed.state", state)
     return changed
+
+
+def _go_offline(
+    db: Session,
+    camera: Camera,
+    store: RuntimeStore,
+    publisher: Publisher,
+    runtime: CameraRuntime,
+    *,
+    reason: str,
+    now: datetime,
+    occurred_at: datetime | None = None,
+) -> None:
+    """ONLINE → OFFLINE: commit + CAMERA_OFFLINE, rồi phát camera.status, sự kiện, bed.state."""
+    camera.status = CameraStatus.OFFLINE
+    created = create_camera_event(
+        db,
+        camera,
+        code=EventCode.CAMERA_OFFLINE,
+        occurred_at=occurred_at or now,
+        reason=reason,
+    )
+    db.commit()
+    safe_publish(publisher, "camera.status", _status_out(camera, runtime))
+    if created:
+        publish_created(db, publisher, *created)
+    if camera.bed_id is not None:
+        # Mất camera: không còn quan sát được, không coi là "an toàn" (PRD US07).
+        state = BedStateOut(
+            bed_id=camera.bed_id,
+            body_state=BodyState.NO_OBSERVATION,
+            observation_quality=ObservationQuality.CAMERA_ISSUE,
+            activity_level=ActivityLevel.UNKNOWN,
+            rest_status=RestStatus.UNKNOWN,
+            face_status=FaceStatus.NOT_VISIBLE,
+            face_signals=FaceSignalsIn(),
+            updated_at=now,
+        )
+        store.set_bed_state(state)
+        safe_publish(publisher, "bed.state", state)

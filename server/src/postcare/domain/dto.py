@@ -239,6 +239,22 @@ class CameraOut(BaseModel):
     is_active: bool
 
 
+class CameraRuntimeOut(BaseModel):
+    """Số liệu worker báo qua heartbeat, chỉ trong RAM của API (F06 R4, R9)."""
+
+    fps: float | None
+    brightness: float | None
+    dropped_frames: int | None
+    source_status: str | None
+    updated_at: datetime
+
+
+class CameraDetailOut(CameraOut):
+    """`GET /cameras/{id}`: thêm `runtime` (null khi chưa có heartbeat từ lúc API khởi động)."""
+
+    runtime: CameraRuntimeOut | None = None
+
+
 # Mã và chuỗi bắt buộc: bỏ khoảng trắng đầu/cuối rồi mới kiểm tra (F03 R6).
 Code = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]

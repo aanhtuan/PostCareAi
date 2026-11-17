@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from postcare.api.errors import install_error_handlers
+from postcare.api.frame_buffer import LatestFrameStore
 from postcare.api.internal import cameras as internal_cameras
 from postcare.api.realtime import WsHub
 from postcare.api.realtime import router as ws_router
@@ -86,6 +87,7 @@ def create_app(settings: Settings | None = None, *, watch_cameras: bool = True) 
     app.state.engine = engine
     app.state.session_factory = make_session_factory(engine)
     app.state.store = RuntimeStore()
+    app.state.frames = LatestFrameStore()  # F06: khung JPEG mới nhất, chỉ trong RAM
     app.state.hub = WsHub()
 
     app.add_middleware(
