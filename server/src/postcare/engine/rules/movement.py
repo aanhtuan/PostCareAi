@@ -11,7 +11,8 @@ Cách xét `ABNORMAL_MOVEMENT` *(giả định F23 R7, ghi ở event-engine.md m
 
 1. Mỗi frame `t` có mẫu tham chiếu `ref(t)` = mẫu mới nhất cách ≥ `window_s` về trước (thiếu →
    frame chưa xét được). Dấu hiệu nhanh ở `t`: F1 = max vận tốc đi xuống của `hip_center` trong
-   `(t − window_s, t]` ≥ `hip_drop_speed_torso_per_s`; F2 = `|hip(t) − hip(ref)| / torso(ref)` ≥
+   `(t − window_s, t]` ≥ `hip_drop_speed_torso_per_s` (vận tốc chia torso lớn hơn giữa frame và
+   mốc); F2 = `|hip(t) − hip(ref)| / torso(ref)` ≥
    `displacement_torso`; F3 = `|trunk(t) − trunk(ref)|` ≥ `trunk_angle_change_deg`.
 2. Có dấu hiệu nhanh → mở / kéo dài một "chuyển động". Mẫu "trước" = `ref` của frame có nhiều
    dấu hiệu nhất (frame đầu tiên đạt số đó). Hết dấu hiệu → bắt đầu đếm `hold_after_s`; dấu hiệu
@@ -19,13 +20,15 @@ Cách xét `ABNORMAL_MOVEMENT` *(giả định F23 R7, ghi ở event-engine.md m
 3. Đủ `hold_after_s` → chấm điểm với vị trí **cuối** (frame hiện tại), để nhiễu 1–3 frame rồi
    quay về không được tính là dịch chuyển: C1 = vận tốc đi xuống lớn nhất trong chuyển động;
    C2, C3 = so vị trí / góc thân cuối với mẫu "trước"; C4 = `hip_y` cuối / chiều cao khung hình ≥
-   `final_low_position_ratio`; C5 = trung bình tốc độ mẫu vận động trong khoảng giữ <
-   `activity.low_threshold`. Đủ `min_conditions` → phát.
+   `final_low_position_ratio`; C5 = trung vị tốc độ mẫu vận động (cùng cách tính với chỉ số vận
+   động, `engine/activity.py`) trong khoảng giữ < `activity.low_threshold`.
+   Đủ `min_conditions` → phát.
 
 `occurred_at_ms` = mẫu đầu tiên trong chuyển động có tốc độ hông ≥ `hip_drop_speed_torso_per_s`,
 không có thì frame đầu có dấu hiệu nhanh. `detected_at_ms` = lúc chấm điểm.
 """
 
+import statistics
 from collections import deque
 from dataclasses import dataclass, field
 
@@ -204,7 +207,11 @@ class MovementRules:
             if s.ts_ms <= ts_ms - self._window_ms:
                 ref = s
                 break
-        vx, vy = f.velocity
+        # Vận tốc của F13 chia torso của chính frame; thân co ngắn (phối cảnh, keypoint lỗi) sẽ thổi
+        # phồng vận tốc. Chuẩn hóa lại theo torso lớn hơn giữa frame này và mốc.
+        torso = max(f.torso_length, ref.torso) if ref is not None else f.torso_length
+        scale = f.torso_length / torso if torso > 0 else 0.0
+        vx, vy = f.velocity[0] * scale, f.velocity[1] * scale
         sample = _Sample(
             ts_ms=ts_ms,
             hip=f.hip_center,
@@ -251,7 +258,7 @@ class MovementRules:
         position_ratio = final.hip[1] / final.height if final.height > 0 else 0.0
         still: float | None = None
         if motion.hold_speeds:
-            still = sum(motion.hold_speeds) / len(motion.hold_speeds)
+            still = statistics.median(motion.hold_speeds)
         met = {
             "hip_drop_speed": motion.peak_vy >= am.hip_drop_speed_torso_per_s,
             "displacement": displacement >= am.displacement_torso,

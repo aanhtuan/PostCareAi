@@ -45,6 +45,9 @@ SETTLE_S = RESTORE + max(FILL_S, AM.window_s) + 1
 AFTER_S = AM.window_s + AM.hold_after_s + 2
 """Sau chuyển động: đủ để cửa sổ trượt qua chuyển động rồi giữ `hold_after_s`."""
 VIGOROUS = 3 * ACT.high_threshold
+RISE_S = 4.0
+"""Đứng dậy chậm từ sàn: trong mỗi cửa sổ `window_s` không có dấu hiệu nhanh (đứng dậy nhanh từ
+sàn rồi đứng yên là C2 + C3 + C5, đủ 3 điều kiện)."""
 FLOOR_IN_ROI = FLOOR.moved_to((700, 560))
 """Nằm thấp nhưng tâm hông vẫn trong ROI (để người mục tiêu không rời ROI)."""
 
@@ -249,14 +252,14 @@ def test_abnormal_movement_outside_roi() -> None:
 
 
 def test_abnormal_movement_debounced() -> None:
-    seq = fall().move_to(UPRIGHT, seconds=1.5).hold(seconds=SETTLE_S).fast_drop(seconds=0.6)
+    seq = fall().move_to(UPRIGHT, seconds=RISE_S).hold(seconds=SETTLE_S).fast_drop(seconds=0.6)
     seq.hold(seconds=AFTER_S)
     assert movement_codes(run_engine(seq.build())).count(ABNORMAL) == 1
 
 
 def test_abnormal_movement_after_debounce_window_emitted_again() -> None:
     config = cfg({"debounce": {"same_code_same_session_s": 1.0}})
-    seq = fall().move_to(UPRIGHT, seconds=1.5).hold(seconds=SETTLE_S).fast_drop(seconds=0.6)
+    seq = fall().move_to(UPRIGHT, seconds=RISE_S).hold(seconds=SETTLE_S).fast_drop(seconds=0.6)
     seq.hold(seconds=AFTER_S)
     assert codes(run_engine(seq.build(), config=config)).count(ABNORMAL) == 2
 
