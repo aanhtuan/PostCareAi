@@ -87,7 +87,7 @@ erDiagram
 | roi_polygon | jsonb | null | `[[x,y],…]`, x,y ∈ [0,1], ≥3 điểm, không tự cắt (F08) |
 | thresholds | jsonb | default `{}` | Override ngưỡng của [engine](event-engine.md#6-cấu-hình-và-ngưỡng-mặc-định) |
 | display_mode | enum `display_mode` | default `BLUR` | `RAW`, `BLUR`, `SKELETON` (F28; A08) |
-| config_version | int | default 1 | Tăng mỗi lần sửa cấu hình (worker poll) |
+| config_version | int | default 1 | Tăng mỗi lần sửa cấu hình (worker poll). F03: tăng khi `source_type`, `source` hoặc `bed_id` đổi giá trị (kể cả xóa camera đang gắn giường); đổi `name` thì không |
 | status | enum `camera_status` | default `UNKNOWN` | `ONLINE`, `OFFLINE`, `UNKNOWN` |
 | last_seen_at | timestamptz | null | Heartbeat gần nhất |
 | last_config_hash | text | not null, default `''` | Prototype (ADR-0010, migration 0002): hash cấu hình ngưỡng gần nhất worker gửi lên; dùng cho `events.config_hash` của sự kiện camera do API sinh |
