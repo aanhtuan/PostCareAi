@@ -338,7 +338,7 @@ class LiveSource(BaseSource):
         if not self._connect():
             self._set_status(CameraStatus.OFFLINE)
             if self._fail_fast:
-                raise SourceOpenError(f"Không mở được nguồn: {self.describe()}")
+                raise SourceOpenError(f"OpenCV không kết nối được {self.describe()}")
         if self._threaded:
             self._thread = threading.Thread(target=self._run, name="frame-reader", daemon=True)
             self._thread.start()
