@@ -35,7 +35,7 @@ CREATE DATABASE postcare_test OWNER postcare;
 ## 3. Thiết lập dự án
 
 ```bash
-cp .env.example .env        # Windows PowerShell: Copy-Item .env.example .env
+cp .env.example .env        # Windows PowerShell: Copy-Item .env.example .env (bắt buộc, xem dưới)
 make setup                  # uv sync, npm ci, cài hook pre-commit và pre-push
 # PostgreSQL phải đang chạy (mục 4)
 make db-upgrade             # alembic upgrade head trên DATABASE_URL
@@ -44,6 +44,14 @@ make seed                   # tùy chọn, prototype: XÓA hết, migrate lại,
 make models                 # tải model MediaPipe (từ F11; hiện là target giữ chỗ, exit 1)
 make check                  # phải xanh
 ```
+
+`JWT_SECRET` và `WORKER_TOKEN` (F02): API **từ chối khởi động** nếu một trong hai còn là giá trị mặc định (`change-me…`) hoặc ngắn hơn 32 byte, kèm thông báo lỗi chỉ cách sửa. `.env.example` có sẵn giá trị chỉ dùng cho dev (tiền tố `dev-only-`); chạy demo trong LAN thì tạo giá trị mới:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+API, worker và giả lập cùng đọc `.env` ở thư mục gốc nên `WORKER_TOKEN` tự khớp. Test (`make check`) không cần `.env`: fixture tự đặt giá trị đủ mạnh.
 
 Chạy hệ thống khi phát triển:
 

@@ -43,8 +43,9 @@ def get_publisher(request: Request) -> Publisher:
     return request.app.state.hub
 
 
-def create_token(user: User, settings: Settings) -> str:
-    now = datetime.now(UTC)
+def create_token(user: User, settings: Settings, now: datetime | None = None) -> str:
+    """`now` chỉ để test giả lập thời điểm cấp token (không `sleep`)."""
+    now = now or datetime.now(UTC)
     payload = {
         "sub": str(user.id),
         "role": user.role.value,

@@ -52,6 +52,8 @@ def create_app(settings: Settings | None = None, *, watch_cameras: bool = True) 
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        # Kiểm tra lúc khởi động, không lúc import: sinh OpenAPI (import module) vẫn chạy.
+        settings.ensure_secure_secrets()
         # Schema do Alembic tạo (`make db-upgrade`), API không tự tạo bảng (F01).
         app.state.hub.bind_loop(asyncio.get_running_loop())
         task = asyncio.create_task(_watch_cameras(app)) if watch_cameras else None

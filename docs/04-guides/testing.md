@@ -68,7 +68,7 @@ Builder hỗ trợ thêm các thao tác: `noise(frames=2)`, `drop_landmarks(seco
   - `app` / `client`: API dùng chung connection của test (dữ liệu cũng bị rollback); đầu test chạy `TRUNCATE … RESTART IDENTITY` trong transaction để id bắt đầu từ 1.
   - Test cần commit thật (ví dụ đọc từ kết nối thứ hai để kiểm tra "lưu trước, phát sau") đánh dấu `@pytest.mark.real_commit`; dữ liệu được dọn bằng `TRUNCATE` trước và sau test.
 - Test migration (`server/tests/db/`) chạy `downgrade base` rồi `upgrade head` trên DB test; không dùng `db_session` trong test đó.
-- Fixture `client` (TestClient), `auth_headers(role)` để test phân quyền.
+- Fixture `client` (TestClient), `login(username)` trả header `Authorization` của tài khoản seed (`nurse`, `charge`, `doctor`, `admin`) để test phân quyền. Router chỉ dùng cho test thì mount vào fixture `app` ngay trong test (ví dụ `server/tests/api/test_role_guard.py`).
 - Với mỗi endpoint ghi, test:
   - thành công;
   - validation sai (400/422);
