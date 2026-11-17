@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F23 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -162,13 +162,16 @@ Thêm ca âm tính riêng: nằm xuống chậm từ tư thế ngồi không sin
   |---|---|---|---|---|---|---|---|
   | `ABNORMAL_MOVEMENT` (tổng) | 2 | 2 | 99 | 0,50 | 0,02 | 0,04 | 4,27 s |
   | – GMDCSA24 S1–S2 (41 ngã) | 2 | 1 | 39 | 0,67 | 0,05 | 0,09 | |
-  | – URFD cam0 + cam1 (60 ngã) | 0 | 1 | 60 | 0,00 | 0,00 | — | |
+  | – URFD cam0 (30 ngã, camera ngang) | 0 | 1 | 30 | 0,00 | 0,00 | — | |
+  | – URFD cam1 (30 ngã, camera trần, coverage 3,5 %) | 0 | 0 | 30 | — | 0,00 | — | |
+  | `ABNORMAL_MOVEMENT` bỏ URFD cam1 (71 ngã) | 2 | 2 | 69 | 0,50 | 0,03 | 0,05 | |
   | `ACTIVITY_INCREASED` | — | — | — | — | — | — | 18 dự đoán, không có truth |
   | `ACTIVITY_LOW_PROLONGED` | — | — | — | — | — | — | 0 dự đoán (mọi clip < 300 s), không có truth |
 
   - FP/giờ trên clip ADL (kịch bản NEG, 78 video, 647,6 s): **11,1** (2 FP `ABNORMAL_MOVEMENT`: `urfd_adl11_cam0` @4,27 s, `gmd_s2_adl_09` @3,89 s). Toàn tập: 10,7 false alerts/giờ (thêm 2 FP `BED_EDGE` của F15 trên Pexels).
   - `ACTIVITY_*` không có P/R/F1: tập dev chưa có video S02/S16 và ground truth cho các mã này (truth chỉ có trong `eval_codes`; 43 dự đoán ngoài `eval_codes` bị bỏ qua, gồm 18 `ACTIVITY_INCREASED`). Cần video dev của nhóm (mục 8).
   - Manifest không có cột `camera_config` cho URFD nên eval dùng `example.yaml`. Chạy lại 70 video URFD cam0 với `--camera-config config/cameras/urfd-cam0.yaml`: vẫn 0/30 TP, 1 FP (`reports/eval-dev-f23-urfdroi.local.md`). URFD cam1 (camera trần) có coverage 3,5 %.
+  - URFD cam1 (camera trần) gần như không có quan sát (coverage 3,5 %): góc nhìn ngoài phạm vi camera-setup.md, nên ghi riêng; recall có ý nghĩa nên tính trên 71 ngã còn lại.
   - Lý do recall thấp giống phần replay bên dưới: clip dừng 1–3 s sau khi ngã (rule chấm ≈ `window_s + hold_after_s` sau chuyển động; latency trung vị 4,27 s), frame không `GOOD` lúc ngã hủy cửa sổ (R8), C5 hiếm thỏa với `low_threshold = 0,02`. Ngưỡng giữ nguyên; điều phối hiệu chỉnh sau eval (mục 8).
 
 **Kiểm trên clip thật (`postcare replay --video`, model full, 15 fps; cấu hình `config/cameras/urfd-cam0.yaml`, `caucafall.yaml` (ROI gần trọn khung, giả định), `gmdcsa24-subject1.yaml`):**
@@ -195,6 +198,14 @@ Chỉ số vận động: với tốc độ đo giữa hai frame liền nhau, ng
 - Sự kiện vận động LOG xuất hiện song song với chuỗi cơ thể khi người bệnh cử động (ví dụ đi ra khỏi giường → `ACTIVITY_INCREASED`). Test F15 lọc theo mã F15. `snapshot.state_changed` cũng đổi khi `activity_level` đổi (worker gửi `state` nhiều hơn).
 - Khóa mới `activity.sample_interval_s` làm đổi `config_hash`.
 - Kịch bản dựng lại kết quả bảng trên: replay từng clip vào `runs/f23/<tên>/` rồi chạy engine trên `observations.jsonl` (`--from-observations`); script phân tích tạm không commit.
+
+**Review (2026-11-18): Đạt.** Sửa theo review: tách URFD cam1 khỏi mẫu số recall (bảng AC5), ghi nguồn/giấy phép fixture GMDCSA24 (`server/tests/fixtures/SOURCES.md`), ghi rõ chuyển động còn đang chờ ở cuối luồng không được chấm (event-engine.md mục 5, `rules/movement.py`), cập nhật số test. Sau sửa: `make check` exit 0 (738 passed, 5 deselected; web 66 passed), `scripts\dev.ps1 check` exit 0.
+
+**Giả thuyết hiệu chỉnh của reviewer (đầu vào cho việc hiệu chỉnh sau, chưa đổi ngưỡng):**
+- **H1 – độ trễ quyết định so với cuối clip:** rule chấm ≈ `window_s + hold_after_s` (≈ 3,5 s; latency trung vị 4,27 s) sau chuyển động, trong khi clip dữ liệu ngoài dừng 1–3 s sau khi ngã; chuyển động còn chờ ở cuối luồng không được chấm. Thử: rút `hold_after_s` hoặc đánh giá trên clip dài/được kéo dài.
+- **H2 – một frame `LOW_CONFIDENCE` reset cửa sổ:** R8 hủy cả chuyển động khi có một frame không `GOOD` lúc ngã (URFD 01, 04, 05, 07; GMDCSA 01, 02, 13, 14). Thử: cho phép gián đoạn ngắn (≤ vài frame) trong cửa sổ.
+- **H3 – ngưỡng yên 0,02 so với 0,03–0,14 đo được:** C5 (và `ACTIVITY_LOW_PROLONGED`) hiếm khi thỏa vì nhiễu tĩnh MediaPipe; hiệu chỉnh `activity.low_threshold` trên tập dev.
+- **H4 – vị trí thấp theo camera:** C4 là vị trí tuyệt đối trong khung; với camera cao nhìn chéo (CAUCAFall) hông sau ngã ở ~0,55–0,6 chiều cao khung. Đặt `final_low_position_ratio` theo từng camera (override `thresholds`).
 
 ## 11. Definition of Done
 

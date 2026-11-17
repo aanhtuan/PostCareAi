@@ -25,6 +25,8 @@ Cách xét `ABNORMAL_MOVEMENT` *(giả định F23 R7, ghi ở event-engine.md m
    Đủ `min_conditions` **và** có ít nhất một điều kiện hạ thấp (C1 hoặc C4) → phát
    *(giả định, chốt 18/11/2026)*.
 
+Chuyển động còn đang chờ khi luồng kết thúc (chưa đủ `hold_after_s`) không được chấm.
+
 `occurred_at_ms` = mẫu đầu tiên trong chuyển động có tốc độ hông ≥ `hip_drop_speed_torso_per_s`,
 không có thì frame đầu có dấu hiệu nhanh. `detected_at_ms` = lúc chấm điểm.
 """
