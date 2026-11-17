@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F02 |
-| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -56,12 +56,13 @@ Cho phép nhân viên đăng nhập bằng tên đăng nhập và mật khẩu, 
 ## 4. Thiết kế liên quan
 
 - **Module / file dự kiến:**
-  - `server/src/postcare/api/auth.py` (JWT, `get_current_user`, `require_roles`).
+  - `server/src/postcare/api/deps.py` (JWT `create_token`/`user_from_token`, `get_current_user`, `require_roles`, `require_writer`). Prototype đặt sẵn ở đây; không tách thêm `api/auth.py` để tránh hai nơi định nghĩa guard.
   - `server/src/postcare/domain/errors.py` (`DomainError`) và `server/src/postcare/api/errors.py` (handler chung) *(giả định: tách để `domain` raise được mà không import `api`)*.
   - `server/src/postcare/api/v1/auth.py` (router).
   - `server/src/postcare/domain/users.py` (`authenticate(username, password)`).
   - `server/src/postcare/domain/security.py` (thêm `verify_password`).
   - `server/tests/api/test_auth.py`, `server/tests/api/test_role_guard.py`, `server/tests/api/test_errors.py`.
+  - `web/src/components/AppLayout.tsx` (khung ứng dụng, header) thay cho `AppShellLayout.tsx`; `web/src/components/AppLayout.test.tsx`, `web/src/auth/RequireRole.test.tsx`.
   - `web/src/api/client.ts`, `web/src/auth/AuthContext.tsx`, `web/src/auth/RequireRole.tsx`, `web/src/pages/Login/LoginPage.tsx`, `web/src/components/AppShellLayout.tsx`.
   - `web/src/pages/Login/LoginPage.test.tsx`, `web/src/api/client.test.ts`.
 - **Dữ liệu:** đọc `users` (xem [data-model.md](../02-architecture/data-model.md#users-f01)).
@@ -71,10 +72,10 @@ Cho phép nhân viên đăng nhập bằng tên đăng nhập và mật khẩu, 
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** `POST /api/v1/auth/login` với thông tin đúng trả JWT và thông tin người dùng; sai mật khẩu, sai tên hoặc tài khoản đã ngừng → 401 `INVALID_CREDENTIALS`. *(QA#18)* — *Kiểm chứng:* test `test_login_success_returns_jwt`, `test_login_wrong_password_401`, `test_login_unknown_user_401`, `test_login_inactive_user_401`.
-- [ ] **AC2.** Guard theo vai trò: DOCTOR gọi một API ghi → 403 `FORBIDDEN`; không có token hoặc token sai → 401 `UNAUTHORIZED`. *(api-conventions.md)* — *Kiểm chứng:* test `test_doctor_write_forbidden` (router ghi tạm chỉ mount trong test), `test_missing_token_401`, `test_bad_signature_401`.
-- [ ] **AC3.** UI: trang Đăng nhập tiếng Việt; gặp 401 thì tự quay về trang đăng nhập; header hiện họ tên và vai trò tiếng Việt. *(PDF §9 (tr.11); QA#18)* — *Kiểm chứng:* component test `LoginPage shows error on 401`, `client redirects to login on 401`, `header shows full name and role label`.
-- [ ] **AC4.** Mật khẩu lưu dạng hash (không có API nào trả `password_hash`). Token hết hạn sau 8 giờ: token quá hạn → 401. *(A10)* — *Kiểm chứng:* test `test_password_stored_as_hash`, `test_me_does_not_expose_password_hash`, `test_token_expiry_is_8_hours`, `test_expired_token_401` (tạo token với thời điểm giả lập, không `sleep`).
+- [x] **AC1.** `POST /api/v1/auth/login` với thông tin đúng trả JWT và thông tin người dùng; sai mật khẩu, sai tên hoặc tài khoản đã ngừng → 401 `INVALID_CREDENTIALS`. *(QA#18)* — *Kiểm chứng:* test `test_login_success_returns_jwt`, `test_login_wrong_password_401`, `test_login_unknown_user_401`, `test_login_inactive_user_401`.
+- [x] **AC2.** Guard theo vai trò: DOCTOR gọi một API ghi → 403 `FORBIDDEN`; không có token hoặc token sai → 401 `UNAUTHORIZED`. *(api-conventions.md)* — *Kiểm chứng:* test `test_doctor_write_forbidden` (router ghi tạm chỉ mount trong test), `test_missing_token_401`, `test_bad_signature_401`.
+- [x] **AC3.** UI: trang Đăng nhập tiếng Việt; gặp 401 thì tự quay về trang đăng nhập; header hiện họ tên và vai trò tiếng Việt. *(PDF §9 (tr.11); QA#18)* — *Kiểm chứng:* component test `LoginPage shows error on 401`, `client redirects to login on 401`, `header shows full name and role label`.
+- [x] **AC4.** Mật khẩu lưu dạng hash (không có API nào trả `password_hash`). Token hết hạn sau 8 giờ: token quá hạn → 401. *(A10)* — *Kiểm chứng:* test `test_password_stored_as_hash`, `test_me_does_not_expose_password_hash`, `test_token_expiry_is_8_hours`, `test_expired_token_401` (tạo token với thời điểm giả lập, không `sleep`).
 
 ## 6. Kế hoạch test
 
@@ -134,6 +135,32 @@ Cho phép nhân viên đăng nhập bằng tên đăng nhập và mật khẩu, 
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+**2026-11-17 (builder F02):** chuyển sang In review.
+
+Bằng chứng theo AC:
+
+- **AC1:** `server/tests/api/test_auth.py::test_login_success_returns_jwt`, `test_login_wrong_password_401`, `test_login_unknown_user_401`, `test_login_inactive_user_401` (cùng `code` và `message`); `server/tests/api/test_errors.py::test_validation_error_format`, `test_domain_error_format`.
+- **AC2:** `server/tests/api/test_role_guard.py::test_role_matrix` (4 vai trò × đọc/ghi/chỉ ADMIN, router tạm chỉ mount trong test), `test_doctor_write_forbidden`, `test_missing_token_401`, `test_bad_signature_401`, `test_role_comes_from_db_not_token`; `test_auth.py::test_doctor_is_read_only` (endpoint thật), `test_deactivated_user_token_401`, `test_ws_expired_token_closes_4401`.
+- **AC3:** `web/src/pages/Login/LoginPage.test.tsx` (`LoginPage shows error on 401`, đăng nhập xong về `/`, token bị từ chối → về trang đăng nhập), `web/src/api/client.test.ts` (`client redirects to login on 401`, gắn `Authorization`, 401 của login và 403 không chuyển trang), `web/src/components/AppLayout.test.tsx` (`header shows full name and role label` cho 4 vai trò, nút Đăng xuất).
+- **AC4:** `test_password_stored_as_hash`, `test_me_does_not_expose_password_hash`, `test_token_expiry_is_8_hours`, `test_expired_token_401` (thời điểm cấp giả lập qua `create_token(..., now=)`, không `sleep`).
+
+Thay đổi code: `create_token` nhận `now` tùy chọn; thêm `web/src/auth/RequireRole.tsx` (route guard dùng lại được, chưa gắn vào route nào vì chưa có màn hình chỉ ADMIN; F03/F08/F35 dùng). Không đổi API (`check-api-types` xanh, không cần sinh lại type). `server/tests/test_auth.py` chuyển sang `server/tests/api/test_auth.py`.
+
+Kiểm tra: `make check` và `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` exit 0 (214 test server, 47 test web), chạy với `TEST_DATABASE_URL=.../postcare_f02_test` vì nhiều builder dùng chung PostgreSQL.
+
+Kiểm chứng thủ công (API chạy cổng 8102, DB đã seed, curl):
+
+| Yêu cầu | Kết quả |
+|---|---|
+| `POST /auth/login` nurse sai mật khẩu | 401 `INVALID_CREDENTIALS` |
+| `GET /auth/me` với token nurse / doctor | 200, không có `password_hash` |
+| doctor `GET /overview` | 200 |
+| doctor `POST /sessions` | 403 `FORBIDDEN` |
+| nurse `POST /sessions` | 201 |
+| `GET /overview` không token | 401 `UNAUTHORIZED` |
+
+Không làm (F35/F36): vai trò `FAMILY`, `require_staff`, quản lý người dùng. `require_roles(*roles)` nhận tập vai trò bất kỳ và đọc vai trò từ DB nên thêm vai trò sau không phải sửa guard.
 
 ## 11. Definition of Done
 
