@@ -20,7 +20,7 @@ help:
 	@echo dev-api: run API on $(API_HOST):$(API_PORT) with reload
 	@echo dev-web: run Vite dev server on port 5173
 	@echo worker: run worker for one camera: make worker CAMERA=1 - F06
-	@echo seed: reset database and load sample data - prototype
+	@echo seed: prototype demo - DROP all data, migrate, load base and demo data
 	@echo simulate: simulate AI worker: make simulate BED=A01 SCENARIO=bed-exit SPEED=1
 	@echo format: auto-format server and web
 	@echo format-check: check formatting - ruff format, prettier
@@ -33,8 +33,8 @@ help:
 	@echo build-web: build web - alias: build
 	@echo check: all checks above - must pass before done
 	@echo gen-api-types: write OpenAPI JSON and generate web/src/api/schema.d.ts
-	@echo db-upgrade: placeholder - F01
-	@echo db-seed: placeholder - F01
+	@echo db-upgrade: apply Alembic migrations to DATABASE_URL - alembic upgrade head
+	@echo db-seed: add missing sample data - users, shifts, beds A01-A03, camera A01
 	@echo models: placeholder - F11
 
 setup:
@@ -56,7 +56,7 @@ worker:
 	@exit 1
 
 seed:
-	uv --directory server run postcare seed
+	uv --directory server run postcare seed --reset
 
 simulate:
 	uv --directory server run postcare simulate --bed $(BED) --scenario $(SCENARIO) --speed $(SPEED)
@@ -100,12 +100,10 @@ build: build-web
 check: format-check lint typecheck lint-imports check-api-types test build-web
 
 db-upgrade:
-	@echo make db-upgrade: not implemented yet - see F01. Use make seed meanwhile.
-	@exit 1
+	uv --directory server run alembic upgrade head
 
 db-seed:
-	@echo make db-seed: not implemented yet - see F01. Use make seed meanwhile.
-	@exit 1
+	uv --directory server run postcare seed
 
 models:
 	@echo make models: not implemented yet - see F11.
