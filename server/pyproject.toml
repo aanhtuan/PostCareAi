@@ -14,11 +14,10 @@ dependencies = [
     "typer>=0.12",
     "httpx>=0.27",
     "tzdata>=2024.1",
+    # F01: PostgreSQL 16 + migration (ADR-0004)
+    "alembic>=1.13",
+    "psycopg[binary]>=3.2",
 ]
-
-[project.optional-dependencies]
-# PostgreSQL thay cho SQLite mặc định: `uv sync --extra postgres`
-postgres = ["psycopg[binary]>=3.2"]
 
 [project.scripts]
 postcare = "postcare.cli.main:app"
@@ -57,7 +56,10 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "typer.Option"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
-markers = ["vision: cần model MediaPipe và video thật (make test-vision)"]
+markers = [
+    "vision: cần model MediaPipe và video thật (make test-vision)",
+    "real_commit: test API commit thật trên DB test (dọn bằng TRUNCATE), không rollback",
+]
 filterwarnings = ["ignore::DeprecationWarning", "ignore:Using `httpx` with:Warning"]
 
 [tool.mypy]
