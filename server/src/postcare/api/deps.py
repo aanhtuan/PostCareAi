@@ -96,6 +96,7 @@ def require_roles(*roles: UserRole) -> Callable[..., User]:
 # Endpoint đọc của nhân viên dùng `require_staff`, không dùng `get_current_user` (F35 R2).
 require_staff = require_roles(*STAFF_ROLES)
 require_writer = require_roles(*WRITE_ROLES)
+# Quản lý danh mục (F03), ROI, ngưỡng (F08): chỉ ADMIN.
 require_admin = require_roles(UserRole.ADMIN)
 
 

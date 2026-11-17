@@ -22,7 +22,7 @@ def test_start_and_end_session(
     assert s["camera_id"] == 1
     assert s["started_by"]["full_name"]
 
-    beds = client.get("/api/v1/beds", headers=nurse).json()
+    beds = client.get("/api/v1/beds", headers=nurse).json()["items"]
     assert beds[0]["active_session"]["id"] == s["id"]
 
     r = client.post(f"/api/v1/sessions/{s['id']}/end", headers=nurse)

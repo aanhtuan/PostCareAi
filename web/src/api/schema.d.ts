@@ -55,6 +55,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shifts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Shifts */
+        get: operations["shifts_api_v1_shifts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/beds": {
         parameters: {
             query?: never;
@@ -62,10 +79,50 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Beds */
-        get: operations["beds_api_v1_beds_get"];
+        /** List Beds */
+        get: operations["list_beds_api_v1_beds_get"];
+        put?: never;
+        /** Create Bed */
+        post: operations["create_bed_api_v1_beds_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/beds/{bed_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Bed */
+        get: operations["get_bed_api_v1_beds__bed_id__get"];
         put?: never;
         post?: never;
+        /**
+         * Delete Bed
+         * @description Xóa mềm. Lặp lại trả 200, không ghi audit.
+         */
+        delete: operations["delete_bed_api_v1_beds__bed_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Bed */
+        patch: operations["update_bed_api_v1_beds__bed_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/beds/{bed_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Bed */
+        post: operations["restore_bed_api_v1_beds__bed_id__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -79,10 +136,50 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Patients */
-        get: operations["patients_api_v1_patients_get"];
+        /** List Patients */
+        get: operations["list_patients_api_v1_patients_get"];
+        put?: never;
+        /** Create Patient */
+        post: operations["create_patient_api_v1_patients_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{patient_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Patient */
+        get: operations["get_patient_api_v1_patients__patient_id__get"];
         put?: never;
         post?: never;
+        /**
+         * Delete Patient
+         * @description Xóa mềm. Lặp lại trả 200, không ghi audit.
+         */
+        delete: operations["delete_patient_api_v1_patients__patient_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Patient */
+        patch: operations["update_patient_api_v1_patients__patient_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/patients/{patient_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Patient */
+        post: operations["restore_patient_api_v1_patients__patient_id__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -96,27 +193,50 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Cameras */
-        get: operations["cameras_api_v1_cameras_get"];
+        /** List Cameras */
+        get: operations["list_cameras_api_v1_cameras_get"];
         put?: never;
-        post?: never;
+        /** Create Camera */
+        post: operations["create_camera_api_v1_cameras_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/shifts": {
+    "/api/v1/cameras/{camera_id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Shifts */
-        get: operations["shifts_api_v1_shifts_get"];
+        /** Get Camera */
+        get: operations["get_camera_api_v1_cameras__camera_id__get"];
         put?: never;
         post?: never;
+        /**
+         * Delete Camera
+         * @description Xóa mềm. Lặp lại trả 200, không ghi audit.
+         */
+        delete: operations["delete_camera_api_v1_cameras__camera_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Camera */
+        patch: operations["update_camera_api_v1_cameras__camera_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/cameras/{camera_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Camera */
+        post: operations["restore_camera_api_v1_cameras__camera_id__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -558,6 +678,13 @@ export interface components {
          * @enum {string}
          */
         AlertStatus: "PENDING" | "ACKNOWLEDGED" | "RESOLVED";
+        /** BedCreate */
+        BedCreate: {
+            /** Code */
+            code: string;
+            /** Area */
+            area: string;
+        };
         /** BedOut */
         BedOut: {
             /** Id */
@@ -609,6 +736,16 @@ export interface components {
             updated_at: string;
         };
         /**
+         * BedUpdate
+         * @description Chỉ trường gửi lên mới đổi. Không có `is_active`: xóa/khôi phục qua DELETE, restore.
+         */
+        BedUpdate: {
+            /** Code */
+            code?: string | null;
+            /** Area */
+            area?: string | null;
+        };
+        /**
          * BodyState
          * @enum {string}
          */
@@ -634,6 +771,16 @@ export interface components {
             /** Active Session Id */
             active_session_id: number | null;
         };
+        /** CameraCreate */
+        CameraCreate: {
+            /** Name */
+            name: string;
+            source_type: components["schemas"]["CameraSourceType"];
+            /** Source */
+            source: string;
+            /** Bed Id */
+            bed_id?: number | null;
+        };
         /** CameraOut */
         CameraOut: {
             /** Id */
@@ -653,6 +800,8 @@ export interface components {
             last_seen_at: string | null;
             /** Config Version */
             config_version: number;
+            /** Is Active */
+            is_active: boolean;
         };
         /** CameraRef */
         CameraRef: {
@@ -672,6 +821,19 @@ export interface components {
          * @enum {string}
          */
         CameraStatus: "ONLINE" | "OFFLINE" | "UNKNOWN";
+        /**
+         * CameraUpdate
+         * @description `bed_id: null` nghĩa là gỡ camera khỏi giường; không gửi thì giữ nguyên.
+         */
+        CameraUpdate: {
+            /** Name */
+            name?: string | null;
+            source_type?: components["schemas"]["CameraSourceType"] | null;
+            /** Source */
+            source?: string | null;
+            /** Bed Id */
+            bed_id?: number | null;
+        };
         /**
          * DisplayMode
          * @enum {string}
@@ -928,10 +1090,31 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[BedOut] */
+        Page_BedOut_: {
+            /** Items */
+            items: components["schemas"]["BedOut"][];
+            /** Total */
+            total: number;
+        };
+        /** Page[CameraOut] */
+        Page_CameraOut_: {
+            /** Items */
+            items: components["schemas"]["CameraOut"][];
+            /** Total */
+            total: number;
+        };
         /** Page[EventOut] */
         Page_EventOut_: {
             /** Items */
             items: components["schemas"]["EventOut"][];
+            /** Total */
+            total: number;
+        };
+        /** Page[PatientOut] */
+        Page_PatientOut_: {
+            /** Items */
+            items: components["schemas"]["PatientOut"][];
             /** Total */
             total: number;
         };
@@ -961,6 +1144,16 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /**
+         * PatientCreate
+         * @description Chỉ mã thử nghiệm và ghi chú; `full_name`, `photo`… bị từ chối (PDF §10.1; HS §6.3).
+         */
+        PatientCreate: {
+            /** Code */
+            code: string;
+            /** Note */
+            note?: string | null;
+        };
         /** PatientOut */
         PatientOut: {
             /** Id */
@@ -973,6 +1166,13 @@ export interface components {
             is_active: boolean;
             /** Active Session Id */
             active_session_id: number | null;
+        };
+        /** PatientUpdate */
+        PatientUpdate: {
+            /** Code */
+            code?: string | null;
+            /** Note */
+            note?: string | null;
         };
         /**
          * Priority
@@ -1226,99 +1426,6 @@ export interface operations {
             };
         };
     };
-    beds_api_v1_beds_get: {
-        parameters: {
-            query?: {
-                include_inactive?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BedOut"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    patients_api_v1_patients_get: {
-        parameters: {
-            query?: {
-                include_inactive?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatientOut"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    cameras_api_v1_cameras_get: {
-        parameters: {
-            query?: {
-                include_inactive?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CameraOut"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     shifts_api_v1_shifts_get: {
         parameters: {
             query?: never;
@@ -1335,6 +1442,588 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShiftOut"][];
+                };
+            };
+        };
+    };
+    list_beds_api_v1_beds_get: {
+        parameters: {
+            query?: {
+                include_inactive?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_BedOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_bed_api_v1_beds_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BedCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_bed_api_v1_beds__bed_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bed_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_bed_api_v1_beds__bed_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bed_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_bed_api_v1_beds__bed_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bed_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BedUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_bed_api_v1_beds__bed_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bed_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_patients_api_v1_patients_get: {
+        parameters: {
+            query?: {
+                include_inactive?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_PatientOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_patient_api_v1_patients_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_patient_api_v1_patients__patient_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_patient_api_v1_patients__patient_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_patient_api_v1_patients__patient_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_patient_api_v1_patients__patient_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_cameras_api_v1_cameras_get: {
+        parameters: {
+            query?: {
+                include_inactive?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CameraOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_camera_api_v1_cameras_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CameraCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CameraOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_camera_api_v1_cameras__camera_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                camera_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CameraOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_camera_api_v1_cameras__camera_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                camera_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CameraOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_camera_api_v1_cameras__camera_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                camera_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CameraUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CameraOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_camera_api_v1_cameras__camera_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                camera_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CameraOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

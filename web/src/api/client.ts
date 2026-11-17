@@ -44,7 +44,7 @@ export function buildQuery(params?: Record<string, QueryValue>): string {
 }
 
 type RequestOptions = {
-  method?: 'GET' | 'POST' | 'PATCH';
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
   query?: Record<string, QueryValue>;
 };

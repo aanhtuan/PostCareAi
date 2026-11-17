@@ -58,6 +58,17 @@ def _webcam(name: str, bed: Bed) -> Camera:
     return Camera(name=name, bed_id=bed.id, source_type=CameraSourceType.WEBCAM, source="0")
 
 
+def _needs_camera(db: Session, bed: Bed, name: str) -> bool:
+    """Giường chưa có camera và chưa có camera nào mang tên mẫu (kể cả đã xóa hoặc đã gỡ).
+
+    Xóa mềm camera (F03) đặt `bed_id = null`; nếu chỉ tìm theo giường thì chạy lại seed sẽ
+    tạo thêm một "Camera A01" (F03 §8).
+    """
+    has_bed_camera = db.scalar(select(Camera.id).where(Camera.bed_id == bed.id)) is not None
+    has_named = db.scalar(select(Camera.id).where(Camera.name == name).limit(1)) is not None
+    return not has_bed_camera and not has_named
+
+
 def seed_base(db: Session, password: str) -> dict[str, int]:
     """Tạo danh mục nền còn thiếu rồi commit. Trả số bản ghi mới theo bảng."""
     created = {"users": 0, "shift_definitions": 0, "beds": 0, "cameras": 0}
@@ -82,7 +93,7 @@ def seed_base(db: Session, password: str) -> dict[str, int]:
             created["beds"] += 1
     db.flush()
     a01 = beds["A01"]
-    if db.scalar(select(Camera.id).where(Camera.bed_id == a01.id)) is None:
+    if _needs_camera(db, a01, "Camera A01"):
         db.add(_webcam("Camera A01", a01))
         created["cameras"] += 1
     db.commit()
@@ -94,7 +105,7 @@ def seed_demo(db: Session) -> None:
     beds = {b.code: b for b in db.scalars(select(Bed).where(Bed.code.in_(BED_CODES)))}
     for code in BED_CODES[1:]:
         bed = beds[code]
-        if db.scalar(select(Camera.id).where(Camera.bed_id == bed.id)) is None:
+        if _needs_camera(db, bed, f"Camera {code}"):
             db.add(_webcam(f"Camera {code}", bed))
     db.flush()
     for cam in db.scalars(select(Camera).where(Camera.roi_polygon.is_(None))):

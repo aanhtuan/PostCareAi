@@ -23,6 +23,12 @@ export type ShiftOut = S['ShiftOut'];
 export type BedOut = S['BedOut'];
 export type PatientOut = S['PatientOut'];
 export type CameraOut = S['CameraOut'];
+export type BedCreate = S['BedCreate'];
+export type BedUpdate = S['BedUpdate'];
+export type PatientCreate = S['PatientCreate'];
+export type PatientUpdate = S['PatientUpdate'];
+export type CameraCreate = S['CameraCreate'];
+export type CameraUpdate = S['CameraUpdate'];
 export type SessionOut = S['SessionOut'];
 export type BedStateOut = S['BedStateOut'];
 export type EventOut = S['EventOut'];
@@ -48,6 +54,9 @@ export type CameraStatusOut = {
 export const PRIORITIES: Priority[] = ['LOG', 'INFO', 'MEDIUM', 'HIGH'];
 export const ALERT_STATUSES: AlertStatus[] = ['PENDING', 'ACKNOWLEDGED', 'RESOLVED'];
 export const WRITE_ROLES: UserRole[] = ['NURSE', 'CHARGE_NURSE', 'ADMIN'];
+/** Quản lý danh mục giường, bệnh nhân, camera (F03; api-conventions.md). */
+export const CATALOG_ADMIN_ROLES: UserRole[] = ['ADMIN'];
+export const SOURCE_TYPES: CameraSourceType[] = ['WEBCAM', 'URL', 'FILE'];
 // F35: vai trò nhân viên (FAMILY không vào được giao diện nhân viên) và thứ tự hiển thị.
 export const STAFF_ROLES: UserRole[] = ['NURSE', 'CHARGE_NURSE', 'DOCTOR', 'ADMIN'];
 export const USER_ROLES: UserRole[] = [...STAFF_ROLES, 'FAMILY'];

@@ -152,3 +152,14 @@ Các loại trên chỉ gửi cho kết nối của **vai trò nhân viên**. K�
 - Schema request/response đặt tên `<Resource>Create`, `<Resource>Update`, `<Resource>Out`.
 - Mọi thao tác ghi có tác động nghiệp vụ (phiên, cảnh báo, cấu hình camera, danh mục, người dùng, quyền xem của người nhà) đều gọi `record_audit()`. `before`/`after` không bao giờ chứa mật khẩu hay hash.
 - Xóa danh mục luôn là xóa mềm qua `DELETE` + khôi phục qua `POST .../restore` (QA#36). Xóa/khôi phục lặp lại trả 200, không đổi gì, không ghi audit *(giả định)*. Không có endpoint xóa cứng.
+
+### Danh mục giường, bệnh nhân, camera (F03)
+
+- Đọc (`GET` danh sách, chi tiết): mọi vai trò nhân viên. Ghi (`POST`, `PATCH`, `DELETE`, `POST .../restore`): chỉ `ADMIN` (guard `require_admin` trong `postcare/api/deps.py`), vai trò khác → 403 `FORBIDDEN`.
+- Danh sách `GET /beds|/patients|/cameras?limit&offset&include_inactive` trả `{items, total}`; mặc định chỉ bản ghi đang dùng. Chi tiết `GET .../{id}` trả cả bản ghi đã xóa (`is_active = false`).
+- Request đặt `extra="forbid"`: trường lạ (`is_active` trong `PATCH`, `full_name`/`photo` của bệnh nhân…), sai kiểu, mã rỗng → **422** `VALIDATION_ERROR` (lỗi schema của FastAPI). Lỗi nghiệp vụ → **400** `VALIDATION_ERROR` với `details.field`: `source` không hợp lệ theo `source_type` (`WEBCAM`: số nguyên ≥ 0; `URL`: `http://`, `https://`, `rtsp://`; `FILE`: không rỗng), gắn camera vào giường đã xóa, gắn giường cho camera đã xóa.
+- `code` được bỏ khoảng trắng đầu/cuối rồi so trùng, kể cả với bản ghi đã xóa → 409 `DUPLICATE_CODE`, `details = {field: "code", existing_id, inactive}`; khi `inactive = true`, `message` gợi ý dùng "Khôi phục".
+- Gắn camera vào giường đã có camera khác → 409 `BED_ALREADY_HAS_CAMERA`, `details.camera_id` là camera đang gắn.
+- `PATCH` đổi `bed_id`, `source` hoặc `source_type` của camera là `camera_id` của phiên đang mở → 409 `CAMERA_IN_ACTIVE_SESSION` (`details.session_id`); đổi `name` vẫn được. Mở phiên (F04) khóa hàng giường và bệnh nhân (`FOR UPDATE`) nên không tranh chấp với xóa mềm.
+- `DELETE` kiểm tra phiên mở trong cùng transaction (khóa hàng `FOR UPDATE`): 409 `BED_HAS_OPEN_SESSION` / `PATIENT_HAS_OPEN_SESSION` / `CAMERA_IN_ACTIVE_SESSION`, `details.session_id`. Xóa camera đặt `bed_id = null` và tăng `config_version`; khôi phục không tự gắn lại giường. Xóa giường giữ liên kết camera.
+- Audit: `bed|patient|camera.create|update|delete|restore`, `before`/`after` là ảnh chụp các trường danh mục. `PATCH` không đổi gì thì không ghi audit.
