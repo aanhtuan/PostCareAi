@@ -151,6 +151,7 @@ Cho ADMIN quản lý danh mục **khu vực** và **ca trực** trên giao diệ
 - **UI:** trang Quản lý thêm hai mục "Khu vực" và "Ca trực" (dạng mục như Giường/Bệnh nhân/Camera, không phải tab). Thành phần dùng chung tách ra `CatalogParts.tsx`, `catalogActions.ts`. Màn hình Bàn giao ca chỉ liệt kê ca đang dùng (`useShifts()` mặc định).
 - `make check` và `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check` đều exit 0 (2026-11-18, DB test `postcare_w1_test`).
 - Chưa review.
+- **Sửa theo review (2026-11-18):** (5) `data-model.md` liệt kê migration của F37; (6) seed chỉ dùng khu vực "Khu hậu phẫu" **đang dùng**, khu vực đã xóa bị bỏ qua và tạo khu vực mới với mã còn trống (`test_seed_area_skips_deleted_area`, `test_seed_area_prefers_active_area`); (7) mã migration `'KV' || lpad(n, GREATEST(2, length(n)), '0')` → `KV99`, `KV100`… không bị cắt (`test_migration_area_codes_beyond_99`); (8) seed bỏ qua ca mẫu chồng giờ một ca đang dùng, ca đã xóa không chặn (`test_seed_shifts_do_not_overlap_existing`, `test_seed_shifts_ignore_deleted_overlap`).
 
 ## 11. Definition of Done
 

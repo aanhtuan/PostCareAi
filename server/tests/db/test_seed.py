@@ -125,3 +125,45 @@ def test_seed_area_code_taken_by_other_area(db_session: Session) -> None:
     seed_base(db_session, PW)
     beds = db_session.scalars(select(Bed)).all()
     assert {(b.area.code, b.area.name) for b in beds} == {("KV02", "Khu hậu phẫu")}
+
+
+def test_seed_area_skips_deleted_area(db_session: Session) -> None:
+    """Review F37 #6: khu vực "Khu hậu phẫu" đã xóa không được dùng cho giường mẫu mới."""
+    db_session.add(Area(code="KV01", name="Khu hậu phẫu", is_active=False))
+    db_session.commit()
+    seed_base(db_session, PW)
+    beds = db_session.scalars(select(Bed)).all()
+    assert {(b.area.code, b.area.is_active) for b in beds} == {("KV02", True)}
+
+
+def test_seed_area_prefers_active_area(db_session: Session) -> None:
+    db_session.add_all(
+        [
+            Area(code="OLD", name="Khu hậu phẫu", is_active=False),
+            Area(code="HP", name="Khu hậu phẫu"),
+        ]
+    )
+    db_session.commit()
+    created = seed_base(db_session, PW)
+    assert created["areas"] == 0
+    assert {b.area.code for b in db_session.scalars(select(Bed))} == {"HP"}
+
+
+def test_seed_shifts_do_not_overlap_existing(db_session: Session) -> None:
+    """Review F37 #8: ca mẫu chồng giờ ca đang dùng (do ADMIN tạo) thì bỏ qua, không tạo chồng."""
+    db_session.add(ShiftDefinition(name="Ca hành chính", start_time=time(7), end_time=time(16)))
+    db_session.commit()
+    created = seed_base(db_session, PW)
+    names = {s.name for s in db_session.scalars(select(ShiftDefinition))}
+    # 06–14 và 14–22 chồng 07–16; 22–06 không chồng nên vẫn được tạo.
+    assert names == {"Ca hành chính", "Ca đêm"}
+    assert created["shift_definitions"] == 1
+
+
+def test_seed_shifts_ignore_deleted_overlap(db_session: Session) -> None:
+    db_session.add(
+        ShiftDefinition(name="Ca cũ", start_time=time(7), end_time=time(16), is_active=False)
+    )
+    db_session.commit()
+    created = seed_base(db_session, PW)
+    assert created["shift_definitions"] == 3

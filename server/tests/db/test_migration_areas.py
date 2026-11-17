@@ -90,3 +90,25 @@ def test_migration_areas_empty_db(test_engine: Engine) -> None:
             assert conn.scalar(text("SELECT count(*) FROM areas")) == 0
     finally:
         upgrade(test_engine, "head")
+
+
+def test_migration_area_codes_beyond_99(test_engine: Engine) -> None:
+    """Review F37 #7: 101 khu vực → mã KV01…KV99, KV100, KV101 (không bị cắt, không trùng)."""
+    _clean(test_engine)
+    downgrade(test_engine, BEFORE)
+    try:
+        with test_engine.begin() as conn:
+            for i in range(101):
+                conn.execute(
+                    text("INSERT INTO beds (code, area) VALUES (:c, :a)"),
+                    {"c": f"N{i:03d}", "a": f"Khu {i:03d}"},
+                )
+        upgrade(test_engine, AREAS_REVISION)
+        with test_engine.connect() as conn:
+            rows = dict(conn.execute(text("SELECT name, code FROM areas")).all())
+        assert len(set(rows.values())) == 101
+        assert rows["Khu 000"] == "KV01" and rows["Khu 098"] == "KV99"
+        assert rows["Khu 099"] == "KV100" and rows["Khu 100"] == "KV101"
+    finally:
+        _clean(test_engine)
+        upgrade(test_engine, "head")

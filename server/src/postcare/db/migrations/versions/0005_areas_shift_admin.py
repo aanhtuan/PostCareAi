@@ -1,8 +1,9 @@
 """Bảng areas thay chuỗi beds.area; shift_definitions thêm is_active, created_at (F37).
 
 Chuyển dữ liệu (F37 R2, giả định): mỗi giá trị `btrim(beds.area)` khác nhau thành một khu vực
-`name = giá trị đó`, `code = KV01, KV02…` theo thứ tự chữ cái của `name`; gán `beds.area_id`
-rồi bỏ cột `beds.area`. `downgrade` khôi phục `beds.area` từ `areas.name`.
+`name = giá trị đó`, `code = KV01, KV02…` (từ 100 trở đi: KV100…) theo thứ tự chữ cái của
+`name`; gán `beds.area_id` rồi bỏ cột `beds.area`. `downgrade` khôi phục `beds.area` từ
+`areas.name`.
 
 Revision ID: 0005
 Revises: 0004
@@ -36,9 +37,12 @@ def upgrade() -> None:
     op.execute(
         """
         INSERT INTO areas (code, name)
-        SELECT 'KV' || lpad(row_number() OVER (ORDER BY name)::text, 2, '0'), name
-        FROM (SELECT DISTINCT btrim(area) AS name FROM beds) AS distinct_areas
-        ORDER BY name
+        SELECT 'KV' || lpad(n::text, GREATEST(2, length(n::text)), '0'), name
+        FROM (
+            SELECT name, row_number() OVER (ORDER BY name) AS n
+            FROM (SELECT DISTINCT btrim(area) AS name FROM beds) AS distinct_areas
+        ) AS numbered
+        ORDER BY n
         """
     )
     op.add_column("beds", sa.Column("area_id", sa.BigInteger(), nullable=True))

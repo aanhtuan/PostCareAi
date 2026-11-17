@@ -190,7 +190,7 @@ Bảng chỉ INSERT; code không có hàm update hay delete.
 |---|---|---|
 | id | bigint PK | |
 | name | text | "Ca sáng", "Ca chiều", "Ca đêm"; duy nhất trong các ca đang dùng (F37) |
-| start_time / end_time | time | Seed 06:00–14:00, 14:00–22:00, 22:00–06:00 *(giả định QA#19)*; ca đêm vắt qua nửa đêm. Các ca đang dùng không chồng giờ (F37) |
+| start_time / end_time | time | Seed 06:00–14:00, 14:00–22:00, 22:00–06:00 *(giả định QA#19)*; ca đêm vắt qua nửa đêm. Các ca đang dùng không chồng giờ (F37); seed bỏ qua ca mẫu chồng giờ ca đang dùng |
 | is_active | bool | default true; thêm ở F37 (xóa mềm, QA#36) |
 | created_at | timestamptz | default now(); thêm ở F37 |
 
@@ -211,6 +211,6 @@ Bảng chỉ INSERT; code không có hàm update hay delete.
 - Cột có `default` cũng là `NOT NULL`, trừ cột ghi rõ `null` *(giả định F01)*. Kiểu: id/FK `bigint`, chuỗi `text`, JSON `jsonb`, thời gian `timestamptz`.
 - Tên constraint theo quy ước trong `postcare/db/base.py` (`pk_<bảng>`, `uq_<bảng>_<cột>`, `fk_<bảng>_<cột>_<bảng đích>`), để migration sau tham chiếu được.
 - Mọi thay đổi schema đi qua migration Alembic (`server/src/postcare/db/migrations/`). Không sửa migration đã merge. Test `test_models_match_migrations` báo lỗi khi model và migration lệch nhau.
-- Migration hiện có: `0001` (F01: 7 bảng nền), `0002` (prototype ADR-0010: `events`, `alerts` theo mục tương ứng ở trên và cột `cameras.last_config_hash`; F17 tiếp nhận bằng migration mới), `0003` (F35: thêm `FAMILY` vào `user_role`; downgrade dừng nếu còn tài khoản `FAMILY`), `0004` (F35: `users.token_version`).
+- Migration hiện có: `0001` (F01: 7 bảng nền), `0002` (prototype ADR-0010: `events`, `alerts` theo mục tương ứng ở trên và cột `cameras.last_config_hash`; F17 tiếp nhận bằng migration mới), `0003` (F35: thêm `FAMILY` vào `user_role`; downgrade dừng nếu còn tài khoản `FAMILY`), `0004` (F35: `users.token_version`), `0005` (F37: bảng `areas`, `beds.area` → `beds.area_id` có chuyển dữ liệu, `shift_definitions.is_active`/`created_at`).
 - Trạng thái cơ thể không lưu từng lần đổi. "Số lần đổi trạng thái" ở bàn giao ca (PDF §9.1) đếm qua các sự kiện tư thế/vị trí (F24) *(giả định)*.
 - Xóa mềm (`is_active = false`) với bảng danh mục (`beds`, `patients`, `cameras`, `areas`, `shift_definitions`, `users`), có khôi phục (QA#36). Không xóa cứng bất kỳ bảng nào; không xóa cứng sự kiện, cảnh báo hay audit. Bản ghi đã xóa vẫn giữ lịch sử, timeline, audit. Mã (`code`, `username`) duy nhất kể cả bản ghi đã xóa.
