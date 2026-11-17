@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F16 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -110,15 +110,34 @@ Nhóm cần đo được chất lượng rule **từ sớm** để hiệu chỉn
 - *(giả định)* Kịch bản lấy từ tiền tố `video_id` (R6).
 - *(giả định)* Công cụ chặn `--split test` khi chưa có F29 (R7).
 - Tolerance mặc định theo A06.
+- *(giả định)* Dữ liệu ngoài: dự đoán có mã không nằm trong `eval_codes` (cột `notes`) của video không tính FP; ground truth chỉ đầy đủ với các mã đó (evaluation.md §8, datasets.md §5). Video không ghi `eval_codes` thì mọi mã đều được chấm.
+- *(giả định)* Cột tuỳ chọn `camera_config` trong manifest (đường dẫn `config/cameras/*.yaml`); trống thì dùng `config/cameras/<tên file video>.yaml` nếu có, còn lại dùng `--camera-config` (mặc định `example.yaml`).
+- *(giả định)* Đường dẫn tương đối trong manifest bắt đầu bằng `data/` được tính từ thư mục dữ liệu (`POSTCARE_DATA_DIR`, mặc định `data/` ở gốc repo); đường dẫn khác tính từ gốc repo.
+- *(giả định)* File báo cáo có hậu tố `.local` (`reports/eval-dev-<date>.local.md` + `.local.json`) để không commit nhầm (`.gitignore`: `reports/*.local.md`, `reports/*.local.json`).
+- *(giả định)* Thời điểm ghép là `occurred_at_ms`; latency dùng `detected_at_ms` (QA#37: đã gồm `min_duration`).
 
 ## 8. Câu hỏi mở
 
 - **Không chặn:** F16 cần `frames.jsonl` của F12 có trạng thái cơ thể và thời gian xử lý từng frame (để tính coverage và FPS). Nếu spec F12 không có các trường này thì bổ sung vào F12 khi làm F16.
 - **Không chặn (phụ thuộc ngoài code):** cần có video dev và ground truth (tuần 3, HS §7.3) để chạy AC4 thật.
+- **Không chặn:** script sinh `data/eval/manifest.csv` / `truth.csv` từ dữ liệu ngoài (quy tắc ở datasets.md §3.5) chưa có trong repo. Spec F16 chỉ có định dạng và validator, không có lệnh sinh manifest, nên F16 **không** làm. Nếu cần, mở feature/task riêng.
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+Khảo sát code (2026-11-18): F12 đã có `postcare.replay.runner.replay_video` / `replay_observations` (ghi `observations.jsonl`, `events.jsonl` = `EventRecord`, `frames.jsonl` = `FrameRecord` có `body_state`, `run.json` có `fps_processing`, `dropped_frames`, `cpu_percent`, `ram_peak_mb`, `config_hash`, `video_duration_s`). Câu hỏi mở về `frames.jsonl` (mục 8) đã được F12 đáp ứng, không cần sửa F12. `load_camera_config`, `CameraConfig.engine_config` dùng lại cho cấu hình camera. Catalog mức ưu tiên ở `postcare.schemas.events.EVENT_CATALOG`.
+
+1. **Manifest/truth** — `server/src/postcare/eval/manifest.py`: `ManifestRow`, `TruthRow`, `load_manifest`, `load_truth`, `validate(manifest, truth) → ValidationResult(errors, warnings)`. Đọc cột bổ sung của dữ liệu ngoài (`source`, `license`, `display`, `label_source`; evaluation.md §8), tách `scenario=`/`eval_codes=` trong `notes`. Cột tuỳ chọn `camera_config` *(giả định, mục 7)*. Test `tests/eval/test_manifest.py`: `test_valid_manifest_passes`, `test_missing_column_rejected`, `test_bad_split_rejected`, `test_unknown_event_code_rejected`, `test_start_after_end_rejected`, `test_time_beyond_duration_rejected`, `test_truth_references_unknown_video_rejected`, `test_video_in_both_splits_rejected`, `test_same_path_two_ids_rejected`, `test_participant_overlap_is_warning_only`, `test_eval_codes_parsed_from_notes`.
+2. **Ghép** — `eval/matching.py`: `Prediction`, `match_video(preds, truths, tol_before_s, tol_after_s) → MatchResult(tp, fp, fn)`; ghép tham lam theo khoảng cách thời gian nhỏ nhất (khoảng cách tới đoạn `[start, end]`, hòa thì ưu tiên dự đoán sớm hơn), từng `code`. Lọc mã không thuộc `eval_codes` của video *(giả định datasets.md §5, evaluation.md §8)*. Test `test_matching.py`: `test_prediction_inside_tolerance_is_tp`, `test_prediction_outside_tolerance_is_fp_and_fn` (ngay ngoài hai biên), `test_wrong_code_is_fp_and_fn`, `test_two_predictions_one_truth_gives_one_tp_one_fp`, `test_custom_tolerance`, `test_greedy_nearest_pairing`, `test_unlisted_code_not_counted_as_fp`.
+3. **Metric** — `eval/metrics.py` (hàm thuần): `per_code_counts`, `prf` (mẫu số 0 → `None`, báo cáo ghi "—"), `false_alerts_per_hour` (chỉ FP MEDIUM/HIGH), `latency_stats` (trung vị, p90 nội suy tuyến tính), `coverage(frames)` (theo thời gian: mỗi khung kéo dài tới khung sau, khung cuối dùng trung vị bước), `aggregate_perf(runs)`. Test `test_metrics.py`: `test_false_alerts_per_hour_counts_only_medium_high` (2 FP HIGH / 0,5 h → 4/giờ; FP LOG/INFO không tính), `test_latency_median_p90`, `test_coverage_excludes_no_observation`, `test_prf_zero_denominator_is_none`, `test_perf_aggregate`.
+4. **Báo cáo** — `eval/report.py`: `EvalResult` → Markdown (mục 7 evaluation.md: thông tin chung, bảng theo code, tổng hợp, phân rã `camera_condition`/kịch bản/nguồn + `label_source`, danh sách FP/FN, giới hạn) và JSON. Kịch bản lấy `scenario=` trong `notes`, không có thì tiền tố `Sxx` của `video_id`. Test `test_report.py::test_report_contains_required_sections`, `test_report_marks_external_sources`.
+5. **Runner** — `eval/runner.py`: với mỗi video của split: chọn cấu hình camera (cột `camera_config` → `config/cameras/<tên file video>.yaml` nếu có → `--camera-config` mặc định `example.yaml`); chạy `replay_video` (pose) hoặc `replay_observations` (`--from-observations <dir>` đọc `<dir>/<video_id>/observations.jsonl`); `--reuse` bỏ qua video đã có kết quả cùng `config_hash`. Đầu ra `runs/eval-<split>/<video_id>/`. `eval/perf.py` đọc FPS/CPU/RAM/khung bỏ từ `run.json` (psutil đo trong replay F12). Adapter pose truyền vào từ CLI (runner không import mediapipe). Test `test_runner.py` với `FakePoseAdapter`/observation tổng hợp: chạy từ observations, `--reuse`, thiếu file → lỗi theo video.
+6. **CLI** — `cli/main.py`: nhóm `postcare eval` (`--split`, `--manifest`, `--truth`, `--tol-before-s`, `--tol-after-s`, `--runs-dir`, `--from-observations`, `--reuse`, `--report`, `--model`, `--models-dir`, `--max-fps`, `--limit`, `--video-id`) và lệnh con `postcare eval check`. `--split test` → exit 2, hướng dẫn F29 `--frozen` (R7). Lỗi validator → exit 1. Báo cáo mặc định `reports/eval-<split>-<date>.local.md` + `.local.json` *(giả định: hậu tố `.local` để gitignore, mục 7)*. Test `test_cli.py`: `test_split_test_rejected`, `test_check_command_errors_exit_nonzero`, `test_check_warns_only`, `test_eval_from_observations_writes_report`.
+7. **Chạy thật** trên split dev của `D:\PostCareAi\data\eval\manifest.csv` (model `full`, `--max-fps 15`); ghi kết quả và đề xuất hiệu chỉnh ngưỡng vào mục 10 (F16 không đổi ngưỡng).
+8. **Doc**: `evaluation.md` (§4 cột `camera_config`, cách chạy `postcare eval`, mục 7 tên file), `dev-setup.md` nếu cần, `.gitignore` thêm `reports/*.local.json`.
+
+Không migration, không endpoint, không sinh lại type API, không thêm thư viện (psutil đã có từ F12). Ranh giới: `postcare.eval` chỉ import `schemas`, `replay`, `engine` (không `api`, `db`, không mediapipe) — import-linter `offline-no-api-db`.
+
+Rủi ro: chạy pose trên ~190 video dev mất nhiều phút (≈ 17 FPS xử lý ở F12) → chạy nền, có `--reuse` để chạy tiếp; ROI của dữ liệu ngoài là ước lượng hoặc mặc định nên metric BED_* chỉ tham khảo.
 
 ## 10. Ghi chú bàn giao
 
