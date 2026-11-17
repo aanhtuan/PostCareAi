@@ -30,7 +30,7 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F20](F20-alerts-screen.md) | Màn hình Cảnh báo | M2 | MVP | C | F18, F19 | PDF §9.1–9.2; HS §4.3 | Todo |
 | [F21](F21-overview-realtime.md) | Dashboard Tổng quan realtime | M2 | MVP | B+C | F09, F18 | PDF §9.1; HS §4.3 Hình 3 | Todo |
 | [F22](F22-timeline.md) | Timeline / Lịch sử theo dõi | M2 | MVP | B+C | F19 | PDF §9.1, §9.3; HS §4.3, §6.2 | Todo |
-| [F23](F23-activity-abnormal-movement.md) | Mức vận động và chuyển động bất thường | M2 | MVP | A | F15 | PDF §7.3; HS §5.1–5.2 | Todo |
+| [F23](F23-activity-abnormal-movement.md) | Mức vận động và chuyển động bất thường | M2 | MVP | A | F15 | PDF §7.3; HS §5.1–5.2 | Done |
 | [F24](F24-shift-handover.md) | Bàn giao ca | M2 | MVP | B+C | F19, F22 | PDF §9.1; HS §2.2 | Todo |
 | [F25](F25-face-adapter-quality.md) | Face adapter và cổng chất lượng khuôn mặt | M3 | MVP | A | F11, F13 | PDF §6.2, §17; HS §4.1, §5.3 | Todo |
 | [F26](F26-face-signals-attention.md) | Tín hiệu khuôn mặt và FACE_ATTENTION | M3 | MVP | A+C | F25, F23 | PDF §6.2, §7.4; HS §5.3 | Todo |
