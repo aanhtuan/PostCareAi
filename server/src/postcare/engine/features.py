@@ -52,6 +52,9 @@ class BodyFeatures:
     """Hướng vector vai phải → vai trái trong hệ ảnh, độ trong (-180, 180]."""
     velocity: Px
     """Vận tốc tâm hông đã làm mượt (vx, vy), đơn vị torso_length/giây; 0 ở frame đầu sau reset."""
+    leg_angle_deg: float | None = None
+    """Góc giữa vector tâm hông → trung bình cổ chân nhìn thấy và trục giường, [0°, 90°]; None khi
+    không thấy cổ chân (F14, dùng phân biệt đứng)."""
 
 
 def _point(person: PersonPose, name: KeypointName, image_size: tuple[int, int]) -> Px | None:
@@ -131,6 +134,12 @@ class FeatureExtractor:
         self._prev_ts_ms = obs.ts_ms
 
         trunk_vec = (shoulder[0] - hip[0], shoulder[1] - hip[1])
+        seen_ankles = [a for a in ankles if a is not None]
+        leg_angle = None
+        if seen_ankles:
+            ax = sum(a[0] for a in seen_ankles) / len(seen_ankles)
+            ay = sum(a[1] for a in seen_ankles) / len(seen_ankles)
+            leg_angle = angle_to_axis_deg((ax - hip[0], ay - hip[1]), geo.axis_angle_deg)
         return BodyFeatures(
             ts_ms=obs.ts_ms,
             image_size=size,
@@ -145,4 +154,5 @@ class FeatureExtractor:
             ankles=ankles,
             shoulder_line_angle_deg=direction_deg((l_sh[0] - r_sh[0], l_sh[1] - r_sh[1])),
             velocity=velocity,
+            leg_angle_deg=leg_angle,
         )

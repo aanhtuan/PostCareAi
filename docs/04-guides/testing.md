@@ -27,13 +27,18 @@ Mục tiêu: mọi thay đổi đều được kiểm chứng tự động bằn
 **Builder chuỗi pose tổng hợp** (`server/tests/engine/builders.py`, tạo ở F13):
 
 ```python
+# Mỗi đoạn giữ đủ min_duration_s của trạng thái đích (engine.default.yaml); đoạn đầu
+# gồm cả cổng phục hồi quality.restore_duration_s (1 s) + LYING (2 s).
 seq = (PoseSequence(fps=15, roi=BED_ROI)
-       .lying(seconds=3)
-       .raise_to_sitting(seconds=1.5)
-       .sitting(seconds=3)
+       .lying(seconds=4)
+       .raise_to_sitting(seconds=1.5)   # RAISING ≥ 0.5 s
+       .sitting(seconds=3)              # SITTING ≥ 2 s
        .move_to_edge(seconds=1)
-       .standing(seconds=1.5)
+       .hold(seconds=2.5)               # AT_EDGE ≥ 1.5 s
+       .move_to(STANDING, seconds=0.5)
+       .standing(seconds=2)             # STANDING ≥ 1 s
        .walk_out(seconds=2)
+       .hold(seconds=2)                 # OUT_OF_BED ≥ 1 s
        .build())            # -> list[FrameObservation]
 out = run_engine(seq, config=default_config())
 assert codes(out) == ["SIT_UP", "BED_EDGE", "STAND_UP", "BED_EXIT"]
