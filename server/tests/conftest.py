@@ -28,7 +28,7 @@ from postcare.settings import Settings
 from tests.dbutil import DatabaseSetupError, ensure_reachable, ensure_safe_test_url
 
 PASSWORD = "test-pass"
-WORKER_TOKEN = "test-worker-token"
+WORKER_TOKEN = "test-worker-token-at-least-32-bytes!"  # API từ chối token < 32 byte
 
 
 @pytest.fixture(scope="session")
