@@ -18,3 +18,8 @@ export function currentShiftAndDate(
   }
   return null;
 }
+
+/** Giờ kết thúc nhỏ hơn giờ bắt đầu: ca vắt qua nửa đêm (data-model.md; F37). */
+export function isOvernight(s: Pick<ShiftOut, 'start_time' | 'end_time'>): boolean {
+  return shortClock(s.end_time) < shortClock(s.start_time);
+}

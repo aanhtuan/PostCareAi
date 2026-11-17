@@ -59,7 +59,13 @@ function bed(
 }
 
 const overview: OverviewOut = {
-  current_shift: { id: 2, name: 'Ca chiều', start_time: '14:00:00', end_time: '22:00:00' },
+  current_shift: {
+    id: 2,
+    name: 'Ca chiều',
+    start_time: '14:00:00',
+    end_time: '22:00:00',
+    is_active: true,
+  },
   beds: [
     bed(1, 'A01'),
     bed(2, 'A02', { acknowledged_alert_count: 1, max_open_priority: 'MEDIUM' }),

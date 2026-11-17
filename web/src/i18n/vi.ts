@@ -166,6 +166,30 @@ export const vi = {
   shift: {
     label: 'Ca trực: {start}–{end}',
     none: 'Ca trực: —',
+    // F37: quản lý ca trực.
+    title: 'Ca trực',
+    name: 'Tên ca',
+    start: 'Bắt đầu',
+    end: 'Kết thúc',
+    overnight: 'qua nửa đêm',
+    editWarning: 'Sửa giờ ca sẽ thay đổi cách tổng hợp bàn giao của các ngày trước',
+    timeHint: 'Giờ:phút, ví dụ 06:00. Giờ kết thúc nhỏ hơn giờ bắt đầu là ca qua nửa đêm.',
+    sameTime: 'Giờ kết thúc phải khác giờ bắt đầu',
+    add: 'Thêm ca trực',
+    editTitle: 'Sửa {name}',
+    item: 'Ca {name}',
+  },
+  // F37: quản lý khu vực.
+  area: {
+    title: 'Khu vực',
+    code: 'Mã khu vực',
+    name: 'Tên khu vực',
+    bedCount: 'Số giường',
+    add: 'Thêm khu vực',
+    editTitle: 'Sửa khu vực {code}',
+    item: 'Khu vực {name}',
+    choose: 'Chọn khu vực',
+    deletedLabel: '{name} (Đã xóa)',
   },
   realtime: {
     connected: 'Đang cập nhật trực tiếp',

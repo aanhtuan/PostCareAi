@@ -20,6 +20,11 @@ export type CameraStatus = S['CameraStatus'];
 export type CameraSourceType = S['CameraSourceType'];
 
 export type ShiftOut = S['ShiftOut'];
+// F37: khu vực, quản lý ca trực.
+export type AreaOut = S['AreaOut'];
+export type AreaRef = S['AreaRef'];
+export type AreaCreate = S['AreaCreate'];
+export type ShiftCreate = S['ShiftCreate'];
 export type BedOut = S['BedOut'];
 export type PatientOut = S['PatientOut'];
 export type CameraOut = S['CameraOut'];

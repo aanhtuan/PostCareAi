@@ -1,11 +1,9 @@
 // Màn hình "Quản lý giường" (PDF §9.1; F03): giường, bệnh nhân, camera.
 // ADMIN thêm/sửa/xóa (mềm)/khôi phục; vai trò khác chỉ xem danh mục (QA#15, QA#36).
-// Mở/kết thúc phiên (F04) vẫn dành cho vai trò được ghi.
+// Mở/kết thúc phiên (F04) vẫn dành cho vai trò được ghi. Khu vực, ca trực: F37.
 import {
-  Alert,
   Badge,
   Button,
-  Card,
   Group,
   Modal,
   Select,
@@ -16,29 +14,26 @@ import {
   Title,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 
-import {
-  useBeds,
-  useCameras,
-  useCatalogLifecycle,
-  useEndSession,
-  usePatients,
-  useStartSession,
-  type CatalogResource,
-} from '../../api/hooks';
+import { useBeds, useCameras, useEndSession, usePatients, useStartSession } from '../../api/hooks';
 import { CATALOG_ADMIN_ROLES, type BedOut, type CameraOut, type PatientOut } from '../../api/types';
 import { useAuth } from '../../auth/useAuth';
 import { fmt, vi } from '../../i18n/vi';
 import { formatDateTime } from '../../utils/time';
+import { AreasTab } from './AreasTab';
 import { BedForm } from './BedForm';
 import { CameraForm } from './CameraForm';
-import { apiErrorMessage } from './errorMessage';
+import { showError, useRestore } from './catalogActions';
+import {
+  ConfirmDeleteDialog,
+  RowActions,
+  Section,
+  UsageBadge,
+  type DeleteTarget,
+} from './CatalogParts';
 import { PatientForm } from './PatientForm';
-
-function showError(err: unknown) {
-  notifications.show({ color: 'red', message: apiErrorMessage(err) ?? vi.common.genericError });
-}
+import { ShiftsTab } from './ShiftsTab';
 
 function StartSessionDialog({ bed, onClose }: { bed: BedOut | null; onClose: () => void }) {
   const patients = usePatients();
@@ -94,130 +89,6 @@ function StartSessionDialog({ bed, onClose }: { bed: BedOut | null; onClose: () 
   );
 }
 
-type DeleteTarget = { resource: CatalogResource; id: number; name: string };
-
-function ConfirmDeleteDialog({
-  target,
-  onClose,
-}: {
-  target: DeleteTarget | null;
-  onClose: () => void;
-}) {
-  const lifecycle = useCatalogLifecycle();
-  const close = () => {
-    lifecycle.reset();
-    onClose();
-  };
-  const message = apiErrorMessage(lifecycle.error);
-  return (
-    <Modal
-      opened={target !== null}
-      onClose={close}
-      title={target ? fmt(vi.catalog.deleteTitle, { name: target.name }) : ''}
-    >
-      <Stack>
-        <Text>{vi.catalog.confirmDelete}</Text>
-        {message && (
-          <Alert color="red" variant="light">
-            {message}
-          </Alert>
-        )}
-        <Group justify="flex-end">
-          <Button variant="default" onClick={close}>
-            {vi.common.cancel}
-          </Button>
-          <Button
-            color="red"
-            loading={lifecycle.isPending}
-            onClick={() =>
-              target &&
-              lifecycle.mutate(
-                { resource: target.resource, id: target.id, action: 'delete' },
-                {
-                  onSuccess: () => {
-                    notifications.show({
-                      color: 'teal',
-                      message: fmt(vi.catalog.deletedDone, { name: target.name }),
-                    });
-                    close();
-                  },
-                },
-              )
-            }
-          >
-            {vi.catalog.delete}
-          </Button>
-        </Group>
-      </Stack>
-    </Modal>
-  );
-}
-
-function UsageBadge({ active }: { active: boolean }) {
-  return active ? (
-    <Badge color="teal" variant="light">
-      {vi.catalog.inUse}
-    </Badge>
-  ) : (
-    <Badge color="gray" variant="filled">
-      {vi.catalog.deleted}
-    </Badge>
-  );
-}
-
-type RowActionsProps = {
-  active: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
-  onRestore: () => void;
-};
-
-function RowActions({ active, onEdit, onDelete, onRestore }: RowActionsProps) {
-  if (!active) {
-    return (
-      <Button size="xs" variant="light" onClick={onRestore}>
-        {vi.catalog.restore}
-      </Button>
-    );
-  }
-  return (
-    <Group gap="xs" wrap="nowrap">
-      <Button size="xs" variant="default" onClick={onEdit}>
-        {vi.catalog.edit}
-      </Button>
-      <Button size="xs" color="red" variant="light" onClick={onDelete}>
-        {vi.catalog.delete}
-      </Button>
-    </Group>
-  );
-}
-
-function Section({
-  title,
-  canAdd,
-  onAdd,
-  children,
-}: {
-  title: string;
-  canAdd: boolean;
-  onAdd: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <Card withBorder component="section" aria-label={title}>
-      <Group justify="space-between" mb="xs">
-        <Title order={4}>{title}</Title>
-        {canAdd && (
-          <Button size="xs" onClick={onAdd}>
-            {vi.catalog.add}
-          </Button>
-        )}
-      </Group>
-      <Table.ScrollContainer minWidth={480}>{children}</Table.ScrollContainer>
-    </Card>
-  );
-}
-
 type FormState =
   | { kind: 'bed'; item: BedOut | null }
   | { kind: 'patient'; item: PatientOut | null }
@@ -232,21 +103,11 @@ export function ManagementPage() {
   const patients = usePatients(showDeleted);
   const cameras = useCameras(showDeleted);
   const end = useEndSession();
-  const lifecycle = useCatalogLifecycle();
+  const restore = useRestore();
   const [startFor, setStartFor] = useState<BedOut | null>(null);
   const [endFor, setEndFor] = useState<BedOut | null>(null);
   const [form, setForm] = useState<FormState>(null);
   const [toDelete, setToDelete] = useState<DeleteTarget | null>(null);
-
-  const restore = (resource: CatalogResource, id: number, name: string) =>
-    lifecycle.mutate(
-      { resource, id, action: 'restore' },
-      {
-        onSuccess: () =>
-          notifications.show({ color: 'teal', message: fmt(vi.catalog.restoredDone, { name }) }),
-        onError: showError,
-      },
-    );
 
   return (
     <Stack>
@@ -281,7 +142,7 @@ export function ManagementPage() {
             {(beds.data ?? []).map((b) => (
               <Table.Tr key={b.id}>
                 <Table.Td fw={700}>{b.code}</Table.Td>
-                <Table.Td>{b.area}</Table.Td>
+                <Table.Td>{b.area.name}</Table.Td>
                 <Table.Td>
                   {b.camera
                     ? `${b.camera.name} · ${vi.cameraStatus[b.camera.status]}`
@@ -429,6 +290,11 @@ export function ManagementPage() {
             </Table.Tbody>
           </Table>
         </Section>
+      </Group>
+
+      <Group align="flex-start" grow>
+        <AreasTab isAdmin={isAdmin} showDeleted={showDeleted} />
+        <ShiftsTab isAdmin={isAdmin} showDeleted={showDeleted} />
       </Group>
 
       {form?.kind === 'bed' && (
