@@ -8,13 +8,13 @@ from typing import Any
 
 import numpy as np
 import pytest
+
+from postcare.vision.inference.base import ModelNotFoundError
 from postcare.vision.inference.face_landmarker import (
     MediaPipeFaceAdapter,
     blendshape_keys_from_config,
     open_face_adapter,
 )
-
-from postcare.vision.inference.base import ModelNotFoundError
 from tests.face.helpers import config_keys, face_config
 
 

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from postcare.vision.inference.head_region import HeadBox, crop_head, estimate_head_box
 
 from postcare.schemas.observation import Keypoint, KeypointName, PersonPose
+from postcare.vision.inference.head_region import HeadBox, crop_head, estimate_head_box
 
 K = KeypointName
 SIZE = (1000, 500)
