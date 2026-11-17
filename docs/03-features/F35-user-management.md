@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F35 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -115,7 +115,20 @@ Cho ADMIN quản lý tài khoản trên giao diện thay vì chỉ tạo bằng 
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+**Khảo sát (2026-11-18):** đã có `api/deps.py` (`get_current_user` đọc người dùng và `is_active` từ DB mỗi request, `require_roles`, `require_writer`), `domain/users.py` (`authenticate`, `get_active_user`), `domain/security.py` (`hash_password`), `domain/audit.py::record_audit`, `api/realtime.py` (WS đóng 4401). R9 (vai trò đọc từ DB) đã đúng từ F02; chỉ thêm test. Guard nằm ở `api/deps.py` (không tách `api/auth.py`, như F02 §9).
+
+**Bước:**
+
+1. Test trước (đỏ đúng lý do): `server/tests/api/test_users.py` (AC1–AC4, tên như §5), `server/tests/api/test_family_role_default_deny.py` (AC5: REST tham số hóa `/beds`, `/patients`, `/cameras`, `/shifts`, `/sessions`, `/overview`, `/events`, `/alerts`, `/timeline`, `/handover`; WS 4403; `test_role_change_effective_next_request`), `server/tests/db/test_enums_match.py` (thêm `FAMILY`), `test_ws_closed_when_user_locked` (4401).
+2. Migration `0003_user_role_family`: `ALTER TYPE user_role ADD VALUE 'FAMILY'` (downgrade: tạo lại enum không có `FAMILY`, chỉ được khi không còn tài khoản `FAMILY`). `UserRole.FAMILY` trong `schemas/enums.py`.
+3. `api/deps.py`: `STAFF_ROLES`, `require_staff`; `require_writer`/`require_roles` không đổi. Thay `get_current_user` bằng `require_staff` ở mọi route đọc nhân viên (`catalog`, `monitoring`, `sessions`, `alerts`). WS: `FAMILY` → 4403.
+4. `domain/users.py`: `list_users`, `get_user`, `create_user`, `update_user`, `lock_user`, `unlock_user`, `reset_password`; kiểm tra `CANNOT_MODIFY_SELF`, `LAST_ADMIN` (khóa `SELECT ... FOR UPDATE` các ADMIN đang hoạt động); audit cùng transaction. DTO `UserOut` (+`is_active`, `created_at`), `UserCreate`, `UserUpdate`, `PasswordReset` (`extra="forbid"`, chuẩn hóa `username`).
+5. `api/v1/users.py` (chỉ ADMIN). Khóa: sau commit gọi `publisher.disconnect_user(user_id)`; `WsHub` giữ `user_id` của từng kết nối và đóng 4401.
+6. `make gen-api-types`.
+7. Web: `vi.ts` khối `users`, `role.FAMILY`, `family.noAccess`; `api/hooks.ts` hook người dùng; `api/client.ts` thêm `PATCH`; `pages/Management/Users/{UsersPage,UserForm,ResetPasswordDialog}.tsx` + `UsersPage.test.tsx`; route `/management/users` bọc `RequireRole roles={['ADMIN']}`; menu "Người dùng" chỉ ADMIN; `FAMILY` → `/family` (`pages/Family/FamilyPlaceholder.tsx`, ngoài layout nhân viên, không mở WS).
+8. Doc: `api-conventions.md` (lỗi 422 cho validation, WS), `data-model.md` (migration 0003). `make check`, `scripts\dev.ps1 check`, curl thủ công, ghi §10.
+
+**Rủi ro:** `ALTER TYPE ... ADD VALUE` trong transaction (PostgreSQL 16 cho phép nếu không dùng giá trị mới trong cùng transaction). Thêm trường vào `UserOut` làm đổi fixture test web (sửa cùng PR). Xung đột merge với F03 ở `App.tsx`, `AppLayout.tsx`, `vi.ts`, `hooks.ts`, `client.ts`: giữ thay đổi tách khối.
 
 ## 10. Ghi chú bàn giao
 
