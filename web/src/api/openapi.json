@@ -1396,7 +1396,7 @@
           "catalog"
         ],
         "summary": "Get Camera",
-        "description": "Kèm `runtime` (FPS, độ sáng, khung bỏ, trạng thái nguồn) từ heartbeat trong RAM (F06 R9).",
+        "description": "Kèm `runtime` từ heartbeat trong RAM (F06 R9) và `roi_polygon` (F07 R6).",
         "operationId": "get_camera_api_v1_cameras__camera_id__get",
         "security": [
           {
@@ -3296,6 +3296,61 @@
         }
       }
     },
+    "/api/v1/cameras/{camera_id}/stream.mjpeg": {
+      "get": {
+        "tags": [
+          "live"
+        ],
+        "summary": "Stream Mjpeg",
+        "description": "`?token=<jwt>`, chỉ vai trò nhân viên. Chưa có khung hoặc khung cũ → 404, không gửi ảnh.",
+        "operationId": "stream_mjpeg_api_v1_cameras__camera_id__stream_mjpeg_get",
+        "parameters": [
+          {
+            "name": "camera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Camera Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "multipart/x-mixed-replace; boundary=frame": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/internal/v1/cameras/{camera_id}/config": {
       "get": {
         "tags": [
@@ -4340,6 +4395,23 @@
                 "type": "null"
               }
             ]
+          },
+          "roi_polygon": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roi Polygon"
           }
         },
         "type": "object",

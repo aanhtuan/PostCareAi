@@ -9,12 +9,12 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from postcare.api.v1.stream import mjpeg_parts
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from postcare.api.deps import create_token
 from postcare.api.frame_buffer import LatestFrameStore
+from postcare.api.v1.stream import mjpeg_parts
 from postcare.db.models import User
 from postcare.domain.security import hash_password
 from postcare.schemas.enums import UserRole
@@ -87,8 +87,9 @@ def test_mjpeg_family_forbidden(client: TestClient, db: Session, login: Login, a
 
 @pytest.mark.parametrize("username", ["nurse", "charge", "doctor", "admin"])
 def test_mjpeg_all_staff_roles_allowed(client: TestClient, login: Login, app, username) -> None:
+    token = _token(login, username)  # đăng nhập trước: bcrypt chậm hơn stale_frame_s
     app.state.frames.put(1, JPEG_A)
-    r, body = _read_stream(client, _token(login, username))
+    r, body = _read_stream(client, token)
     assert r.status_code == 200
     assert JPEG_A in body
 
@@ -100,8 +101,9 @@ def test_mjpeg_no_frame_404(client: TestClient, login: Login) -> None:
 
 
 def test_mjpeg_stale_frame_at_connect_404(client: TestClient, login: Login, app) -> None:
+    token = _token(login, "nurse")  # đăng nhập trước: bcrypt chậm hơn stale_frame_s
     app.state.frames.put(1, JPEG_A, received_at=datetime.now(UTC) - timedelta(seconds=10))
-    r, body = _read_stream(client, _token(login, "nurse"))
+    r, body = _read_stream(client, token)
     assert r.status_code == 404
     assert b"\xff\xd8" not in body
 
@@ -113,9 +115,10 @@ def test_mjpeg_unknown_camera_404(client: TestClient, login: Login, app) -> None
 
 
 def test_mjpeg_streams_latest_frame(client: TestClient, login: Login, app) -> None:
+    token = _token(login, "nurse")  # đăng nhập trước: bcrypt chậm hơn stale_frame_s
     app.state.frames.put(1, JPEG_A)
     app.state.frames.put(1, JPEG_B)
-    r, body = _read_stream(client, _token(login, "nurse"))
+    r, body = _read_stream(client, token)
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("multipart/x-mixed-replace")
     assert "boundary=frame" in r.headers["content-type"]
@@ -130,9 +133,10 @@ def test_mjpeg_streams_latest_frame(client: TestClient, login: Login, app) -> No
 
 def test_mjpeg_closes_when_frame_stale(client: TestClient, login: Login, app) -> None:
     """Không có khung mới: gửi khung hiện có đúng một lần rồi đóng khi khung quá `stale_frame_s`."""
+    token = _token(login, "nurse")  # đăng nhập trước: bcrypt chậm hơn stale_frame_s
     app.state.frames.put(1, JPEG_A)
     start = time.monotonic()
-    r, body = _read_stream(client, _token(login, "nurse"))
+    r, body = _read_stream(client, token)
     assert r.status_code == 200
     assert time.monotonic() - start < 3.0
     assert body.count(b"--frame\r\n") == 1
@@ -142,8 +146,9 @@ def test_mjpeg_does_not_write_disk(
     client: TestClient, login: Login, app, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
+    token = _token(login, "nurse")  # đăng nhập trước: bcrypt chậm hơn stale_frame_s
     app.state.frames.put(1, JPEG_A)
-    _read_stream(client, _token(login, "nurse"))
+    _read_stream(client, token)
     assert list(tmp_path.rglob("*")) == []
 
 

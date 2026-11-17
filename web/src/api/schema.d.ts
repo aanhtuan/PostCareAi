@@ -315,7 +315,7 @@ export interface paths {
         };
         /**
          * Get Camera
-         * @description Kèm `runtime` (FPS, độ sáng, khung bỏ, trạng thái nguồn) từ heartbeat trong RAM (F06 R9).
+         * @description Kèm `runtime` từ heartbeat trong RAM (F06 R9) và `roi_polygon` (F07 R6).
          */
         get: operations["get_camera_api_v1_cameras__camera_id__get"];
         put?: never;
@@ -731,6 +731,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cameras/{camera_id}/stream.mjpeg": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream Mjpeg
+         * @description `?token=<jwt>`, chỉ vai trò nhân viên. Chưa có khung hoặc khung cũ → 404, không gửi ảnh.
+         */
+        get: operations["stream_mjpeg_api_v1_cameras__camera_id__stream_mjpeg_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v1/cameras/{camera_id}/config": {
         parameters: {
             query?: never;
@@ -1050,6 +1070,8 @@ export interface components {
             /** Is Active */
             is_active: boolean;
             runtime?: components["schemas"]["CameraRuntimeOut"] | null;
+            /** Roi Polygon */
+            roi_polygon?: number[][] | null;
         };
         /** CameraOut */
         CameraOut: {
@@ -3554,6 +3576,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_mjpeg_api_v1_cameras__camera_id__stream_mjpeg_get: {
+        parameters: {
+            query?: {
+                token?: string | null;
+            };
+            header?: never;
+            path: {
+                camera_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "multipart/x-mixed-replace; boundary=frame": unknown;
+                };
             };
             /** @description Validation Error */
             422: {
