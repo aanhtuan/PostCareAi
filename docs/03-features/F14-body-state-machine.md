@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F14 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M1 |
 | Ước lượng | 2 phiên |
@@ -118,7 +118,29 @@ Các ca trở mình, debounce, khuôn mặt được kiểm ở F15, F23, F26, F
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+**Khảo sát:** `engine/pipeline.py` có `StateMachine` rỗng (F10) và `FrameAssessment`; `engine/engine.py` chỉ gọi `StateMachine.update` khi cổng chất lượng mở và frame `GOOD` (F13); `BodyFeatures` (`engine/features.py`) đã có `trunk_angle_deg`, `torso_length`, `dist_to_roi_edge`, `ankles_outside_roi`, `knees`, `ankles`, `hip_center`, `shoulder_center`. Builder `tests/engine/builders.py` (F13).
+
+**Thiết kế chốt:**
+- `engine/posture.py`: enum `Posture` (`LYING/RAISING/SITTING/STANDING/UNKNOWN`), `Location` (`IN_BED/EDGE/OUT`); hàm thuần `classify_posture(features, current, ref_torso, config)`, `classify_location(features, current, config)`, `candidate_state(posture, location)`.
+  - Thân "thẳng" theo góc: đang ở trạng thái thân thẳng (`SITTING/AT_EDGE/STANDING/OUT_OF_BED`) cần góc ≥ `sitting_exit_deg`, ngược lại cần góc > `sitting_enter_deg` *(giả định: mở rộng hysteresis của SITTING cho mọi trạng thái thân thẳng)*.
+  - Vùng nằm: đang `LYING` cần góc ≤ `lying_exit_deg`, ngược lại < `lying_enter_deg`.
+  - Tỷ lệ `torso_length` chỉ dùng khi góc nằm trong vùng nằm (góc 2D không phân biệt được): `|torso/ref − 1| ≥ 1 − torso_length_ratio_sitting` → coi là thân thẳng. `ref` cập nhật khi trạng thái ổn định `LYING` và tư thế nằm; xóa khi vào `NO_OBSERVATION` *(giả định)*.
+  - Thân thẳng nhưng vai không cao hơn hông → `UNKNOWN`.
+  - Vùng giữa: `RAISING` nếu trạng thái hiện tại là `LYING`, `RAISING` hoặc `NO_OBSERVATION` ("đi lên từ nằm"); ngược lại `UNKNOWN` (giữ trạng thái) *(giả định)*. Vì vậy nằm lại từ `SITTING` đi thẳng `SITTING → LYING`.
+  - `STANDING`: thân thẳng + có gối và cổ chân nhìn thấy, gối thấp hơn hông, cổ chân thấp hơn gối, `(knee_y − hip_y) ≥ standing_hip_above_knee_ratio × (ankle_y − knee_y)` **và** vector hông → cổ chân cũng thẳng theo cùng ngưỡng góc của thân (chân duỗi, không nằm ngang) *(giả định: chặn ca suy biến khi chân nằm ngang trên giường, knee_y ≈ hip_y ≈ ankle_y)*. Thêm trường `BodyFeatures.leg_angle_deg`.
+- `engine/state_machine.py`: `BodyStateMachine` với `update(assessment, ts_ms)` (frame GOOD), `interrupt(ts_ms)` (frame kém khi cổng còn mở: xóa ứng viên, giữ trạng thái), `lose_observation(quality, ts_ms)` (cổng đóng → `NO_OBSERVATION`). Ứng viên + mốc bắt đầu; xác lập khi `ts − start ≥ min_duration_s.<đích>`. `explanation` (dict JSON) và `history` (tối đa 32 bản ghi `StateRecord(state, since_ms, explanation)`, hằng số không phải ngưỡng).
+  - `skipped_edge`: khi vào `OUT_OF_BED`, duyệt lùi lịch sử bỏ qua `NO_OBSERVATION`, `STANDING`; nếu gặp `LYING/RAISING/SITTING` trước `AT_EDGE` → `anomaly = "skipped_edge"` *(giả định: mở rộng R9 cho mọi đường ra từ trong giường không qua mép)*.
+- `BodyStateSnapshot` thêm `explanation: dict[str, JsonValue] | None = None` (explanation của lần chuyển gần nhất; `None` ở trạng thái khởi tạo) — event-engine.md mục 4 yêu cầu ghi `anomaly` "vào state". `Engine.state_history` trả lịch sử cho F15.
+- `pipeline.StateMachine` = `BodyStateMachine` (giữ tên để Engine/F13 test không đổi).
+
+**Các bước:**
+1. Commit plan (spec).
+2. Test trước: `tests/engine/test_posture.py` (phân loại, hysteresis góc, tỷ lệ torso, đứng vs mép, vị trí EDGE/OUT + hysteresis), `tests/engine/test_state_machine.py` (AC1–AC5, ca âm tính mục 6 qua `PoseSequence` + `run_engine`; ca min-duration chính xác từng frame bằng `BodyFeatures` tổng hợp). Builder: `raise_to_sitting` nội suy vector vai theo góc (giữ chiều dài thân, giống camera nhìn ngang), `AT_EDGE` đùi gần nằm ngang (ngồi thật). Xác nhận test fail vì chưa có module.
+3. Cài `posture.py`, `state_machine.py`, nối `engine.py`; cập nhật `FakeStateMachine` (F13) thêm `interrupt`/`lose_observation`; sửa `test_persons_without_f14_stay_no_observation`.
+4. Doc: event-engine.md mục 2 (snapshot có `explanation`), mục 4/6 (công thức đứng, tỷ lệ torso, RAISING chỉ khi đi lên). Không thêm khóa config.
+5. `make check`, `scripts\dev.ps1 check`; ghi bằng chứng mục 10.
+
+**Rủi ro:** ngưỡng góc/tỷ lệ phụ thuộc vị trí camera, hiệu chỉnh ở F16; F11/F17 nhận thêm trường `explanation` trong snapshot (tùy chọn, mặc định `None`).
 
 ## 10. Ghi chú bàn giao
 
