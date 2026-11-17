@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F25 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M3 |
 | Ước lượng | 2 phiên |
@@ -98,6 +98,29 @@
 ## 9. Kế hoạch triển khai
 
 > Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+
+Khảo sát (2026-11-18): `FaceObservation`, `FaceStatus`, `FaceConfig` (gồm `enabled`, `head_crop_scale`) và khóa `face.*` trong `config/engine.default.yaml` đã có từ F10. Người mục tiêu do `TargetSelector` (F13) chọn **bên trong** `Engine.process`, nhưng face phải chạy **trước** khi đưa `FrameObservation` vào engine. Cách làm: tách phần tính của `TargetSelector.select` thành hàm không đổi trạng thái và cho `Engine` thêm `peek_target(obs)` (chỉ đọc). Kết quả `peek_target(obs)` trùng `select(obs).target` của lần `process(obs)` ngay sau đó, vì cùng trạng thái và cùng input *(giả định: không tách bộ chọn mục tiêu thứ hai để tránh lệch)*.
+
+1. **Manifest model.** `config/models.yaml` thêm khối `face` (một mục: URL bản `float16/1`, `face_landmarker.task`, sha256 `64184e22…c9ff`). `vision/models.py`: `ModelManifest.face: ModelEntry`. `postcare models` tải pose + face. Test: `tests/inference/test_models_download.py` (manifest có face, sha256 hợp lệ).
+2. **Vùng đầu (R3, R4).** `vision/inference/head_region.py`: `HeadBox(cx, cy, side)` + `estimate_head_box(person, image_size, min_visibility, scale) -> HeadBox | None` (cần ≥ 2 keypoint đầu đạt visibility và bbox khác 0) + `crop_box(image, box)` (kẹp vào khung). Không import mediapipe/cv2 để F28 dùng lại. Test: `tests/inference/test_head_region.py`.
+3. **Adapter + cổng (R1, R2, R5–R8, R10).** `vision/inference/face_landmarker.py`:
+   - `FaceLandmarkerProtocol` + `create_mediapipe_face_landmarker(model_path)` (VIDEO, `output_face_blendshapes=True`, `num_faces=1`).
+   - `MediaPipeFaceAdapter(model_path | None, blendshape_keys, landmarker_factory=…)`: `detect(crop, ts_ms) -> dict[str, float] | None`; model thiếu/lỗi mở → ghi WARNING, adapter ở trạng thái "hỏng" (mọi lần gọi trả lỗi).
+   - `FaceRunner(adapter, config)`: đếm frame, chạy mỗi `run_every_n_frames`; trả `None` ở frame không chạy; thứ tự cổng: không mục tiêu → `NOT_VISIBLE`; không ước lượng được vùng đầu → `LOW_CONFIDENCE`; `head_box_px < min_head_box_px` → `TOO_SMALL`; adapter raise / ảnh cắt rỗng → `NOT_VISIBLE` + `error_count`; không thấy mặt → `NOT_VISIBLE`; có mặt → `OK` + blendshape đã lọc.
+   - `blendshape_keys_from_config(config)`: hợp các `face.signals.*.keys`.
+   - `vision/inference/fake.py`: `FakeFaceAdapter` cho test.
+4. **Pipeline (R7, R9).** `pipeline.process_frame(frame, adapter, engine, face=None)`: khi có `FaceRunner` thì `face_obs = face.observe(frame, engine.peek_target(obs))`, gắn vào `obs.face`. `engine/target.py` + `engine/engine.py`: `peek_target`. `replay_video(..., face=None)`; CLI `replay` (và `eval` qua factory) tạo `FaceRunner` khi `face.enabled`. Worker (F06/F17) chưa có vòng lặp dùng `process_frame` có face: nơi gọi truyền `face` khi nối.
+5. **Test trước (AC1–AC3)** trong `tests/inference/test_face_gate.py`, `tests/replay/test_face_isolation.py`, `tests/inference/test_face_no_hardcode.py`:
+   - `test_face_gate_calls_landmarker_only_when_head_large_enough` (79 px với ngưỡng 80 → không gọi; không mục tiêu → không gọi; kích thước ảnh cắt đúng);
+   - `test_face_runs_every_n_frames`; `test_face_status_classification` (4 trạng thái, visibility thấp → `LOW_CONFIDENCE`);
+   - `test_face_error_does_not_stop_body` (adapter luôn raise; so `events.jsonl` và chuỗi trạng thái với `face.enabled=false`);
+   - `test_adapter_filters_keys_from_config`, `test_no_blendshape_names_hardcoded` (quét `server/src/postcare/`);
+   - `test_peek_target_matches_select` (engine);
+   - vision: `tests/vision/test_face_adapter.py::test_face_adapter_real_model` (clip có mặt rõ; thiếu model/video → skip).
+6. **Đo thật (AC4).** `postcare replay` trên vài clip Pexels/Mixkit cận mặt, `face.enabled` true/false: phân bố `face.status`, FPS từ `run.json`; ghi `tech-stack.md`.
+7. **Doc.** `tech-stack.md` (bảng hiệu năng), `event-engine.md` mục 2/6 (ý nghĩa `face=None`, thứ tự cổng), `overview.md`/F12 nếu chữ ký `process_frame` đổi, `camera-setup.md` nếu cần, spec §10.
+
+Rủi ro: VIDEO mode trên ảnh cắt thay đổi (câu hỏi mở 1) → đo ở bước 6; vùng đầu từ pose có thể nhỏ hơn mặt thật khi chỉ thấy mắt + mũi → chỉnh `face.head_crop_scale` theo kết quả đo (chỉ sửa khóa `face.*`).
 
 ## 10. Ghi chú bàn giao
 
