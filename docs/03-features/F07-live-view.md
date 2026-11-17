@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F07 |
-| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -68,10 +68,10 @@ Cho người dùng xem hình ảnh camera của một giường trên màn hình
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** `GET /api/v1/cameras/{id}/stream.mjpeg?token=` (cần token hợp lệ) phát khung mới nhất trong bộ đệm; thiếu hoặc sai token → 401. *(ADR-0002)* — *Kiểm chứng:* test `test_mjpeg_requires_token`, `test_mjpeg_streams_latest_frame` (đặt 2 khung vào bộ đệm, đọc phần đầu stream thấy khung mới nhất), `test_mjpeg_closes_when_frame_stale`.
-- [ ] **AC2.** Màn hình "Theo dõi trực tiếp" hiện video, trạng thái kết nối camera, mã giường và phiên (mã bệnh nhân, giờ bắt đầu hoặc "Không theo dõi"). *(PDF §9.1)* — *Kiểm chứng:* component test `LiveViewPage shows bed, session and camera status`, `LiveViewPage shows no-session label`; kiểm tra tay với webcam thật, ghi vào mục 10.
-- [ ] **AC3.** Camera offline → hiện "Mất kết nối camera", không còn ảnh đứng yên trên màn hình. *(PDF §4.3)* — *Kiểm chứng:* component test `LiveViewPage hides stream when camera offline`, `LiveViewPage hides stream on image error`; thủ công: dừng worker, trong ≤5 s + chu kỳ polling màn hình chuyển sang thông báo.
-- [ ] **AC4.** Bed ROI được vẽ đè lên khung hình nếu đã cấu hình; không có ROI thì hiện "Chưa cấu hình vùng giường". *(PDF §7.2 (tr.9), §16 (tr.17); QA#15)* — *Kiểm chứng:* component test `RoiOverlay scales normalized points to image size`, `RoiOverlay renders nothing without polygon`.
+- [x] **AC1.** `GET /api/v1/cameras/{id}/stream.mjpeg?token=` (cần token hợp lệ) phát khung mới nhất trong bộ đệm; thiếu hoặc sai token → 401. *(ADR-0002)* — *Kiểm chứng:* test `test_mjpeg_requires_token`, `test_mjpeg_streams_latest_frame` (đặt 2 khung vào bộ đệm, đọc phần đầu stream thấy khung mới nhất), `test_mjpeg_closes_when_frame_stale`.
+- [x] **AC2.** Màn hình "Theo dõi trực tiếp" hiện video, trạng thái kết nối camera, mã giường và phiên (mã bệnh nhân, giờ bắt đầu hoặc "Không theo dõi"). *(PDF §9.1)* — *Kiểm chứng:* component test `LiveViewPage shows bed, session and camera status`, `LiveViewPage shows no-session label`; kiểm tra tay với webcam thật, ghi vào mục 10.
+- [x] **AC3.** Camera offline → hiện "Mất kết nối camera", không còn ảnh đứng yên trên màn hình. *(PDF §4.3)* — *Kiểm chứng:* component test `LiveViewPage hides stream when camera offline`, `LiveViewPage hides stream on image error`; thủ công: dừng worker, trong ≤5 s + chu kỳ polling màn hình chuyển sang thông báo.
+- [x] **AC4.** Bed ROI được vẽ đè lên khung hình nếu đã cấu hình; không có ROI thì hiện "Chưa cấu hình vùng giường". *(PDF §7.2 (tr.9), §16 (tr.17); QA#15)* — *Kiểm chứng:* component test `RoiOverlay scales normalized points to image size`, `RoiOverlay renders nothing without polygon`.
 
 ## 6. Kế hoạch test
 
@@ -123,6 +123,31 @@ Commit: `docs(F07): plan` → `test(F07): …` → `feat(F07): …` → `docs(F0
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+**2026-11-18 – triển khai (nhánh `feat/F07-live-view`), trạng thái In review.**
+
+Bằng chứng theo AC:
+
+| AC | Bằng chứng |
+|---|---|
+| AC1 | `server/tests/api/test_stream_mjpeg.py`: `test_mjpeg_requires_token` (thiếu / sai / hết hạn → 401), `test_mjpeg_header_token_not_enough`, `test_mjpeg_family_forbidden` (403, không có byte JPEG), `test_mjpeg_all_staff_roles_allowed` (×4), `test_mjpeg_no_frame_404`, `test_mjpeg_stale_frame_at_connect_404`, `test_mjpeg_unknown_camera_404`, `test_mjpeg_streams_latest_frame` (2 khung → chỉ khung mới, `multipart/x-mixed-replace; boundary=frame`, `no-store`), `test_mjpeg_closes_when_frame_stale`, `test_mjpeg_parts_sends_each_new_frame_once` / `..._no_frame_yields_nothing` (đồng hồ giả), `test_mjpeg_does_not_write_disk` (R2), `test_default_stale_frame_is_3s` |
+| AC2 | `web/src/pages/LiveView/LiveViewPage.test.tsx`: `shows bed, session and camera status`, `shows no-session label`, `shows "Chưa gắn camera" and no image without a camera`, `shows no internal codes`; thủ công (dưới) |
+| AC3 | `LiveViewPage hides stream when camera offline`, `LiveViewPage hides stream on image error`; `web/src/components/CameraStream.test.tsx` (`reopens the stream when the camera comes back online`, `image error → offline block, then retries with a new URL`); thủ công (dưới) |
+| AC4 | `web/src/components/RoiOverlay.test.tsx` (`scales normalized points to image size`, `follows a new display size`, `renders nothing without polygon`); `LiveViewPage notes when the bed region is not configured`; `server/tests/api/test_cameras.py::test_camera_detail_includes_roi_polygon` |
+
+Chạy tay end-to-end (2026-11-18): DB `postcare_f07` (`alembic upgrade head` + `postcare seed`), camera 1 (A01) nguồn FILE `data/external/pexels/pexels-8090735.mp4`, ROI từ `config/cameras/pexels-8090735.yaml` đặt bằng SQL (F08 chưa có); bệnh nhân BN-F07, mở phiên; API cổng 8017, web `npm --prefix web run dev -- --port 5177` (`VITE_API_TARGET=http://127.0.0.1:8017`); `postcare worker --camera-id 1` chạy lặp 8 lần × 14 s (clip dài 7,7 s).
+
+- `curl` qua proxy Vite: `200`, `cache-control: no-store`, 10 khung JPEG trong 2 s (≈ 5 fps). `GET /cameras/1` có `roi_polygon` và `runtime`.
+- Trình duyệt (đăng nhập `nurse`), `/beds/1/live`: tiêu đề "Giường A01", nhãn "Camera hoạt động", "Đang theo dõi · Bệnh nhân BN-F07 · bắt đầu 04:24:50", **ảnh thật** từ clip, khung ROI nét đứt vẽ đúng mặt nệm. Ở viewport 768 px: ảnh 483×272, polygon `149.7,87 483,87 483,168.6 149.7,168.6` (= ROI × kích thước ảnh), không cuộn ngang.
+- Hết clip → worker báo nguồn `OFFLINE` → trong ≤ 2 s (một chu kỳ polling) ảnh biến mất, hiện khối "Mất kết nối camera"; worker chạy lại → ảnh tự hiện lại sau ~5 s (bước nhịp lấy mẫu 1 s: `IMG ×9 → OFF ×5 → IMG ×10 → OFF`). Log API: `stream.mjpeg` 200 khi có khung, 404 khi không có khung mới.
+
+Điều người sau cần biết:
+- **Lệch spec có chủ đích** (§9): MJPEG chỉ cho vai trò nhân viên (`require_staff_query`), `FAMILY` → 403 theo bảng phân quyền mới; chưa có khung / khung cũ lúc mở → 404; polling dùng `GET /overview` + `GET /cameras/{id}` thay cho `GET /sessions?active=true`.
+- `require_staff_query` tự mở/đóng DB session, không giữ kết nối DB suốt stream.
+- `SkeletonView.tsx` (hình người que cố định theo trạng thái, thời giả lập) đã xóa cùng text `live.simulatedMode/simulatedHint`. Skeleton thật là việc của F28 (render trong worker, API/UI F07 không đổi; F28 chỉ thêm nhãn chế độ R10) và F36 (`target_keypoints` cho người nhà).
+- Giới hạn đã biết: nếu camera vẫn `ONLINE` nhưng ngừng gửi khung (ví dụ tạm dừng thu hình, F36), server đóng stream sau 3 s nhưng trình duyệt có thể giữ khung cuối trên `<img>`; F36 hiển thị nhãn "Đang tạm dừng thu hình" cho trường hợp này.
+- Uvicorn access log ghi URL có `?token=` (đã chấp nhận trong api-conventions cho WS/MJPEG). Nếu cần, F30 có thể tắt access log hoặc lọc query khi demo.
+- Settings mới: `STREAM_STALE_FRAME_S` (3), `stream_poll_interval_s` (0,05); `.env.example` đã thêm.
 
 ## 11. Definition of Done
 

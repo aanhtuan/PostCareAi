@@ -23,7 +23,7 @@ Repo đã có một **code base chạy được** để trình bày các phần 
 | Đã có | Chưa có (đang giả lập / để sau) |
 |---|---|
 | API FastAPI: đăng nhập JWT, phân quyền 4 vai trò, giường/camera/bệnh nhân, phiên theo dõi, sự kiện → cảnh báo, vòng đời cảnh báo + audit, timeline, bàn giao ca, WebSocket realtime | **Phần AI và camera:** MediaPipe, Event Detection Engine, worker đọc camera, MJPEG. Thay bằng lệnh giả lập `postcare simulate` gửi dữ liệu qua đúng API nội bộ mà worker thật sẽ dùng |
-| Web React tiếng Việt: Tổng quan, Theo dõi trực tiếp (skeleton mô phỏng), Cảnh báo, Lịch sử theo dõi, Bàn giao ca, Quản lý giường | Màn hình Cấu hình camera / vẽ ROI, chế độ hiển thị, thêm/sửa danh mục trên UI |
+| Web React tiếng Việt: Tổng quan, Theo dõi trực tiếp (ảnh camera thật qua MJPEG từ worker, vẽ đè Bed ROI), Cảnh báo, Lịch sử theo dõi, Bàn giao ca, Quản lý giường | Màn hình Cấu hình camera / vẽ ROI, chế độ hiển thị, thêm/sửa danh mục trên UI |
 | PostgreSQL 16 (Docker) + Alembic migration (F01), test trên DB `postcare_test` rollback mỗi test | E2E. Đã có từ F00: mypy, import-linter, pre-commit/pre-push hook, CI GitHub Actions, msw |
 | Bộ giả lập CLI: rời giường, mất quan sát, chuyển động bất thường, tín hiệu khuôn mặt, đổi tư thế | Quyền xem của người nhà (F36), quản lý tài khoản (F35), khu vực/ca trực (F37), chuyển giường (F04) |
 
