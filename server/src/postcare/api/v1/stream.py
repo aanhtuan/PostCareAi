@@ -11,7 +11,12 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
-from postcare.api.deps import get_frames, get_settings_dep, require_staff_query
+from postcare.api.deps import (
+    get_frames,
+    get_settings_dep,
+    require_staff_query,
+    staff_from_token,
+)
 from postcare.api.frame_buffer import LatestFrame, LatestFrameStore
 from postcare.db.models import Camera
 from postcare.db.types import utcnow
@@ -42,10 +47,21 @@ async def mjpeg_parts(
     poll_s: float,
     now: Callable[[], datetime] = utcnow,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    still_valid: Callable[[], Awaitable[bool]] | None = None,
+    revalidate_s: float = 5.0,
 ) -> AsyncIterator[bytes]:
-    """Gửi mỗi khung mới đúng một lần; dừng khi hết khung hoặc khung cũ hơn `stale_after_s`."""
+    """Gửi mỗi khung mới đúng một lần; dừng khi hết khung hoặc khung cũ hơn `stale_after_s`.
+
+    Mỗi `revalidate_s` gọi `still_valid()`: người xem bị khóa, đặt lại mật khẩu hoặc đổi vai trò
+    (F35) → dừng stream.
+    """
     last: LatestFrame | None = None
+    last_check = now()
     while True:
+        if still_valid is not None and (now() - last_check).total_seconds() >= revalidate_s:
+            last_check = now()
+            if not await still_valid():
+                return
         frame = frames.get(camera_id)
         if frame is None or not _fresh(frame, now(), stale_after_s):
             return
@@ -53,6 +69,26 @@ async def mjpeg_parts(
             last = frame
             yield _part(frame.data)
         await sleep(poll_s)
+
+
+def _viewer_checker(request: Request, token: str) -> Callable[[], Awaitable[bool]]:
+    """Kiểm tra lại token + tài khoản trong thread (DB đồng bộ), mở/đóng session mỗi lần."""
+    app = request.app
+
+    def _check() -> bool:
+        db = app.state.session_factory()
+        try:
+            staff_from_token(db, token, app.state.settings)
+            return True
+        except DomainError:
+            return False
+        finally:
+            db.close()
+
+    async def _still_valid() -> bool:
+        return await asyncio.to_thread(_check)
+
+    return _still_valid
 
 
 def _ensure_camera(request: Request, camera_id: int) -> None:
@@ -88,6 +124,8 @@ def stream_mjpeg(
             camera_id,
             stale_after_s=settings.stream_stale_frame_s,
             poll_s=settings.stream_poll_interval_s,
+            still_valid=_viewer_checker(request, request.query_params.get("token", "")),
+            revalidate_s=settings.stream_revalidate_s,
         ),
         media_type=f"multipart/x-mixed-replace; boundary={BOUNDARY}",
         headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},

@@ -1,6 +1,7 @@
 """F07 AC1, R1, R2: MJPEG xem trực tiếp từ bộ đệm RAM (F06), chỉ vai trò nhân viên."""
 
 import asyncio
+import threading
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -238,9 +239,11 @@ def test_mjpeg_parts_ends_when_viewer_no_longer_valid() -> None:
     assert state["checks"] == 2
 
 
+@pytest.mark.real_commit
 def test_mjpeg_stream_ends_when_user_locked_mid_stream(
-    client: TestClient, login: Login, app, db: Session, settings: Settings
+    client: TestClient, login: Login, app, settings: Settings
 ) -> None:
+    """Khóa tài khoản (F35) lúc stream đang phát → stream đóng, không chờ tới khung cũ."""
     app.state.settings = settings.model_copy(
         update={
             "stream_stale_frame_s": 30.0,
@@ -250,14 +253,23 @@ def test_mjpeg_stream_ends_when_user_locked_mid_stream(
     )
     token = _token(login, "nurse")
     app.state.frames.put(1, JPEG_A)
-    nurse = db.scalar(select(User).where(User.username == "nurse"))
-    assert nurse is not None
+
+    def lock_nurse() -> None:
+        # TestClient đọc hết body trong luồng của app; khóa từ luồng khác, kết nối DB riêng.
+        with app.state.session_factory() as s:
+            user = s.scalar(select(User).where(User.username == "nurse"))
+            assert user is not None
+            user.is_active = False
+            s.commit()
+
+    timer = threading.Timer(0.5, lock_nurse)
     start = time.monotonic()
-    with client.stream("GET", f"{URL}?token={token}") as r:
-        assert r.status_code == 200
-        nurse.is_active = False
-        db.commit()
-        body = r.read()
+    timer.start()
+    try:
+        r, body = _read_stream(client, token)
+    finally:
+        timer.join()
+    assert r.status_code == 200
     # Không chờ tới stale_frame_s (30 s): đóng sau lần kiểm tra lại kế tiếp.
     assert time.monotonic() - start < 10.0
     assert body.count(b"--frame\r\n") >= 1

@@ -113,9 +113,14 @@ def require_staff_query(request: Request, token: str | None = Query(default=None
     """
     db: Session = request.app.state.session_factory()
     try:
-        user = user_from_token(db, token or "", request.app.state.settings)
+        return staff_from_token(db, token or "", request.app.state.settings)
     finally:
         db.close()
+
+
+def staff_from_token(db: Session, token: str, settings: Settings) -> User:
+    """Token hợp lệ (F35: `is_active`, `token_version`) và vai trò nhân viên; nếu không thì lỗi."""
+    user = user_from_token(db, token, settings)
     if user.role not in STAFF_ROLES:
         raise DomainError("FORBIDDEN", "Không đủ quyền thực hiện thao tác này", 403)
     return user
