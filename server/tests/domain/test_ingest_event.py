@@ -202,3 +202,30 @@ def test_publisher_failure_keeps_saved_data(open_session: dict[str, Any], db: Se
     assert created
     assert _count(db, Event) == 1 and _count(db, Alert) == 1
     assert db.get(Event, out.id) is not None
+
+
+def test_integrity_error_branch_returns_existing(
+    open_session: dict[str, Any], db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Request khác đã lưu cùng `event_uid` giữa lúc kiểm tra và lúc insert: nhánh IntegrityError
+    rollback rồi trả bản đã có, `created = False`, không phát gì (R9)."""
+    import postcare.domain.events as events_mod
+
+    first = _event(EventCode.BED_EXIT, Priority.HIGH)
+    saved, _ = ingest_event(db, first, InMemoryPublisher())
+    real_existing = events_mod._existing
+    calls: list[str] = []
+
+    def stale_existing(session: Session, event_uid: str) -> Event | None:
+        calls.append(event_uid)
+        if len(calls) == 1:
+            return None  # lần kiểm tra đầu chưa thấy bản của request kia
+        return real_existing(session, event_uid)
+
+    monkeypatch.setattr(events_mod, "_existing", stale_existing)
+    pub = InMemoryPublisher()
+    out, created = ingest_event(db, first, pub)
+    assert len(calls) == 2
+    assert created is False and out.id == saved.id
+    assert pub.messages == []
+    assert _count(db, Event) == 1 and _count(db, Alert) == 1

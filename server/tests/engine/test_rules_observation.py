@@ -155,3 +155,28 @@ def test_new_engine_starts_fresh() -> None:
     second = Engine(CONFIG, context())
     outs = [second.process(o) for o in lying_observed().build()]
     assert obs_codes(outs) == []
+
+
+def test_restored_not_debounced_when_its_lost_was_emitted() -> None:
+    """Mất 0 s → LOST 10 s → quan sát lại ~55 s; mất lại ~60 s → LOST ~70 s (đã qua cửa sổ
+    debounce của LOST đầu) → quan sát lại ~75 s: RESTORED thứ hai vẫn phát dù cách RESTORED đầu
+    < `same_code_same_session_s` (review F17: RESTORED đi cặp với LOST đã phát)."""
+    first_missing = DEBOUNCE_S - BACK_S + 2  # chuỗi 1: 0 → ~55 s (khởi động không thấy ai)
+    seq = (
+        PoseSequence(fps=FPS)
+        .drop_landmarks(seconds=first_missing, mode="missing")
+        .lying(seconds=BACK_S)
+        .drop_landmarks(seconds=TO_NO_OBS_S + LOST_EVENT_S + 1, mode="missing")
+        .lying(seconds=BACK_S)
+        .build()
+    )
+    evs = obs_events(run_engine(seq))
+    assert [e.code.value for e in evs] == [
+        "OBSERVATION_LOST",
+        "OBSERVATION_RESTORED",
+        "OBSERVATION_LOST",
+        "OBSERVATION_RESTORED",
+    ]
+    lost1, restored1, lost2, restored2 = evs
+    assert lost2.detected_at_ms - lost1.detected_at_ms >= DEBOUNCE_S * 1000
+    assert restored2.detected_at_ms - restored1.detected_at_ms < DEBOUNCE_S * 1000
