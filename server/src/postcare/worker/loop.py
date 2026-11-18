@@ -9,6 +9,8 @@ test chạy nhanh và xác định (R12, R13). Mỗi `step()`:
 4. Tạm dừng thu hình → đóng nguồn, dừng engine, chỉ heartbeat (`source_status = PAUSED`).
 5. Đọc một khung → `process_frame` (pose + face nếu `face.enabled` + engine) → state khi đổi,
    sự kiện; JPEG ~5 fps (A03). Nhánh face (F25) lỗi không làm dừng pose/engine (F25 R8).
+   Khung được render theo `display_mode` (F28: RAW / BLUR / SKELETON) **trước** khi nén JPEG,
+   nên ảnh gốc không rời tiến trình ở chế độ SKELETON. Chế độ hiển thị không ảnh hưởng engine.
 
 Nguồn file được phát theo nhịp thời gian thực (`pace`): một camera không chạy nhanh hơn thời gian
 thật. Quy đổi `ts_ms` → UTC: `t0_utc + (ts_ms − ts0_ms)` với `t0_utc` lúc nhận khung đầu (F17 R4).
@@ -21,7 +23,7 @@ import logging
 import time
 import uuid
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -32,13 +34,14 @@ from postcare.pipeline import FrameEngine, process_frame
 from postcare.schemas.context import EngineContext
 from postcare.schemas.engine_config import EngineConfig
 from postcare.schemas.events import EngineEvent, EngineOutput
-from postcare.schemas.roi import validate_roi_polygon
+from postcare.schemas.observation import PersonPose
+from postcare.schemas.roi import RoiPolygon, validate_roi_polygon
 from postcare.schemas.state import BodyStateSnapshot
 from postcare.vision.camera import FileSource, Frame, FrameSource, SourceOpenError
 from postcare.vision.image_stats import mean_brightness
 from postcare.vision.inference.base import PoseAdapter
 from postcare.vision.inference.face_gate import FaceGate
-from postcare.vision.render import encode_jpeg
+from postcare.vision.render import PrivacyRenderer, encode_jpeg
 from postcare.worker.client import (
     ApiUnavailableError,
     CameraNotFoundError,
@@ -134,6 +137,15 @@ def default_face_factory(engine_config_path: Path | str, models_dir: Path) -> Fa
     return _make
 
 
+def default_renderer(engine_config_path: Path | str | None = None) -> PrivacyRenderer:
+    """Bộ render theo `privacy.*` của cấu hình mặc định (không override theo camera, F08)."""
+    if engine_config_path is None:
+        from postcare.settings import REPO_ROOT
+
+        engine_config_path = REPO_ROOT / "config" / "engine.default.yaml"
+    return PrivacyRenderer.from_config(EngineConfig.load(engine_config_path))
+
+
 def _is_file_source(source: FrameSource) -> bool:
     return isinstance(source, FileSource)
 
@@ -159,6 +171,7 @@ class Worker:
         source_factory: SourceFactory,
         adapter_factory: AdapterFactory,
         face_factory: FaceFactory | None = None,
+        renderer: PrivacyRenderer | None = None,
         options: WorkerOptions | None = None,
         clock: Callable[[], float] = time.monotonic,
         wall: Callable[[], datetime] = lambda: datetime.now(UTC),
@@ -171,6 +184,7 @@ class Worker:
         self._source_factory = source_factory
         self._adapter_factory = adapter_factory
         self._face_factory = face_factory
+        self.renderer = renderer or default_renderer()
         self._clock = clock
         self._wall = wall
         self._sleep = sleep
@@ -184,6 +198,9 @@ class Worker:
         """Cổng face (F25), tạo cùng engine; `None` khi tắt face hoặc tạo lỗi."""
         self._engine_key: tuple[Any, ...] | None = None
         self._engine_failed_key: tuple[Any, ...] | None = None
+        self._persons: Sequence[PersonPose] = ()
+        """Người pose phát hiện ở khung vừa xử lý: dùng để render BLUR / SKELETON (F28)."""
+        self._roi_cache: tuple[str, RoiPolygon | None] | None = None
 
         self._config_retry_at = 0.0
         self._config_backoff = self.options.retry_initial_s
@@ -313,6 +330,8 @@ class Worker:
                 cfg.active_session_id,
             )
             self._reset_engine()
+        if old.display_mode is not cfg.display_mode:
+            logger.info("Chế độ hiển thị %s → %s", old.display_mode.value, cfg.display_mode.value)
         if old.capture_paused and not cfg.capture_paused:
             logger.info("Tiếp tục thu hình")
 
@@ -391,6 +410,8 @@ class Worker:
             self.adapter.close()
             self.adapter = None
         self._ts0_ms = None
+        self._persons = ()
+        self.renderer.reset()
         self._reset_engine()
 
     def _reset_engine(self) -> None:
@@ -453,8 +474,12 @@ class Worker:
         self._brightness = mean_brightness(frame.image)
         engine = self._ensure_engine()
         if engine is not None:
-            _, output = process_frame(frame, self.adapter, engine, self.face)
+            obs, output = process_frame(frame, self.adapter, engine, self.face)
+            self._persons = obs.persons
             self._handle_output(frame, output)
+        else:
+            # Chưa có ROI: không chạy pose → BLUR mờ toàn khung, SKELETON chỉ nền trơn.
+            self._persons = ()
         self._maybe_send_frame(frame, self._clock())
 
     def _handle_output(self, frame: Frame, output: EngineOutput) -> None:
@@ -497,9 +522,18 @@ class Worker:
             self._next_frame_at += period
         if not self._api_open(now):
             return
-        # F06 chỉ có chế độ RAW; F28 thêm BLUR / SKELETON theo `display_mode`.
+        cfg = self.config
+        assert cfg is not None
+        # Render trong worker trước khi gửi (F28 R4): API/MJPEG chỉ chuyển tiếp JPEG này.
+        image = self.renderer.render(
+            frame.image,
+            self._persons,
+            ts_ms=frame.ts_ms,
+            mode=cfg.display_mode,
+            roi=self._roi(cfg),
+        )
         jpeg = encode_jpeg(
-            frame.image, max_side=self.options.jpeg_max_side, quality=self.options.jpeg_quality
+            image, max_side=self.options.jpeg_max_side, quality=self.options.jpeg_quality
         )
         try:
             self.api.post_frame(jpeg)
@@ -507,6 +541,19 @@ class Worker:
             raise WorkerStopError(str(exc)) from exc
         except WorkerApiError as exc:
             self._mark_api_error(now, exc)
+
+    def _roi(self, cfg: WorkerConfig) -> RoiPolygon | None:
+        """Bed ROI để vẽ ở chế độ SKELETON; ROI không hợp lệ → không vẽ."""
+        key = repr(cfg.roi_polygon)
+        if self._roi_cache is None or self._roi_cache[0] != key:
+            roi: RoiPolygon | None = None
+            if cfg.roi_polygon is not None:
+                try:
+                    roi = validate_roi_polygon(cfg.roi_polygon)
+                except ValueError:
+                    roi = None
+            self._roi_cache = (key, roi)
+        return self._roi_cache[1]
 
     # ---- sự kiện ----
     def _event_body(self, cfg: WorkerConfig, event: EngineEvent) -> dict[str, Any]:

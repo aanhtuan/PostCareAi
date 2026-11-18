@@ -193,6 +193,7 @@ def worker(
         WorkerStopError,
         default_engine_factory,
         default_face_factory,
+        default_renderer,
     )
 
     logging.basicConfig(
@@ -244,6 +245,7 @@ def worker(
         source_factory=source_factory,
         adapter_factory=adapter_factory,
         face_factory=default_face_factory(engine_config, directory),
+        renderer=default_renderer(engine_config),
         options=options,
     )
     src = f"file {video}" if video else "nguồn trong cấu hình camera"
