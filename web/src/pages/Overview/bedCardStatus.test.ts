@@ -5,6 +5,7 @@ import { bedCardStatus, type BedCardInput } from './bedCardStatus';
 const base: BedCardInput = {
   hasSession: true,
   paused: false,
+  cameraOffline: false,
   pendingCount: 0,
   acknowledgedCount: 0,
   bodyState: 'LYING',
@@ -56,5 +57,13 @@ describe('bedCardStatus (A12)', () => {
 
   it('pending alert still wins over paused', () => {
     expect(bedCardStatus({ ...base, paused: true, pendingCount: 1 })).toBe('NEW_ALERT');
+  });
+
+  it('camera offline gives Cần kiểm tra even with a stale state', () => {
+    expect(bedCardStatus({ ...base, cameraOffline: true })).toBe('NEEDS_CHECK');
+  });
+
+  it('pending alert still wins over camera offline', () => {
+    expect(bedCardStatus({ ...base, cameraOffline: true, pendingCount: 1 })).toBe('NEW_ALERT');
   });
 });

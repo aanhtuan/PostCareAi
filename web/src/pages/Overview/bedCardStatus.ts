@@ -11,6 +11,8 @@ export type BedCardInput = {
   acknowledgedCount: number;
   /** null = chưa nhận trạng thái nào từ worker. */
   bodyState: BodyState | null;
+  /** Camera mất kết nối (F06). */
+  cameraOffline: boolean;
 };
 
 export function bedCardStatus(input: BedCardInput): BedCardStatus {
@@ -20,8 +22,10 @@ export function bedCardStatus(input: BedCardInput): BedCardStatus {
   // Tạm dừng thu hình: hệ thống không quan sát, không hiện như đang theo dõi (F09 giả định; PRD US07).
   if (input.paused) return 'PAUSED';
   // Chưa nhận trạng thái được coi như không đủ dữ liệu quan sát (giả định, PRD US07):
-  // không có dữ liệu không có nghĩa là an toàn.
+  // không có dữ liệu không có nghĩa là an toàn. Camera mất kết nối cũng vậy, kể cả khi
+  // trạng thái trong bộ nhớ chưa kịp chuyển sang NO_OBSERVATION (F09 review, phòng thủ thêm).
   if (
+    input.cameraOffline ||
     input.acknowledgedCount > 0 ||
     input.bodyState === 'NO_OBSERVATION' ||
     input.bodyState === null

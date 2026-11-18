@@ -14,6 +14,7 @@ export function BedCard({ bed }: { bed: OverviewBedOut }) {
     pendingCount: bed.pending_alert_count,
     acknowledgedCount: bed.acknowledged_alert_count,
     bodyState: bed.state?.body_state ?? null,
+    cameraOffline: bed.camera?.status === 'OFFLINE',
   });
   const color = CARD_COLOR[status];
   const open = () => navigate(`/beds/${bed.bed_id}/live`);

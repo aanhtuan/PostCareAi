@@ -85,6 +85,12 @@ describe('BedCard', () => {
     expect(screen.getByText(label)).toBeInTheDocument();
   });
 
+  it('camera offline shows Cần kiểm tra, never Đang theo dõi', () => {
+    renderCard(bed({ camera: { id: 1, name: 'Camera A01', status: 'OFFLINE' } }));
+    expect(screen.getByText('Cần kiểm tra')).toBeInTheDocument();
+    expect(screen.queryByText('Đang theo dõi')).not.toBeInTheDocument();
+  });
+
   it('bed without camera shows Chưa gắn camera', () => {
     renderCard(bed({ camera: null }));
     expect(screen.getByText('Chưa gắn camera')).toBeInTheDocument();
