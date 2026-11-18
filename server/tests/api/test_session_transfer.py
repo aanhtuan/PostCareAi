@@ -267,3 +267,20 @@ def test_transfer_keeps_old_events_on_old_session(
     new_tl = client.get(f"{SESSIONS}/{new['id']}/timeline", headers=nurse).json()
     # Phiên mới chỉ có mục "chuyển giường" (F22), không có sự kiện của phiên cũ.
     assert [i["kind"] for i in new_tl["items"]] == ["session_action"]
+
+
+def test_session_chain_stops_on_cycle(client: TestClient, login: Login, db: Session) -> None:
+    """Dữ liệu lỗi tạo chu trình previous_session_id: chuỗi vẫn kết thúc, mỗi phiên một lần."""
+    nurse = login("nurse")
+    s1 = _start(client, nurse, 1, 1)
+    s2 = _transfer(client, nurse, s1["id"], 2).json()
+    first = db.get(MonitoringSession, s1["id"])
+    assert first is not None
+    first.previous_session_id = s2["id"]  # s1 ← s2 ← s1
+    db.commit()
+    for sid in (s1["id"], s2["id"]):
+        r = client.get(f"{SESSIONS}/{sid}/chain", headers=nurse)
+        assert r.status_code == 200, r.text
+        assert sorted(i["id"] for i in r.json()["items"]) == sorted([s1["id"], s2["id"]])
+    tl = client.get(f"{SESSIONS}/{s1['id']}/timeline?chain=true", headers=nurse)
+    assert tl.status_code == 200

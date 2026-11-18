@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F22 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -154,10 +154,12 @@ Thay đổi: `domain/timeline.py` (nhánh `UNION ALL` thứ ba cho audit phiên,
 - F36: dùng `tl.session_timeline(..., chain=False)` và lọc thêm (bỏ tên nhân viên, `note`); mục tạm dừng/tiếp tục đã có ở timeline nhân viên.
 - Không có migration.
 
+**Review (2026-11-18): Đạt.** Đã sửa theo góp ý: (1) F04 §10 và F36 (R ghi chú, mục Câu hỏi/ghi chú) ghi mục tạm dừng/tiếp tục trên timeline nhân viên đã làm ở F22, F36 chỉ lọc cho người nhà; (2) quy tắc sắp khi trùng giờ ghi trong docstring `domain/timeline.py` và `api-conventions.md`; (3) `session_chain` có tập `seen` chặn chu trình `previous_session_id`, test `test_session_chain_stops_on_cycle`. Đã merge `main` vào nhánh. `make check` sau sửa: exit 0 (server 1269 passed, web 241 passed).
+
 ## 11. Definition of Done
 
-- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
-- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
-- [ ] Doc liên quan đã cập nhật cùng PR.
-- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [x] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [x] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [x] Doc liên quan đã cập nhật cùng PR.
+- [x] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).

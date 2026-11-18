@@ -1,7 +1,10 @@
 """Timeline (F22): gộp sự kiện + thao tác cảnh báo + thao tác phiên bằng SQL UNION ALL.
 
-Sắp theo `time`, rồi `ord` (sự kiện trước khi trùng thời điểm, R3), rồi `event_id`, `audit_id`
-để thứ tự luôn xác định (kể cả khi phân trang qua các mục trùng giờ).
+Quy tắc sắp (R3), xác định kể cả khi phân trang qua các mục trùng giờ:
+1. `time` tăng dần;
+2. trùng `time`: mục sự kiện (`ord = 0`) trước mục thao tác (`ord = 1`);
+3. rồi `event_id` tăng dần, `NULLS LAST` (thao tác cảnh báo trước thao tác phiên);
+4. rồi `audit_id` tăng dần (thứ tự ghi audit).
 """
 
 from datetime import datetime, timedelta
