@@ -193,6 +193,7 @@ export const vi = {
   },
   realtime: {
     connected: 'Đang cập nhật trực tiếp',
+    connecting: 'Đang kết nối cập nhật trực tiếp…',
     reconnecting: 'Mất kết nối cập nhật trực tiếp, đang kết nối lại…',
   },
   bed: {

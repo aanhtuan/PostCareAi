@@ -22,6 +22,7 @@ export function renderWithProviders(
     canWrite: user.role !== 'DOCTOR',
     login: async () => {},
     logout: () => {},
+    reloadUser: () => {},
     ...authOverrides,
   };
   return render(

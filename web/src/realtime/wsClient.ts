@@ -6,12 +6,15 @@ const BACKOFF_MIN_MS = 1000;
 const BACKOFF_MAX_MS = 15000;
 const PING_MS = 20000;
 export const CLOSE_UNAUTHORIZED = 4401;
+// Không còn là nhân viên (đổi vai trò sang FAMILY…): không thử lại, định tuyến theo vai trò mới.
+export const CLOSE_FORBIDDEN = 4403;
 
 type Handlers = {
   onMessage: (msg: WsMessage) => void;
   onStatus: (status: WsStatus) => void;
   onReconnected: () => void;
   onUnauthorized: () => void;
+  onForbidden: () => void;
 };
 
 export function wsUrl(token: string): string {
@@ -72,6 +75,10 @@ export class RealtimeClient {
       if (this.stopped) return;
       if (e.code === CLOSE_UNAUTHORIZED) {
         this.handlers.onUnauthorized();
+        return;
+      }
+      if (e.code === CLOSE_FORBIDDEN) {
+        this.handlers.onForbidden();
         return;
       }
       this.handlers.onStatus('reconnecting');

@@ -41,6 +41,14 @@ function RealtimeStatus() {
       </Badge>
     );
   }
+  if (status === 'connecting') {
+    // Lần kết nối đầu chưa phải "mất kết nối"; đóng lần nào sẽ chuyển sang `reconnecting`.
+    return (
+      <Badge color="gray" variant="dot">
+        {vi.realtime.connecting}
+      </Badge>
+    );
+  }
   return (
     <Badge color="orange" variant="light">
       {vi.realtime.reconnecting}
