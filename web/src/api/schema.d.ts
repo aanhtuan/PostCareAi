@@ -1393,6 +1393,8 @@ export interface components {
              * Format: date-time
              */
             started_at: string;
+            /** Paused At */
+            paused_at: string | null;
         };
         /** Page[AlertOut] */
         Page_AlertOut_: {

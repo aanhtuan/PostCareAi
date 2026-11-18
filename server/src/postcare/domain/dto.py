@@ -616,6 +616,7 @@ class OverviewSessionOut(BaseModel):
     id: int
     patient_code: str
     started_at: datetime
+    paused_at: datetime | None  # F09: null = không tạm dừng thu hình (F04 R19)
 
 
 class OverviewBedOut(BaseModel):

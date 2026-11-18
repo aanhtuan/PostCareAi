@@ -105,11 +105,15 @@ export function OverviewPage() {
           {shiftLabel(data?.current_shift)}
         </Text>
       </Group>
-      <SimpleGrid cols={{ base: 1, xs: 2, lg: 3 }}>
-        {data?.beds.map((b) => (
-          <BedCard key={b.bed_id} bed={b} />
-        ))}
-      </SimpleGrid>
+      {data?.beds.length ? (
+        <SimpleGrid cols={{ base: 1, xs: 2, lg: 3 }}>
+          {data.beds.map((b) => (
+            <BedCard key={b.bed_id} bed={b} />
+          ))}
+        </SimpleGrid>
+      ) : (
+        <Text c="dimmed">{vi.overview.noBeds}</Text>
+      )}
       <SimpleGrid cols={{ base: 1, md: 2 }}>
         <AttentionEvents alerts={attention.data?.items ?? []} />
         <RecentActivity events={recent.data?.items ?? []} />

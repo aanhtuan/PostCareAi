@@ -1,5 +1,5 @@
-import { screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { act, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AlertOut, EventOut, OverviewOut, UserOut } from '../../api/types';
 import { mockFetch, renderWithProviders } from '../../test/render';
@@ -32,7 +32,7 @@ function bed(
     bed_id: id,
     code,
     area: 'Khu hậu phẫu',
-    session: { id: id, patient_code: `BN-00${id}`, started_at: T },
+    session: { id: id, patient_code: `BN-00${id}`, started_at: T, paused_at: null },
     camera: { id, name: `Camera ${code}`, status: 'ONLINE' },
     pending_alert_count: 0,
     acknowledged_alert_count: 0,
@@ -109,9 +109,9 @@ const event: EventOut = {
   alert_status: null,
 };
 
-function setup(user: UserOut = nurse) {
+function setup(user: UserOut = nurse, data: OverviewOut = overview) {
   mockFetch({
-    '/api/v1/overview': overview,
+    '/api/v1/overview': data,
     '/api/v1/alerts': { items: [pendingAlert], total: 1 },
     '/api/v1/events': { items: [event], total: 1 },
   });
@@ -151,5 +151,43 @@ describe('OverviewPage', () => {
     setup(doctor);
     expect(await screen.findByText('Bệnh nhân rời khỏi vùng giường')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Đã tiếp nhận' })).not.toBeInTheDocument();
+  });
+
+  it('header shows no shift', async () => {
+    setup(nurse, { ...overview, current_shift: null });
+    expect(await screen.findByText('Ca trực: —')).toBeInTheDocument();
+  });
+
+  it('shows empty state when no beds', async () => {
+    setup(nurse, { ...overview, beds: [] });
+    expect(await screen.findByText('Chưa có giường nào đang dùng')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Giường/ })).not.toBeInTheDocument();
+  });
+
+  describe('polling', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('OverviewPage refetches within 5 s', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const routes: Record<string, unknown> = {
+        '/api/v1/overview': { ...overview, beds: [bed(1, 'A01')] },
+        '/api/v1/alerts': { items: [], total: 0 },
+        '/api/v1/events': { items: [], total: 0 },
+      };
+      mockFetch(routes);
+      renderWithProviders(<OverviewPage />, nurse);
+      expect(await screen.findByRole('button', { name: /Giường A01/ })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Giường A04/ })).not.toBeInTheDocument();
+      mockFetch({
+        ...routes,
+        '/api/v1/overview': { ...overview, beds: [bed(1, 'A01'), bed(4, 'A04')] },
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(await screen.findByRole('button', { name: /Giường A04/ })).toBeInTheDocument();
+    });
   });
 });

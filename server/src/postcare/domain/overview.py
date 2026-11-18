@@ -64,7 +64,10 @@ def get_overview(db: Session, store: RuntimeStore, now: datetime) -> OverviewOut
                 code=bed.code,
                 area=bed.area.name,
                 session=OverviewSessionOut(
-                    id=s.id, patient_code=s.patient.code, started_at=s.started_at
+                    id=s.id,
+                    patient_code=s.patient.code,
+                    started_at=s.started_at,
+                    paused_at=s.paused_at,
                 )
                 if s
                 else None,

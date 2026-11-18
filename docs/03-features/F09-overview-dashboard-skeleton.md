@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F09 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | Done <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -42,7 +42,7 @@ Dựng màn hình "Tổng quan" (PDF §9.1) dạng nhiều thẻ giường, đ�
 - **R4.** Thẻ giường hiện *(PDF §9.1)*:
   - mã giường (ví dụ "Giường A01");
   - phiên: "Đang theo dõi" kèm mã bệnh nhân, hoặc "Không theo dõi";
-  - trạng thái camera: "Camera hoạt động" / "Mất kết nối camera" / "Chưa rõ trạng thái" / "Chưa gắn camera".
+  - trạng thái camera: "Camera hoạt động" / "Mất kết nối camera" / "Chưa rõ trạng thái camera" / "Chưa gắn camera".
 - **R5.** Bấm thẻ → mở `/beds/:bedId/live` (F07) *(PDF §9.1 (tr.11))*. Thẻ dùng được bằng bàn phím (Enter) *(giả định)*.
 - **R6.** Làm mới bằng polling `GET /api/v1/overview` mỗi 5 giây (TanStack Query `refetchInterval`) *(F21 thay bằng realtime)*.
 - **R7.** Layout dùng được ở màn hình ≥768px: lưới thẻ tự xuống dòng; ở 768px hiện ít nhất 2 thẻ mỗi hàng *(QA#26; giả định số cột)*.
@@ -63,10 +63,10 @@ Dựng màn hình "Tổng quan" (PDF §9.1) dạng nhiều thẻ giường, đ�
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** Màn hình "Tổng quan" có thẻ cho mọi giường đang dùng: mã giường, phiên (Đang theo dõi / Không theo dõi), trạng thái camera. *(PDF §9.1; QA#13)* — *Kiểm chứng:* API test `test_overview_lists_active_beds_with_session_and_camera`; component test `OverviewPage renders a card per bed`, `BedCard shows session and camera labels`.
-- [ ] **AC2.** Header hiện ca trực hiện tại (ví dụ "Ca trực: 14:00–22:00"), tính đúng cả ca vắt qua nửa đêm. *(HS Hình 3; QA#19)* — *Kiểm chứng:* unit test `test_current_shift` tham số hóa (06:00 → Ca sáng, 13:59 → Ca sáng, 14:00 → Ca chiều, 23:30 → Ca đêm, 05:59 → Ca đêm); component test `header shows current shift`.
-- [ ] **AC3.** Bấm thẻ giường → mở màn hình "Theo dõi trực tiếp" của giường đó. *(PDF §9.1 (tr.11))* — *Kiểm chứng:* component test `clicking a bed card navigates to live view`.
-- [ ] **AC4.** Dữ liệu làm mới bằng polling ≤5 giây; layout dùng được ở chiều rộng ≥768px. *(QA#26)* — *Kiểm chứng:* component test `OverviewPage refetches within 5 s` (fake timers + msw đổi dữ liệu); kiểm tra tay ở 768px và 1366px, ghi vào mục 10.
+- [x] **AC1.** Màn hình "Tổng quan" có thẻ cho mọi giường đang dùng: mã giường, phiên (Đang theo dõi / Không theo dõi), trạng thái camera. *(PDF §9.1; QA#13)* — *Kiểm chứng:* API test `test_overview_lists_active_beds_with_session_and_camera`; component test `OverviewPage renders a card per bed`, `BedCard shows session and camera labels`.
+- [x] **AC2.** Header hiện ca trực hiện tại (ví dụ "Ca trực: 14:00–22:00"), tính đúng cả ca vắt qua nửa đêm. *(HS Hình 3; QA#19)* — *Kiểm chứng:* unit test `test_current_shift` tham số hóa (06:00 → Ca sáng, 13:59 → Ca sáng, 14:00 → Ca chiều, 23:30 → Ca đêm, 05:59 → Ca đêm); component test `header shows current shift`.
+- [x] **AC3.** Bấm thẻ giường → mở màn hình "Theo dõi trực tiếp" của giường đó. *(PDF §9.1 (tr.11))* — *Kiểm chứng:* component test `clicking a bed card navigates to live view`.
+- [x] **AC4.** Dữ liệu làm mới bằng polling ≤5 giây; layout dùng được ở chiều rộng ≥768px. *(QA#26)* — *Kiểm chứng:* component test `OverviewPage refetches within 5 s` (fake timers + msw đổi dữ liệu); kiểm tra tay ở 768px và 1366px, ghi vào mục 10.
 
 ## 6. Kế hoạch test
 
@@ -84,6 +84,8 @@ Dựng màn hình "Tổng quan" (PDF §9.1) dạng nhiều thẻ giường, đ�
 - *(giả định)* Ở 768px hiện ít nhất 2 thẻ mỗi hàng.
 - *(giả định)* API lỗi tạm thời thì giữ dữ liệu cũ (hành vi mặc định của TanStack Query).
 - *(giả định)* F09 bổ sung mục điều hướng vào khung ứng dụng của F02.
+- *(giả định)* Thẻ của phiên đang tạm dừng thu hình hiện "Đang tạm dừng thu hình" thay cho "Đang theo dõi"/"Cần kiểm tra" và không hiện trạng thái cơ thể cũ; cảnh báo đang chờ vẫn hiện "Cảnh báo mới" (ghi chú F21; F04 R19–R22; PRD US07).
+- *(giả định)* `OverviewSessionOut` có thêm `paused_at` (null = không tạm dừng).
 
 ## 8. Câu hỏi mở
 
@@ -91,18 +93,74 @@ Dựng màn hình "Tổng quan" (PDF §9.1) dạng nhiều thẻ giường, đ�
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+> Lập 18/11/2026. Prototype đã có sẵn phần lớn màn hình (làm cùng F21/F37); F09 kiểm lại từng AC với code + test và chỉ lấp chỗ thiếu.
 
-1. …
+**Đã có (bằng chứng trong code hiện tại)**
+
+| Yêu cầu | Đã có | Bằng chứng |
+|---|---|---|
+| R1 endpoint | `GET /api/v1/overview` (`server/src/postcare/api/v1/monitoring.py`, `domain/overview.py`), chỉ giường `is_active`, sắp theo `code`, `area` là tên khu vực (F37), `camera {id,name,status}`, `current_shift`; router `require_staff` | `test_overview_alert_counts_and_max_priority` (test_timeline_handover.py); `test_family_role_default_deny.py` (FAMILY 403); `test_auth.py` (401) |
+| R2 ca hiện tại | `domain/shifts.py::current_shift(now, shifts)` nhận thời điểm, xử lý ca qua đêm, bỏ ca đã xóa (F37) | `test_current_shift` tham số hóa (06:00, 13:59, 14:00, 21:59, 23:30, 05:59; danh sách rỗng → `None`); `test_current_shift_ignores_deleted` |
+| R3 header | `OverviewPage.tsx::shiftLabel` | `header shows current shift` |
+| R4 thẻ | `BedCard.tsx`: "Giường {code}", mã bệnh nhân, nhãn camera (`vi.cameraStatus`, `vi.camera.notAssigned`), trạng thái A12 (`bedCardStatus.ts`, F21) | `bedCardStatus.test.ts`; `renders a card per bed with A12 status…` |
+| R5 bấm thẻ | `navigate('/beds/:id/live')`, `role=button`, Enter | **chưa có test** |
+| R6 polling | — | **thiếu**: `useOverview` không có `refetchInterval` (chỉ có invalidation WebSocket) |
+| R7 layout | `SimpleGrid cols={{base:1, xs:2, lg:3}}` (≥576px: 2 cột) | kiểm tra tay |
+| R8 text | `vi.ts` (`overview`, `bedCard`, `shift`, `cameraStatus`) | test kiểm tra không có mã nội bộ trong DOM |
+
+**Chỗ thiếu sẽ làm**
+
+1. API: thêm `paused_at` vào `OverviewSessionOut` để thẻ hiện "Đang tạm dừng thu hình" (ghi chú F21, F04 R19–R22) *(giả định: chỉ thêm trường, không đổi trường cũ)*. Test mới `server/tests/api/test_overview.py`:
+   - `test_overview_lists_active_beds_with_session_and_camera` (giường ngừng dùng không xuất hiện; giường không camera → `camera: null`; `camera.status` theo DB; sắp theo `code`; `area` là chuỗi);
+   - `test_overview_current_shift_shape` (`{id, name, start_time, end_time}`); `test_overview_no_shift_is_null` (ca đều đã xóa → `null`);
+   - `test_overview_session_paused_at` (tạm dừng → `paused_at` khác null; tiếp tục → null);
+   - `test_overview_requires_staff` (FAMILY 403, chưa đăng nhập 401, mọi vai trò nhân viên 200).
+   `make gen-api-types`.
+2. Web, test trước (`BedCard.test.tsx`, `OverviewPage.test.tsx`, `bedCardStatus.test.ts`):
+   - `BedCard shows session and camera labels`: "Đang theo dõi" + mã bệnh nhân; "Không theo dõi"; "Camera hoạt động" / "Mất kết nối camera" / "Chưa rõ trạng thái camera" / "Chưa gắn camera";
+   - không đủ dữ liệu quan sát → "Cần kiểm tra"; tạm dừng → "Đang tạm dừng thu hình", không hiện trạng thái cơ thể cũ;
+   - `clicking a bed card navigates to live view` (click và Enter);
+   - `header shows no shift` → "Ca trực: —"; `shows empty state when no beds`;
+   - `OverviewPage refetches within 5 s` (fake timers, đổi dữ liệu mock).
+3. Web, cài đặt: `OVERVIEW_POLL_MS = 5000` + `refetchInterval` trong `useOverview`; `bedCardStatus` thêm `paused` → `PAUSED` (sau `NEW_ALERT`: cảnh báo chờ vẫn ưu tiên) *(giả định)*; nhãn `vi.bedCard.PAUSED`; `vi.overview.noBeds`. Không thêm thư viện, không migration.
+4. Doc: `api-conventions.md` (dòng `/overview`: hình dạng + `paused_at`), spec §7/§10.
+5. `make check`, `scripts\dev.ps1 check`; chạy tay DB `postcare_f09`, seed, API cổng 8019, curl `/api/v1/overview` (nurse 200, family 403, tạm dừng → `paused_at`).
+
+Rủi ro: fake timers + TanStack Query dễ treo → dùng `vi.useFakeTimers({ shouldAdvanceTime: true })`.
 
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
 
+**Bằng chứng theo AC (18/11/2026)**
+
+| AC | Bằng chứng |
+|---|---|
+| AC1 | `server/tests/api/test_overview.py::test_overview_lists_active_beds_with_session_and_camera` (giường ngừng dùng bị loại, giường không camera → `camera: null`, sắp theo mã, `camera.status`), `test_overview_requires_staff` (4 vai trò nhân viên 200, FAMILY 403, chưa đăng nhập 401); web `BedCard.test.tsx` (`shows session and camera labels`, "Không theo dõi", "Mất kết nối camera", "Chưa rõ trạng thái camera", "Chưa gắn camera", "Cần kiểm tra" khi không đủ dữ liệu quan sát, "Cảnh báo mới", tạm dừng thu hình, không có mã nội bộ); `OverviewPage renders a card per bed…`, `shows empty state when no beds` |
+| AC2 | `test_current_shift` (tham số hóa, test_timeline_handover.py), `test_current_shift_ignores_deleted`, `test_overview_current_shift_shape`, `test_overview_no_shift_is_null`; web `header shows current shift`, `header shows no shift` |
+| AC3 | `clicking a bed card navigates to live view`, `Enter on a focused bed card navigates to live view` |
+| AC4 | `OverviewPage refetches within 5 s` (fake timers, `OVERVIEW_POLL_MS = 5000` trong `useOverview`); layout `SimpleGrid cols={{ base: 1, xs: 2, lg: 3 }}`: từ 576px trở lên 2 cột, từ 1200px 3 cột, nên ở 768px có 2 thẻ/hàng và ở 1366px có 3 thẻ/hàng. **Chưa xem tận mắt trên trình duyệt** ở 768px/1366px |
+
+**Chạy tay** (DB `postcare_f09`, `alembic upgrade head`, `postcare seed --reset --no-history`, uvicorn cổng 8019, curl + script urllib): chưa đăng nhập → 401; nurse/charge/doctor/admin → 200; lúc 04:08 giờ VN `current_shift = Ca đêm 22:00–06:00`; 3 thẻ A01–A03, `area = "Khu hậu phẫu"`, camera `UNKNOWN` (chưa chạy worker), `session: null`; mở phiên A02/BN-004 → 201, tạm dừng → 200 và `session.paused_at` khác null; tiếp tục → `paused_at: null`; kết thúc → 200.
+
+**Thay đổi so với code có sẵn**
+- API: `OverviewSessionOut.paused_at` (bắt buộc, có thể null); đã `make gen-api-types`.
+- Web: `useOverview` polling 5 giây; trạng thái thẻ `PAUSED` ("Đang tạm dừng thu hình", sau "Cảnh báo mới"), ẩn trạng thái cơ thể/chất lượng khi tạm dừng; thông báo "Chưa có giường nào đang dùng".
+- Nhãn camera `UNKNOWN` là "Chưa rõ trạng thái camera" (R4 đã sửa theo nhãn này sau review).
+- Tiêu đề màn hình là "Tổng quan theo dõi" (theo HS Hình 3), mục điều hướng vẫn là "Tổng quan".
+- Ba trạng thái A12 đã có từ F21 (`bedCardStatus.ts`); F09 chỉ thêm test hiển thị.
+
+**Review (18/11/2026): Đạt**, kèm sửa nhỏ đã làm:
+1. Thẻ coi camera `OFFLINE` là "Cần kiểm tra" ngay ở web (`bedCardStatus` nhận `cameraOffline`), phòng khi trạng thái trong RAM chưa kịp chuyển sang `NO_OBSERVATION`; "Cảnh báo mới" và "Đang tạm dừng thu hình" vẫn ưu tiên hơn. Test: `camera offline gives Cần kiểm tra even with a stale state`, `pending alert still wins over camera offline` (bedCardStatus.test.ts), `camera offline shows Cần kiểm tra, never Đang theo dõi` (BedCard.test.tsx).
+2. Test server `test_overview_camera_online_to_offline_sets_no_observation`: heartbeat `ONLINE` rồi `mark_offline_cameras` → `/overview` có `camera.status = OFFLINE` và `state.body_state = NO_OBSERVATION` (ghim hành vi F06, không đổi code server).
+3. R4 ghi đúng nhãn "Chưa rõ trạng thái camera".
+
+Đã merge `main` (F06, F25) vào nhánh, không xung đột. `make check` xanh sau merge.
+
 ## 11. Definition of Done
 
-- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
-- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
-- [ ] Doc liên quan đã cập nhật cùng PR.
-- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [x] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [x] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [x] Doc liên quan đã cập nhật cùng PR.
+- [x] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).

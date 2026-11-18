@@ -5312,13 +5312,26 @@
             "type": "string",
             "format": "date-time",
             "title": "Started At"
+          },
+          "paused_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused At"
           }
         },
         "type": "object",
         "required": [
           "id",
           "patient_code",
-          "started_at"
+          "started_at",
+          "paused_at"
         ],
         "title": "OverviewSessionOut"
       },

@@ -1,23 +1,31 @@
 // Ánh xạ trạng thái thẻ giường theo A12 (qa-decisions.md), hàm thuần để test riêng (F21 R2).
 import type { BodyState } from '../../api/types';
 
-export type BedCardStatus = 'NOT_MONITORED' | 'NEW_ALERT' | 'NEEDS_CHECK' | 'MONITORING';
+export type BedCardStatus = 'NOT_MONITORED' | 'NEW_ALERT' | 'PAUSED' | 'NEEDS_CHECK' | 'MONITORING';
 
 export type BedCardInput = {
   hasSession: boolean;
+  /** Phiên đang tạm dừng thu hình (F04 R19; ghi chú F21). */
+  paused: boolean;
   pendingCount: number;
   acknowledgedCount: number;
   /** null = chưa nhận trạng thái nào từ worker. */
   bodyState: BodyState | null;
+  /** Camera mất kết nối (F06). */
+  cameraOffline: boolean;
 };
 
 export function bedCardStatus(input: BedCardInput): BedCardStatus {
   // Giường không có phiên mở: không áp dụng A12 (giả định F21).
   if (!input.hasSession) return 'NOT_MONITORED';
   if (input.pendingCount > 0) return 'NEW_ALERT';
+  // Tạm dừng thu hình: hệ thống không quan sát, không hiện như đang theo dõi (F09 giả định; PRD US07).
+  if (input.paused) return 'PAUSED';
   // Chưa nhận trạng thái được coi như không đủ dữ liệu quan sát (giả định, PRD US07):
-  // không có dữ liệu không có nghĩa là an toàn.
+  // không có dữ liệu không có nghĩa là an toàn. Camera mất kết nối cũng vậy, kể cả khi
+  // trạng thái trong bộ nhớ chưa kịp chuyển sang NO_OBSERVATION (F09 review, phòng thủ thêm).
   if (
+    input.cameraOffline ||
     input.acknowledgedCount > 0 ||
     input.bodyState === 'NO_OBSERVATION' ||
     input.bodyState === null
@@ -30,6 +38,7 @@ export function bedCardStatus(input: BedCardInput): BedCardStatus {
 export const CARD_COLOR: Record<BedCardStatus, string> = {
   NOT_MONITORED: 'gray',
   NEW_ALERT: 'red',
+  PAUSED: 'gray',
   NEEDS_CHECK: 'yellow',
   MONITORING: 'teal',
 };
