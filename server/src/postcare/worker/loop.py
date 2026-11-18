@@ -525,16 +525,21 @@ class Worker:
         cfg = self.config
         assert cfg is not None
         # Render trong worker trước khi gửi (F28 R4): API/MJPEG chỉ chuyển tiếp JPEG này.
-        image = self.renderer.render(
-            frame.image,
-            self._persons,
-            ts_ms=frame.ts_ms,
-            mode=cfg.display_mode,
-            roi=self._roi(cfg),
-        )
-        jpeg = encode_jpeg(
-            image, max_side=self.options.jpeg_max_side, quality=self.options.jpeg_quality
-        )
+        try:
+            image = self.renderer.render(
+                frame.image,
+                self._persons,
+                ts_ms=frame.ts_ms,
+                mode=cfg.display_mode,
+                roi=self._roi(cfg),
+            )
+            jpeg = encode_jpeg(
+                image, max_side=self.options.jpeg_max_side, quality=self.options.jpeg_quality
+            )
+        except Exception as exc:
+            # Render/nén lỗi: bỏ khung này, không bao giờ gửi ảnh gốc thay thế; engine chạy tiếp.
+            logger.warning("Không render được khung (%s): bỏ khung, không gửi", exc)
+            return
         try:
             self.api.post_frame(jpeg)
         except WorkerUnauthorizedError as exc:
