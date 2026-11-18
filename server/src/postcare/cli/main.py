@@ -18,6 +18,7 @@ from postcare.db.session import make_engine, make_session_factory
 from postcare.db.types import utcnow
 from postcare.domain.seed import SEED_USERS, seed_base, seed_demo, seed_history
 from postcare.eval.matching import DEFAULT_TOL_AFTER_S, DEFAULT_TOL_BEFORE_S
+from postcare.schemas.enums import DisplayMode
 from postcare.settings import REPO_ROOT, get_settings
 
 # Console Windows (cp1252) không in được tiếng Việt: ép UTF-8 cho stdout/stderr.
@@ -446,6 +447,13 @@ def replay(
         bool,
         typer.Option("--preview", help="Ghi preview.mp4: skeleton, ROI, trạng thái (chỉ --video)"),
     ] = False,
+    display_mode: Annotated[
+        DisplayMode | None,
+        typer.Option(
+            "--display-mode",
+            help="Chế độ hiển thị của preview.mp4: RAW | BLUR | SKELETON (mặc định BLUR; F28)",
+        ),
+    ] = None,
     engine_config: Annotated[
         Path, typer.Option(help="Ngưỡng mặc định của engine")
     ] = DEFAULT_ENGINE_CONFIG,
@@ -498,6 +506,8 @@ def replay(
     else:
         if preview:
             _fail("--preview cần --video (observations không có khung hình).", 2)
+        if display_mode is not None:
+            _fail("--display-mode chỉ dùng với --video --preview.", 2)
         if save_expected and save_observations is None:
             _fail("--save-expected cần --save-observations.", 2)
         if out is None and save_observations is None:
@@ -520,7 +530,17 @@ def replay(
         if video is not None:
             assert out is not None
             summary = _replay_video(
-                video, camera, config, out, overwrite, preview, model, models_dir, max_fps, meta
+                video,
+                camera,
+                config,
+                out,
+                overwrite,
+                preview,
+                model,
+                models_dir,
+                max_fps,
+                meta,
+                display_mode or DisplayMode.BLUR,
             )
         else:
             assert from_observations is not None
@@ -558,6 +578,7 @@ def _replay_video(
     models_dir: Path | None,
     max_fps: float,
     meta: dict[str, Any],
+    display_mode: DisplayMode,
 ) -> Any:
     from postcare.replay.runner import replay_video, video_duration_s
     from postcare.vision.camera import FileSource, SourceOpenError
@@ -595,6 +616,7 @@ def _replay_video(
             preview=preview,
             meta=meta,
             face=face,
+            display_mode=display_mode,
         )
     except SourceOpenError as exc:
         _fail(f"Không mở được video: {exc}")
