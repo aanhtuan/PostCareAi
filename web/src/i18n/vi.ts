@@ -445,7 +445,7 @@ export const vi = {
     back: 'Về Quản lý giường',
     roi: {
       title: 'Vùng giường',
-      hint: 'Click lên khung hình để thêm điểm. Kéo điểm để sửa vị trí.',
+      hint: 'Click lên khung hình để thêm điểm. Kéo điểm để sửa vị trí; chọn điểm rồi dùng phím mũi tên để chỉnh mịn.',
       point: 'Điểm {n}',
       points: 'Số điểm: {n}',
       deletePoint: 'Xóa điểm',
@@ -474,6 +474,10 @@ export const vi = {
       resetDone: 'Đã khôi phục ngưỡng mặc định',
       default: 'Mặc định: {value}',
       required: 'Cần nhập số không âm',
+      min: 'Không được nhỏ hơn {value} (giới hạn an toàn)',
+      max: 'Không được lớn hơn {value} (giới hạn an toàn)',
+      mustBeAbove: 'Phải lớn hơn "{other}"',
+      mustBeAtLeast: 'Không được nhỏ hơn "{other}"',
       groups: {
         duration: 'Thời gian duy trì (giây)',
         quality: 'Chất lượng quan sát',

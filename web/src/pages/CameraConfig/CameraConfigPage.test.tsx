@@ -51,6 +51,7 @@ function setup(role: UserRole) {
       defaults: DEFAULTS,
       overrides: {},
       effective: DEFAULTS,
+      rules: { allowed: ['posture.*'], limits: {}, relations: [] },
       config_version: 2,
     },
     '/api/v1/cameras/1/roi': { camera_id: 1, roi_polygon: ROI, config_version: 3 },

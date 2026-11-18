@@ -20,6 +20,15 @@ type Props = {
 
 const t = vi.cameraConfig.roi;
 const HANDLE_PX = 14;
+// Phím mũi tên dịch điểm đang chọn 0,5% khung (Shift: 2%) để chỉnh mịn.
+const KEY_STEP = 0.005;
+const KEY_STEP_FAST = 0.02;
+const ARROWS: Record<string, [number, number]> = {
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+};
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const round4 = (v: number) => Math.round(v * 10000) / 10000;
@@ -177,6 +186,23 @@ export function RoiEditor({
               e.stopPropagation();
               suppressClick.current = false;
               setSelected(i);
+            }}
+            onKeyDown={(e) => {
+              const delta = ARROWS[e.key];
+              if (!delta) return;
+              e.preventDefault();
+              const step = e.shiftKey ? KEY_STEP_FAST : KEY_STEP;
+              setSelected(i);
+              setPoints((prev) =>
+                prev.map((q, j) =>
+                  j === i
+                    ? [
+                        round4(clamp01(q[0] + delta[0] * step)),
+                        round4(clamp01(q[1] + delta[1] * step)),
+                      ]
+                    : q,
+                ),
+              );
             }}
             style={{
               position: 'absolute',

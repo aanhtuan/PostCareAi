@@ -1208,7 +1208,7 @@ export interface components {
         };
         /**
          * CameraThresholdsOut
-         * @description Ngưỡng mặc định, override của camera và giá trị đang áp dụng (mặc định + override).
+         * @description Ngưỡng mặc định, override của camera, giá trị đang áp dụng và quy tắc override.
          */
         CameraThresholdsOut: {
             /** Defaults */
@@ -1225,6 +1225,7 @@ export interface components {
             };
             /** Config Version */
             config_version: number;
+            rules: components["schemas"]["ThresholdRules"];
         };
         /**
          * CameraUpdate
@@ -1742,6 +1743,44 @@ export interface components {
             start_time?: string | null;
             /** End Time */
             end_time?: string | null;
+        };
+        /** ThresholdLimit */
+        ThresholdLimit: {
+            /** Min */
+            min?: number | null;
+            /** Max */
+            max?: number | null;
+        };
+        /**
+         * ThresholdRelation
+         * @description `low` ≤ `high` (strict: `low` < `high`) trên giá trị đang áp dụng.
+         */
+        ThresholdRelation: {
+            /** Low */
+            low: string;
+            /** High */
+            high: string;
+            /**
+             * Strict
+             * @default false
+             */
+            strict: boolean;
+        };
+        /**
+         * ThresholdRules
+         * @description Quy tắc override theo camera (`config/camera_overrides.yaml`; F08 R4, AGENTS.md quy tắc 6).
+         *
+         *     `allowed`, khóa của `limits`: đường dẫn `a.b` hoặc mẫu `a.*` (fnmatch).
+         */
+        ThresholdRules: {
+            /** Allowed */
+            allowed: string[];
+            /** Limits */
+            limits?: {
+                [key: string]: components["schemas"]["ThresholdLimit"];
+            };
+            /** Relations */
+            relations?: components["schemas"]["ThresholdRelation"][];
         };
         /** TimelineAlertRef */
         TimelineAlertRef: {

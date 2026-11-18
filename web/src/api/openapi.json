@@ -4859,6 +4859,9 @@
           "config_version": {
             "type": "integer",
             "title": "Config Version"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/ThresholdRules"
           }
         },
         "type": "object",
@@ -4866,10 +4869,11 @@
           "defaults",
           "overrides",
           "effective",
-          "config_version"
+          "config_version",
+          "rules"
         ],
         "title": "CameraThresholdsOut",
-        "description": "Ngưỡng mặc định, override của camera và giá trị đang áp dụng (mặc định + override)."
+        "description": "Ngưỡng mặc định, override của camera, giá trị đang áp dụng và quy tắc override."
       },
       "CameraUpdate": {
         "properties": {
@@ -6364,6 +6368,92 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ShiftUpdate"
+      },
+      "ThresholdLimit": {
+        "properties": {
+          "min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ThresholdLimit"
+      },
+      "ThresholdRelation": {
+        "properties": {
+          "low": {
+            "type": "string",
+            "title": "Low"
+          },
+          "high": {
+            "type": "string",
+            "title": "High"
+          },
+          "strict": {
+            "type": "boolean",
+            "title": "Strict",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "low",
+          "high"
+        ],
+        "title": "ThresholdRelation",
+        "description": "`low` ≤ `high` (strict: `low` < `high`) trên giá trị đang áp dụng."
+      },
+      "ThresholdRules": {
+        "properties": {
+          "allowed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed"
+          },
+          "limits": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ThresholdLimit"
+            },
+            "type": "object",
+            "title": "Limits"
+          },
+          "relations": {
+            "items": {
+              "$ref": "#/components/schemas/ThresholdRelation"
+            },
+            "type": "array",
+            "title": "Relations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "allowed"
+        ],
+        "title": "ThresholdRules",
+        "description": "Quy tắc override theo camera (`config/camera_overrides.yaml`; F08 R4, AGENTS.md quy tắc 6).\n\n`allowed`, khóa của `limits`: đường dẫn `a.b` hoặc mẫu `a.*` (fnmatch)."
       },
       "TimelineAlertRef": {
         "properties": {
