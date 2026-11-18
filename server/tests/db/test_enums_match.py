@@ -12,6 +12,7 @@ from postcare.schemas.enums import (
     DisplayMode,
     ObservationQuality,
     Priority,
+    ShareLevel,
     UserRole,
 )
 from postcare.schemas.events import EventCode
@@ -30,6 +31,8 @@ PROTOTYPE_ENUMS: dict[str, type[StrEnum]] = {
     "alert_status": AlertStatus,
     "alert_outcome": AlertOutcome,
 }
+# Quyền xem của người nhà (F36, migration 0007_f36).
+FAMILY_ENUMS: dict[str, type[StrEnum]] = {"share_level": ShareLevel}
 
 
 def _db_enums(engine: Engine) -> dict[str, list[str]]:
@@ -46,7 +49,7 @@ def _db_enums(engine: Engine) -> dict[str, list[str]]:
 
 def test_enums_match_schemas(test_engine: Engine) -> None:
     db = _db_enums(test_engine)
-    expected = FOUNDATION_ENUMS | PROTOTYPE_ENUMS
+    expected = FOUNDATION_ENUMS | PROTOTYPE_ENUMS | FAMILY_ENUMS
     assert set(db) == set(expected), f"enum DB: {sorted(db)}"
     for name, cls in expected.items():
         assert db[name] == [m.value for m in cls], name
