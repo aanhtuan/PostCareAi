@@ -3,6 +3,7 @@
 // Mở/kết thúc phiên (F04) vẫn dành cho vai trò được ghi. Khu vực, ca trực: F37.
 import { Badge, Button, Group, Stack, Switch, Table, Text, Title } from '@mantine/core';
 import { useState } from 'react';
+import { Link } from 'react-router';
 
 import { useBeds, useCameras, usePatients } from '../../api/hooks';
 import { CATALOG_ADMIN_ROLES, type BedOut, type CameraOut, type PatientOut } from '../../api/types';
@@ -239,14 +240,26 @@ export function ManagementPage() {
                   </Table.Td>
                   {isAdmin && (
                     <Table.Td>
-                      <RowActions
-                        active={c.is_active}
-                        onEdit={() => setForm({ kind: 'camera', item: c })}
-                        onDelete={() =>
-                          setToDelete({ resource: 'cameras', id: c.id, name: c.name })
-                        }
-                        onRestore={() => restore('cameras', c.id, c.name)}
-                      />
+                      <Group gap="xs" wrap="nowrap">
+                        {c.is_active && (
+                          <Button
+                            size="xs"
+                            variant="light"
+                            component={Link}
+                            to={`/cameras/${c.id}/config`}
+                          >
+                            {vi.cameraConfig.open}
+                          </Button>
+                        )}
+                        <RowActions
+                          active={c.is_active}
+                          onEdit={() => setForm({ kind: 'camera', item: c })}
+                          onDelete={() =>
+                            setToDelete({ resource: 'cameras', id: c.id, name: c.name })
+                          }
+                          onRestore={() => restore('cameras', c.id, c.name)}
+                        />
+                      </Group>
                     </Table.Td>
                   )}
                 </Table.Tr>

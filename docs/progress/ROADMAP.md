@@ -75,7 +75,7 @@ F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được tr�
 | F05 | Nguồn video (Camera Service) | M0 | Done |
 | F06 | Kết nối worker với backend | M0 | Done |
 | F07 | Theo dõi trực tiếp cơ bản | M0 | Done |
-| F08 | Cấu hình camera và Bed ROI | M0 | Todo |
+| F08 | Cấu hình camera và Bed ROI | M0 | Done |
 | F09 | Dashboard khung (Tổng quan) | M0 | Done |
 | F10 | Schema quan sát chung và khung Event Engine | M1 | Done |
 | F11 | Pose adapter MediaPipe | M1 | Done |

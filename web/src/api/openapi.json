@@ -1586,6 +1586,168 @@
         }
       }
     },
+    "/api/v1/cameras/{camera_id}/roi": {
+      "put": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Update Roi",
+        "description": "Lưu Bed ROI (toạ độ chuẩn hóa 0–1). Sai → 400 `INVALID_ROI_POLYGON`, `details.reason`.",
+        "operationId": "update_roi_api_v1_cameras__camera_id__roi_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "camera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Camera Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CameraRoiIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CameraRoiOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cameras/{camera_id}/thresholds": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Get Thresholds",
+        "description": "Ngưỡng mặc định, override của camera và giá trị đang áp dụng.",
+        "operationId": "get_thresholds_api_v1_cameras__camera_id__thresholds_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "camera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Camera Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CameraThresholdsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Update Thresholds",
+        "description": "Thay toàn bộ override; `{}` = khôi phục mặc định. Sai → 400 kèm đường dẫn khóa.",
+        "operationId": "update_thresholds_api_v1_cameras__camera_id__thresholds_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "camera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Camera Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CameraThresholdsIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CameraThresholdsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sessions": {
       "get": {
         "tags": [
@@ -4535,6 +4697,51 @@
         ],
         "title": "CameraRef"
       },
+      "CameraRoiIn": {
+        "properties": {
+          "roi_polygon": {
+            "items": {},
+            "type": "array",
+            "title": "Roi Polygon"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "roi_polygon"
+        ],
+        "title": "CameraRoiIn",
+        "description": "`PUT /cameras/{id}/roi` (F08 R1). Điểm kiểm tra bằng `validate_roi_polygon` (lỗi 400\n`INVALID_ROI_POLYGON`), nên ở đây chỉ cần là danh sách."
+      },
+      "CameraRoiOut": {
+        "properties": {
+          "camera_id": {
+            "type": "integer",
+            "title": "Camera Id"
+          },
+          "roi_polygon": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Roi Polygon"
+          },
+          "config_version": {
+            "type": "integer",
+            "title": "Config Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "camera_id",
+          "roi_polygon",
+          "config_version"
+        ],
+        "title": "CameraRoiOut"
+      },
       "CameraRuntimeOut": {
         "properties": {
           "fps": {
@@ -4615,6 +4822,58 @@
           "UNKNOWN"
         ],
         "title": "CameraStatus"
+      },
+      "CameraThresholdsIn": {
+        "properties": {
+          "thresholds": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Thresholds"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "thresholds"
+        ],
+        "title": "CameraThresholdsIn",
+        "description": "`PUT /cameras/{id}/thresholds` (F08 R4): thay toàn bộ override; `{}` = khôi phục mặc định.\n\nLồng nhau như `config/engine.default.yaml`, ví dụ `{\"posture\": {\"lying_enter_deg\": 20}}`."
+      },
+      "CameraThresholdsOut": {
+        "properties": {
+          "defaults": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Defaults"
+          },
+          "overrides": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Overrides"
+          },
+          "effective": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Effective"
+          },
+          "config_version": {
+            "type": "integer",
+            "title": "Config Version"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/ThresholdRules"
+          }
+        },
+        "type": "object",
+        "required": [
+          "defaults",
+          "overrides",
+          "effective",
+          "config_version",
+          "rules"
+        ],
+        "title": "CameraThresholdsOut",
+        "description": "Ngưỡng mặc định, override của camera, giá trị đang áp dụng và quy tắc override."
       },
       "CameraUpdate": {
         "properties": {
@@ -6109,6 +6368,92 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ShiftUpdate"
+      },
+      "ThresholdLimit": {
+        "properties": {
+          "min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ThresholdLimit"
+      },
+      "ThresholdRelation": {
+        "properties": {
+          "low": {
+            "type": "string",
+            "title": "Low"
+          },
+          "high": {
+            "type": "string",
+            "title": "High"
+          },
+          "strict": {
+            "type": "boolean",
+            "title": "Strict",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "low",
+          "high"
+        ],
+        "title": "ThresholdRelation",
+        "description": "`low` ≤ `high` (strict: `low` < `high`) trên giá trị đang áp dụng."
+      },
+      "ThresholdRules": {
+        "properties": {
+          "allowed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed"
+          },
+          "limits": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ThresholdLimit"
+            },
+            "type": "object",
+            "title": "Limits"
+          },
+          "relations": {
+            "items": {
+              "$ref": "#/components/schemas/ThresholdRelation"
+            },
+            "type": "array",
+            "title": "Relations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "allowed"
+        ],
+        "title": "ThresholdRules",
+        "description": "Quy tắc override theo camera (`config/camera_overrides.yaml`; F08 R4, AGENTS.md quy tắc 6).\n\n`allowed`, khóa của `limits`: đường dẫn `a.b` hoặc mẫu `a.*` (fnmatch)."
       },
       "TimelineAlertRef": {
         "properties": {
