@@ -1,6 +1,6 @@
 import { notifications } from '@mantine/notifications';
 import { useQueryClient } from '@tanstack/react-query';
-import { createContext, useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import type { AlertCreatedOut } from '../api/types';
 import { useAuth } from '../auth/useAuth';
@@ -8,10 +8,10 @@ import { fmt, vi } from '../i18n/vi';
 import { formatTime } from '../utils/time';
 import { applyMessage, invalidateAll } from './invalidation';
 import { playAlertSound } from './sound';
+import { RealtimeContext } from './status';
 import { RealtimeClient, type WsStatus } from './wsClient';
 
-// eslint-disable-next-line react-refresh/only-export-components
-export const RealtimeContext = createContext<WsStatus>('connecting');
+export { RealtimeContext } from './status';
 
 function notifyAlert(data: AlertCreatedOut): void {
   const { alert } = data;

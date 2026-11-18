@@ -12,6 +12,12 @@ export function invalidateAll(qc: QueryClient): void {
   }
 }
 
+// F21 (đang làm): gộp invalidate.
+export const INVALIDATE_COALESCE_MS = 200;
+export function flushInvalidations(qc: QueryClient): void {
+  void qc;
+}
+
 export function applyMessage(qc: QueryClient, msg: WsMessage): void {
   switch (msg.type) {
     case 'bed.state': {
