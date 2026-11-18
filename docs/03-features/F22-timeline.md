@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F22 |
-| Trạng thái | In progress |
+| Trạng thái | In review |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -77,10 +77,10 @@ Feature này làm API timeline gồm cả sự kiện lẫn thao tác cảnh bá
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** API timeline của phiên trả cả sự kiện và thao tác cảnh báo (tiếp nhận, ghi kết quả, xử lý), sắp theo thời gian tăng dần *(PDF §9.3 (tr.12); HS §6.2; ADR-0007)*. — *Kiểm chứng:* `server/tests/api/test_timeline.py` (`test_session_timeline_merges_events_and_alert_actions_sorted`, `test_outcome_rewrite_shows_two_actions`, `test_alert_create_not_listed`).
-- [ ] **AC2.** Hiển thị dạng "14:38:12 - Bệnh nhân ngồi dậy" theo giờ Asia/Ho_Chi_Minh; không hiện mã nội bộ *(PDF §9.3 (tr.12))*. — *Kiểm chứng:* `web/src/pages/Timeline/TimelinePage.test.tsx` (`formats line as HH:mm:ss - text in Asia/Ho_Chi_Minh`, `does not render internal codes`).
-- [ ] **AC3.** Lọc theo giường, phiên, khoảng thời gian, mức ưu tiên *(PDF §9.1 (tr.11); HS Hình 3)*. — *Kiểm chứng:* `test_timeline.py` (`test_bed_timeline_filters_by_time_range`, `test_filter_by_priority_keeps_related_actions`, `test_bed_timeline_includes_camera_events_without_session`); `TimelinePage.test.tsx::sends filter params`.
-- [ ] **AC4.** Xem người tiếp nhận và ghi kết quả kiểm tra ngay từ timeline; DOCTOR chỉ xem *(HS Hình 3; QA#18)*. — *Kiểm chứng:* `TimelinePage.test.tsx` (`shows acknowledger name`, `records outcome from timeline row`, `doctor sees no action buttons`).
+- [x] **AC1.** API timeline của phiên trả cả sự kiện và thao tác cảnh báo (tiếp nhận, ghi kết quả, xử lý), sắp theo thời gian tăng dần *(PDF §9.3 (tr.12); HS §6.2; ADR-0007)*. — *Kiểm chứng:* `server/tests/api/test_timeline.py` (`test_session_timeline_merges_events_and_alert_actions_sorted`, `test_outcome_rewrite_shows_two_actions`, `test_alert_create_not_listed`).
+- [x] **AC2.** Hiển thị dạng "14:38:12 - Bệnh nhân ngồi dậy" theo giờ Asia/Ho_Chi_Minh; không hiện mã nội bộ *(PDF §9.3 (tr.12))*. — *Kiểm chứng:* `web/src/pages/Timeline/TimelinePage.test.tsx` (`formats line as HH:mm:ss - text in Asia/Ho_Chi_Minh`, `does not render internal codes`).
+- [x] **AC3.** Lọc theo giường, phiên, khoảng thời gian, mức ưu tiên *(PDF §9.1 (tr.11); HS Hình 3)*. — *Kiểm chứng:* `test_timeline.py` (`test_bed_timeline_filters_by_time_range`, `test_filter_by_priority_keeps_related_actions`, `test_bed_timeline_includes_camera_events_without_session`); `TimelinePage.test.tsx::sends filter params`.
+- [x] **AC4.** Xem người tiếp nhận và ghi kết quả kiểm tra ngay từ timeline; DOCTOR chỉ xem *(HS Hình 3; QA#18)*. — *Kiểm chứng:* `TimelinePage.test.tsx` (`shows acknowledger name`, `records outcome from timeline row`, `doctor sees no action buttons`).
 
 ## 6. Kế hoạch test
 
@@ -100,6 +100,9 @@ Feature này làm API timeline gồm cả sự kiện lẫn thao tác cảnh bá
 - *(giả định)* Lọc mức ưu tiên giữ cả thao tác của cảnh báo liên quan (R4).
 - *(giả định)* Tên người thực hiện nằm trong ngoặc; có tiêu đề ngày khi khoảng qua nhiều ngày (R8).
 - *(giả định)* Timeline tự làm mới khi có `event.created`/`alert.updated` (R10).
+- *(giả định, 18/11)* `GET /sessions/{id}/timeline?chain=true` gộp chuỗi phiên chuyển giường; mặc định `chain=false` (một phiên) để F36 dùng đúng phiên được cấp. UI "Lịch sử theo dõi" luôn gửi `chain=true` khi xem theo phiên.
+- *(giả định, 18/11)* Mục `kind = "session_action"` cho `session.transfer`/`pause`/`resume` (không đưa `session.start`/`end`); mục chuyển giường hiện ở cả giường cũ và giường mới; lọc mức ưu tiên luôn giữ mục thao tác phiên (không có mức).
+- *(giả định, 18/11)* Khoảng thời gian theo giường là `[from, to)`. Tải tiếp bằng nút "Xem thêm" (`offset`) khi `total` lớn hơn số mục đã tải.
 
 ## 8. Câu hỏi mở
 
@@ -131,6 +134,25 @@ Feature này làm API timeline gồm cả sự kiện lẫn thao tác cảnh bá
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+**2026-11-18 – triển khai (nhánh `feat/F22-timeline`), trạng thái In review.**
+
+| AC | Bằng chứng |
+|---|---|
+| AC1 | `server/tests/api/test_timeline.py`: `test_session_timeline_merges_events_and_alert_actions_sorted` (actor, `event_code`, `alert` tóm tắt), `test_outcome_rewrite_shows_two_actions`, `test_alert_create_not_listed`, `test_other_session_not_listed`, `test_same_time_ties_are_deterministic` (trùng giờ: sự kiện trước, theo id, phân trang ổn định), `test_pagination`; `tests/test_timeline_handover.py::test_session_timeline_order` |
+| AC2 | `web/src/pages/Timeline/TimelinePage.test.tsx`: `formats line as HH:mm:ss - text in Asia/Ho_Chi_Minh`, `does not render internal codes`, `shows session actions: pause, resume, transfer` |
+| AC3 | `test_bed_timeline_filters_by_time_range` (biên `from` gồm, `to` loại, giường khác, `from >= to` → 400, thiếu `bed_id` → 422), `test_bed_timeline_defaults_to_last_24h`, `test_filter_by_priority_keeps_related_actions`, `test_bed_timeline_includes_camera_events_without_session`, `test_session_timeline_chain_after_transfer`, `test_pause_resume_and_transfer_entries`; web `sends filter params`, `loads more when total exceeds loaded items` |
+| AC4 | web `shows acknowledger name and empty outcome text`, `records outcome from timeline row`, `doctor sees no action buttons`; server `test_doctor_can_read_timeline` |
+| R6 | `test_family_forbidden_timeline`, `test_unknown_session_404`; `tests/api/test_family_role_default_deny.py` |
+| R7 | Liên kết "Lịch sử theo dõi" trên "Theo dõi trực tiếp" (mở từ thẻ giường): `LiveViewPage links to the bed timeline (F22 R7)`; từ "Xem chi tiết" cảnh báo: `AlertDetailModal` (F20) |
+
+Kiểm tra (2026-11-18): `make check` exit 0 (server 1269 passed, web 204 passed, build OK).
+
+Thay đổi: `domain/timeline.py` (nhánh `UNION ALL` thứ ba cho audit phiên, `chain`), `TimelineItemOut` (`kind = session_action`, `event_id`/`code`/`priority` nullable, thêm `session_id`, `event_code`, `from_bed_code`), `make gen-api-types`; web `useTimeline` dùng `useInfiniteQuery`; `vi.timeline.transfer|pause|resume|reason|loadMore`; `api-conventions.md`. Sửa `test_session_transfer.py::test_transfer_keeps_old_events_on_old_session`: timeline phiên mới giờ có mục chuyển giường.
+
+Điều người sau cần biết:
+- F36: dùng `tl.session_timeline(..., chain=False)` và lọc thêm (bỏ tên nhân viên, `note`); mục tạm dừng/tiếp tục đã có ở timeline nhân viên.
+- Không có migration.
 
 ## 11. Definition of Done
 
