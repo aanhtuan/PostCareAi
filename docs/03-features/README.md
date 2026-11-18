@@ -29,7 +29,7 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F19](F19-alert-lifecycle.md) | Vòng đời cảnh báo và audit | M2 | MVP | B | F17, F02 | PDF §5, §9.2; HS §4.2; QA#16 | Done |
 | [F20](F20-alerts-screen.md) | Màn hình Cảnh báo | M2 | MVP | C | F18, F19 | PDF §9.1–9.2; HS §4.3 | Done |
 | [F21](F21-overview-realtime.md) | Dashboard Tổng quan realtime | M2 | MVP | B+C | F09, F18 | PDF §9.1; HS §4.3 Hình 3 | Done |
-| [F22](F22-timeline.md) | Timeline / Lịch sử theo dõi | M2 | MVP | B+C | F19 | PDF §9.1, §9.3; HS §4.3, §6.2 | Todo |
+| [F22](F22-timeline.md) | Timeline / Lịch sử theo dõi | M2 | MVP | B+C | F19 | PDF §9.1, §9.3; HS §4.3, §6.2 | Done |
 | [F23](F23-activity-abnormal-movement.md) | Mức vận động và chuyển động bất thường | M2 | MVP | A | F15 | PDF §7.3; HS §5.1–5.2 | Done |
 | [F24](F24-shift-handover.md) | Bàn giao ca | M2 | MVP | B+C | F19, F22 | PDF §9.1; HS §2.2 | Todo |
 | [F25](F25-face-adapter-quality.md) | Face adapter và cổng chất lượng khuôn mặt | M3 | MVP | A | F11, F13 | PDF §6.2, §17; HS §4.1, §5.3 | Done |
