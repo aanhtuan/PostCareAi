@@ -6,10 +6,11 @@ Báo cáo dùng nội bộ nhóm (không phải UI), nên giữ mã sự kiện 
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from postcare.eval.delivery import DeliveryStats
 from postcare.eval.manifest import ManifestRow, TruthRow
 from postcare.eval.matching import MatchResult, Prediction
 from postcare.eval.metrics import CodeStats, code_stats, false_alerts_per_hour
@@ -166,7 +167,17 @@ def _fp_rows(report: EvalReport) -> list[tuple[Prediction, VideoResult]]:
     return [(p, v) for v in report.videos for p in v.match.fp]
 
 
-def render_markdown(report: EvalReport) -> str:
+def render_markdown(
+    report: EvalReport,
+    *,
+    title: str | None = None,
+    intro: str | None = None,
+    head_sections: Sequence[str] = (),
+    extra_sections: Sequence[str] = (),
+    extra_limits: Sequence[str] = (),
+) -> str:
+    """Báo cáo F16. F29 thêm mục bằng `head_sections` (sau tiêu đề), `extra_sections` (sau
+    "Tổng hợp") và `extra_limits`."""
     g, perf, fa_h = _summary(report)
     stats = code_stats(v.match for v in report.videos)
     ignored = sum(len(v.match.ignored) for v in report.videos)
@@ -174,11 +185,13 @@ def render_markdown(report: EvalReport) -> str:
     participants = {v.row.participant_id for v in report.videos if v.row.participant_id}
     hashes = ", ".join(f"`{h}`" for h in report.config_hashes) or "—"
     out: list[str] = [
-        f"# Báo cáo đánh giá — split {report.split} — {report.created}",
+        title or f"# Báo cáo đánh giá — split {report.split} — {report.created}",
         "",
-        "Sinh bởi `postcare eval` (F16). Kết quả trên tập phát triển, dùng để hiệu chỉnh ngưỡng; "
-        "không phải kết quả đánh giá chính thức (F29).",
+        intro
+        or "Sinh bởi `postcare eval` (F16). Kết quả trên tập phát triển, dùng để hiệu chỉnh "
+        "ngưỡng; không phải kết quả đánh giá chính thức (F29).",
         "",
+        *head_sections,
         "## Thông tin chung",
         "",
         f"- Ngày: {report.created}",
@@ -216,6 +229,7 @@ def render_markdown(report: EvalReport) -> str:
         f"- CPU tiến trình (trung bình): {_fmt(perf.cpu_percent, 1)} %",
         f"- RAM đỉnh: {_fmt(perf.ram_peak_mb, 1)} MB",
         "",
+        *extra_sections,
         "## Theo nguồn dữ liệu và code",
         "",
         *_source_code_table(sources),
@@ -264,8 +278,12 @@ def render_markdown(report: EvalReport) -> str:
         "",
         "- Tình huống mô phỏng hoặc dữ liệu ngoài; không phải bệnh nhân thật (HS §7.2).",
         f"- Số người tham gia khác nhau (`participant_id`): {len(participants)}.",
-        "- Kết quả trên tập dev chỉ để hiệu chỉnh ngưỡng; không dùng làm con số cuối (HS §8.2).",
     ]
+    if report.split == "dev":
+        out.append(
+            "- Kết quả trên tập dev chỉ để hiệu chỉnh ngưỡng; không dùng làm con số cuối (HS §8.2)."
+        )
+    out += list(extra_limits)
     if external:
         out += [
             f"- Có dữ liệu ngoài ({', '.join(external)}): kết quả tách theo nguồn và nguồn nhãn "
@@ -371,3 +389,123 @@ def report_json(report: EvalReport) -> dict[str, Any]:
         "failures": [{"video_id": vid, "error": msg} for vid, msg in report.failures],
         "notes": report.notes,
     }
+
+
+# F29: báo cáo đánh giá chính thức ------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FinalExtras:
+    """Phần F29 thêm vào báo cáo F16 (R8): cấu hình đã chốt, delivery latency, workflow."""
+
+    frozen_hash: str
+    frozen_file: str
+    delivery: DeliveryStats | None = None
+    delivery_source: str | None = None
+    workflow: Mapping[str, Any] | None = None
+    workflow_source: str | None = None
+    notes: tuple[str, ...] = ()
+
+
+def _sec(x: Any, digits: int = 1) -> str:
+    return _fmt(float(x), digits) if isinstance(x, int | float) else "—"
+
+
+def _rate(x: Any) -> str:
+    return _pct(float(x)) if isinstance(x, int | float) else "—"
+
+
+def _final_head(extras: FinalExtras) -> list[str]:
+    return [
+        "## Chốt cấu hình",
+        "",
+        f"- config_hash đã chốt: `{extras.frozen_hash}` (`{extras.frozen_file}`)",
+        "- Mọi video chạy với đúng hash này; lệnh từ chối nếu cấu hình hoặc `runs/` lệch (F29 R2).",
+        "- Không đặt trước con số accuracy; số dưới đây là kết quả đo (PDF §13).",
+        "",
+    ]
+
+
+def _delivery_lines(extras: FinalExtras) -> list[str]:
+    d = extras.delivery
+    if d is None:
+        return ["- Delivery latency: chưa đo (không có file `--delivery`)."]
+    src = f" (`{extras.delivery_source}`)" if extras.delivery_source else ""
+    if d.samples == 0:
+        return [f"- Delivery latency: 0 mẫu{src}; không tính trung vị/p90."]
+    return [
+        f"- Delivery latency (WS nhận − `events.created_at`, cùng máy với API): {d.samples} mẫu, "
+        f"trung vị {_fmt(d.median_ms, 1)} ms, p90 {_fmt(d.p90_ms, 1)} ms, "
+        f"lớn nhất {_fmt(d.max_ms, 1)} ms{src}.",
+        "- Chưa gồm độ trễ Wi-Fi tới thiết bị khác (F29 R4).",
+    ]
+
+
+def _latency_section(report: EvalReport, extras: FinalExtras) -> list[str]:
+    stats = code_stats(v.match for v in report.videos)
+    lines = [
+        "## Độ trễ",
+        "",
+        "Hai loại độ trễ khác nhau, ghi riêng (QA#37):",
+        "",
+        "- Detection latency (`detected_at − start_s` của TP, đã gồm `min_duration`; "
+        "trên video, không gồm đường truyền):",
+    ]
+    with_tp = [s for s in stats if s.tp > 0]
+    lines += [
+        f"  - {s.code.value}: {s.tp} TP, trung vị {_fmt(s.latency_median_s)} s, "
+        f"p90 {_fmt(s.latency_p90_s)} s"
+        for s in with_tp
+    ] or ["  - Không có TP nào."]
+    lines += _delivery_lines(extras)
+    return [*lines, ""]
+
+
+def _workflow_section(extras: FinalExtras) -> list[str]:
+    w = extras.workflow
+    if w is None:
+        return ["## Workflow", "", "- Workflow: chưa đo (không có file `--workflow`).", ""]
+    src = f" (`{extras.workflow_source}`)" if extras.workflow_source else ""
+    return [
+        "## Workflow",
+        "",
+        f"- Khoảng: {w.get('from', '—')} → {w.get('to', '—')}{src}; {w.get('alerts', 0)} cảnh báo.",
+        f"- Chờ → Tiếp nhận: trung vị {_sec(w.get('ack_wait_median_s'))} s, "
+        f"p90 {_sec(w.get('ack_wait_p90_s'))} s ({w.get('ack_samples', 0)} cảnh báo đã tiếp nhận).",
+        f"- Tiếp nhận → Đã xử lý: trung vị {_sec(w.get('resolve_median_s'))} s, "
+        f"p90 {_sec(w.get('resolve_p90_s'))} s ({w.get('resolve_samples', 0)} cảnh báo đã xử lý).",
+        f"- Tỷ lệ cảnh báo đã xử lý có ghi kết quả: {_rate(w.get('outcome_rate'))} "
+        f"({w.get('resolved_with_outcome', 0)}/{w.get('resolved', 0)}).",
+        '- Tỷ lệ "Cảnh báo sai" (FALSE_ALARM / có ghi kết quả): '
+        f"{_rate(w.get('false_alarm_rate'))} "
+        f"({w.get('false_alarm', 0)}/{w.get('with_outcome', 0)}).",
+        f"- Cuối khoảng còn Chờ: {w.get('pending_at_end', 0)}; còn Đã tiếp nhận: "
+        f"{w.get('acknowledged_at_end', 0)}.",
+        "",
+    ]
+
+
+def render_final_markdown(report: EvalReport, extras: FinalExtras) -> str:
+    return render_markdown(
+        report,
+        title=f"# Báo cáo đánh giá chính thức — split {report.split} — {report.created}",
+        intro="Sinh bởi `postcare eval --split test --frozen` (F29): đánh giá chính thức trên "
+        "tập test, chạy một lần với cấu hình đã chốt (HS §8.2; evaluation.md §6).",
+        head_sections=_final_head(extras),
+        extra_sections=[*_latency_section(report, extras), *_workflow_section(extras)],
+        extra_limits=[f"- {n}" for n in extras.notes],
+    )
+
+
+def final_report_json(report: EvalReport, extras: FinalExtras) -> dict[str, Any]:
+    data = report_json(report)
+    data.update(
+        frozen_config_hash=extras.frozen_hash,
+        frozen_file=extras.frozen_file,
+        delivery=None if extras.delivery is None else extras.delivery.to_dict(),
+        delivery_source=extras.delivery_source,
+        workflow=None if extras.workflow is None else dict(extras.workflow),
+        workflow_source=extras.workflow_source,
+        limits=list(extras.notes),
+    )
+    return data

@@ -92,6 +92,14 @@ def resolve_camera_config(row: ManifestRow, cameras_dir: Path, default: Path) ->
     return default
 
 
+def config_hash_for(
+    row: ManifestRow, cameras_dir: Path, default_camera: Path, engine_config: Path
+) -> str:
+    """config_hash của cấu hình hợp nhất sẽ dùng khi replay video này (F29 R1, R2)."""
+    camera = load_camera_config(resolve_camera_config(row, cameras_dir, default_camera))
+    return camera.engine_config(engine_config).config_hash()
+
+
 def load_run(row: ManifestRow, out_dir: Path, *, reused: bool = False) -> VideoRun:
     run = json.loads((out_dir / "run.json").read_text(encoding="utf-8"))
     events = _read_jsonl(out_dir / "events.jsonl", EventRecord)

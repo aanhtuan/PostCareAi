@@ -1,4 +1,5 @@
-"""Lệnh CLI `postcare`: version, seed, simulate, worker, probe, replay, models, openapi."""
+"""Lệnh CLI `postcare`: version, seed, simulate, worker, probe, replay, eval, measure-delivery,
+workflow-report, models, openapi."""
 
 import json
 import os
@@ -696,7 +697,7 @@ def _replay_observations(
 
 
 eval_app = typer.Typer(
-    help="Đánh giá trên tập phát triển (F16): replay từng video của manifest, tính metric.",
+    help="Đánh giá (F16 tập dev; F29 tập test với --frozen): replay từng video, tính metric.",
     invoke_without_command=True,
 )
 app.add_typer(eval_app, name="eval")
@@ -748,10 +749,106 @@ def eval_check(
     typer.echo(f"Hợp lệ: {len(result.manifest)} video ({counts}), {len(result.truth)} dòng truth.")
 
 
+DEFAULT_FROZEN_FILE = REPO_ROOT / "reports" / "frozen-config.txt"
+
+
+def _split_rows(split: str, manifest: Path | None, truth: Path | None) -> tuple[Any, Path, Path]:
+    from postcare.eval.manifest import validate_files
+
+    data_dir = _default_data_dir()
+    m = manifest or data_dir / "eval" / "manifest.csv"
+    t = truth or data_dir / "eval" / "truth.csv"
+    result = validate_files(m, t)
+    _print_validation(result)
+    if not result.ok:
+        _fail(f"{len(result.errors)} lỗi trong manifest/truth; sửa trước khi chạy eval.")
+    return result, m, t
+
+
+def _hashes_by_video(
+    rows: Any, cameras_dir: Path, default_camera: Path, engine_config: Path
+) -> dict[str, str]:
+    """config_hash của cấu hình hợp nhất (mặc định + override camera) cho từng video (F29 R1)."""
+    from postcare.eval.runner import config_hash_for
+    from postcare.replay.camera_config import CameraConfigError
+    from postcare.schemas.engine_config import EngineConfigError
+
+    try:
+        return {
+            r.video_id: config_hash_for(r, cameras_dir, default_camera, engine_config) for r in rows
+        }
+    except (CameraConfigError, EngineConfigError, OSError) as exc:
+        _fail(f"Không đọc được cấu hình: {exc}")
+
+
+@eval_app.command("freeze")
+def eval_freeze(
+    split: Annotated[str, typer.Option(help="Split cần chốt cấu hình (mặc định test)")] = "test",
+    manifest: Annotated[Path | None, typer.Option(help="Mặc định <data>/eval/manifest.csv")] = None,
+    truth: Annotated[Path | None, typer.Option(help="Mặc định <data>/eval/truth.csv")] = None,
+    camera_config: Annotated[
+        Path, typer.Option(help="Cấu hình camera khi video không có cấu hình riêng")
+    ] = DEFAULT_CAMERAS_DIR / "example.yaml",
+    cameras_dir: Annotated[
+        Path, typer.Option(help="Thư mục config/cameras/<tên video>.yaml")
+    ] = DEFAULT_CAMERAS_DIR,
+    engine_config: Annotated[
+        Path, typer.Option(help="Ngưỡng mặc định của engine")
+    ] = DEFAULT_ENGINE_CONFIG,
+    out: Annotated[Path, typer.Option(help="File chốt (commit)")] = DEFAULT_FROZEN_FILE,
+) -> None:
+    """Chốt config_hash trước khi chạy tập test: ghi reports/frozen-config.txt (F29 R1)."""
+    from datetime import date
+
+    from postcare.eval.frozen import FrozenConfigError, single_hash, write_frozen
+    from postcare.replay.runner import code_version
+
+    result, m, _ = _split_rows(split, manifest, truth)
+    rows = result.rows(split)
+    if not rows:
+        _fail(f"Split {split} không có video nào.")
+    hashes = _hashes_by_video(rows, cameras_dir, camera_config, engine_config)
+    try:
+        frozen = single_hash(hashes)
+    except FrozenConfigError as exc:
+        _fail(str(exc))
+    cams = sorted({_rel(p) for p in _camera_paths(rows, cameras_dir, camera_config)})
+    write_frozen(
+        out,
+        frozen,
+        {
+            "date": date.today().isoformat(),
+            "commit": code_version()["commit"],
+            "engine_config": _rel(engine_config),
+            "camera_config": ", ".join(cams),
+            "split": split,
+            "videos": str(len(rows)),
+            "manifest": str(m),
+        },
+    )
+    typer.echo(f"Đã chốt config_hash {frozen} ({len(rows)} video {split}) → {out}")
+    typer.echo("Commit file này trước khi chạy `postcare eval --split test --frozen <hash>`.")
+
+
+def _rel(p: Path) -> str:
+    try:
+        return p.resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return str(p)
+
+
+def _camera_paths(rows: Any, cameras_dir: Path, default: Path) -> list[Path]:
+    from postcare.eval.runner import resolve_camera_config
+
+    return [resolve_camera_config(r, cameras_dir, default) for r in rows]
+
+
 @eval_app.callback()
 def eval_command(
     ctx: typer.Context,
-    split: Annotated[str, typer.Option(help="Chỉ hỗ trợ dev (tập test: F29 với --frozen)")] = "dev",
+    split: Annotated[
+        str, typer.Option(help="dev, hoặc test (chỉ với --frozen <config_hash>, F29)")
+    ] = "dev",
     manifest: Annotated[Path | None, typer.Option(help="Mặc định <data>/eval/manifest.csv")] = None,
     truth: Annotated[Path | None, typer.Option(help="Mặc định <data>/eval/truth.csv")] = None,
     tol_before_s: Annotated[
@@ -772,11 +869,19 @@ def eval_command(
     ] = False,
     report: Annotated[
         Path | None,
-        typer.Option(help="File báo cáo, mặc định reports/eval-<split>-<ngày>.local.md (+ .json)"),
+        typer.Option(
+            "--report",
+            "--out",
+            help="File báo cáo, mặc định reports/eval-<split>-<ngày>.local.md (dev) hoặc "
+            "reports/final-eval.local.md (test), kèm .json",
+        ),
     ] = None,
     camera_config: Annotated[
         Path, typer.Option(help="Cấu hình camera khi video không có cấu hình riêng")
     ] = DEFAULT_CAMERAS_DIR / "example.yaml",
+    cameras_dir: Annotated[
+        Path, typer.Option(help="Thư mục config/cameras/<tên video>.yaml")
+    ] = DEFAULT_CAMERAS_DIR,
     engine_config: Annotated[
         Path, typer.Option(help="Ngưỡng mặc định của engine")
     ] = DEFAULT_ENGINE_CONFIG,
@@ -791,38 +896,60 @@ def eval_command(
         list[str] | None, typer.Option(help="Chỉ chạy video này (lặp lại được)")
     ] = None,
     limit: Annotated[int | None, typer.Option(help="Chỉ chạy N video đầu (sau lọc)")] = None,
+    frozen: Annotated[
+        str | None, typer.Option(help="Tập test: config_hash đã chốt (F29 R2)")
+    ] = None,
+    frozen_file: Annotated[
+        Path, typer.Option(help="File chốt (F29 R1); chưa có thì ghi khi chạy")
+    ] = DEFAULT_FROZEN_FILE,
+    delivery: Annotated[
+        list[Path] | None, typer.Option(help="Tập test: delivery.jsonl của measure-delivery")
+    ] = None,
+    workflow: Annotated[
+        Path | None, typer.Option(help="Tập test: workflow.json của workflow-report")
+    ] = None,
+    note: Annotated[
+        list[str] | None, typer.Option(help="Tập test: thêm một dòng vào mục Giới hạn")
+    ] = None,
 ) -> None:
-    """Chạy `postcare eval --split dev`: replay từng video, ghép với truth, ghi báo cáo (F16).
+    """Chạy `postcare eval`: replay từng video, ghép với truth, ghi báo cáo (F16).
 
-    Lệnh con `postcare eval check` chỉ kiểm tra manifest/truth.
+    `--split test --frozen <hash>`: đánh giá chính thức (F29), từ chối khi cấu hình lệch.
+    Lệnh con: `postcare eval check` (kiểm manifest/truth), `postcare eval freeze` (chốt hash).
     """
     if ctx.invoked_subcommand is not None:
         return
     from datetime import date
 
-    from postcare.eval.manifest import validate_files
-    from postcare.eval.report import EvalReport, render_markdown, report_json
+    from postcare.eval.frozen import (
+        FrozenConfigError,
+        check_config,
+        check_frozen_file,
+        check_runs,
+    )
+    from postcare.eval.report import (
+        EvalReport,
+        render_markdown,
+        report_json,
+    )
     from postcare.eval.runner import VideoRun, run_split, score_runs
     from postcare.replay.runner import code_version
     from postcare.replay.writers import write_json
 
-    if split == "test":
+    if split not in ("dev", "test"):
+        _fail(f"--split '{split}' không hợp lệ; chỉ hỗ trợ dev hoặc test.", 2)
+    if split == "test" and not frozen:
         _fail(
-            "postcare eval (F16) chỉ chạy --split dev. Tập test chỉ đánh giá một lần sau khi chốt "
-            "cấu hình: dùng lệnh của F29 với --frozen <config_hash> (HS §8.2).",
+            "Tập test chỉ đánh giá một lần sau khi chốt cấu hình (F29, HS §8.2): chạy "
+            "`postcare eval freeze`, commit reports/frozen-config.txt, rồi "
+            "`postcare eval --split test --frozen <config_hash>`.",
             2,
         )
-    if split != "dev":
-        _fail(f"--split '{split}' không hợp lệ; chỉ hỗ trợ dev.", 2)
+    if split == "dev" and (frozen or delivery or workflow or note):
+        _fail("--frozen, --delivery, --workflow, --note chỉ dùng với --split test (F29).", 2)
     if tol_before_s < 0 or tol_after_s < 0 or max_fps < 0:
         _fail("--tol-before-s, --tol-after-s, --max-fps phải ≥ 0.", 2)
-    data_dir = _default_data_dir()
-    m = manifest or data_dir / "eval" / "manifest.csv"
-    t = truth or data_dir / "eval" / "truth.csv"
-    result = validate_files(m, t)
-    _print_validation(result)
-    if not result.ok:
-        _fail(f"{len(result.errors)} lỗi trong manifest/truth; sửa trước khi chạy eval.")
+    result, m, _ = _split_rows(split, manifest, truth)
     rows = result.rows(split)
     if video_id:
         wanted = set(video_id)
@@ -838,6 +965,14 @@ def eval_command(
     runs = runs_dir or REPO_ROOT / "runs" / f"eval-{split}"
     if from_observations is not None and from_observations.resolve() == runs.resolve():
         _fail("--from-observations phải khác --runs-dir (không ghi đè observation nguồn).", 2)
+    frozen_recorded = False
+    if frozen:
+        try:
+            check_config(frozen, _hashes_by_video(rows, cameras_dir, camera_config, engine_config))
+            frozen_recorded = check_frozen_file(frozen, frozen_file)
+            check_runs(frozen, runs, (r.video_id for r in rows))
+        except FrozenConfigError as exc:
+            _fail(f"Từ chối chạy tập test: {exc}", 2)
     adapter_factory = None
     model_info: dict[str, Any] | None = None
     if from_observations is None:
@@ -846,6 +981,8 @@ def eval_command(
         mode = f"observations (chỉ engine, từ {from_observations})"
     else:
         mode = f"video (pose {model_info['variant']}, {model_info['file']}, max-fps {max_fps:g})"
+    if frozen and not frozen_recorded:
+        _write_frozen_now(frozen, frozen_file, engine_config, rows, cameras_dir, camera_config, m)
 
     typer.echo(f"Eval split {split}: {len(rows)} video → {runs}")
     results = run_split(
@@ -853,8 +990,8 @@ def eval_command(
         runs_dir=runs,
         engine_config=engine_config,
         default_camera_config=camera_config,
-        cameras_dir=DEFAULT_CAMERAS_DIR,
-        data_dir=data_dir,
+        cameras_dir=cameras_dir,
+        data_dir=_default_data_dir(),
         adapter_factory=adapter_factory,
         from_observations=from_observations,
         reuse=reuse,
@@ -866,6 +1003,11 @@ def eval_command(
         results, result.truth_by_video(), tol_before_s=tol_before_s, tol_after_s=tol_after_s
     )
     hashes = list(dict.fromkeys(r.run["config_hash"] for r in results if isinstance(r, VideoRun)))
+    if frozen:
+        try:  # sau khi chạy: mọi sự kiện phải mang đúng hash đã chốt
+            check_runs(frozen, runs, (r.row.video_id for r in results if isinstance(r, VideoRun)))
+        except FrozenConfigError as exc:
+            _fail(f"Kết quả không khớp cấu hình đã chốt: {exc}")
     notes: list[str] = []
     if video_id or limit is not None:
         total = len(result.rows(split))
@@ -885,19 +1027,181 @@ def eval_command(
         manifest=str(m),
         notes=notes,
     )
-    out = report or REPO_ROOT / "reports" / f"eval-{split}-{today}.local.md"
+    default_name = "final-eval.local.md" if split == "test" else f"eval-{split}-{today}.local.md"
+    out = report or REPO_ROOT / "reports" / default_name
     if not out.stem.endswith(".local"):
         # Chỉ reports/*.local.md, *.local.json bị gitignore: thêm `.local` để không commit nhầm.
         fixed = out.with_name(f"{out.stem}.local{out.suffix or '.md'}")
         typer.echo(f"Cảnh báo: --report {out.name} không có '.local'; ghi vào {fixed.name}.")
         out = fixed
     out.parent.mkdir(parents=True, exist_ok=True)
+    if frozen:
+        md, data = _final_report(ev, frozen, frozen_file, delivery, workflow, note)
+    else:
+        md, data = render_markdown(ev), report_json(ev)
     with out.open("w", encoding="utf-8", newline="\n") as f:
-        f.write(render_markdown(ev))
-    write_json(out.with_suffix(".json"), report_json(ev))
+        f.write(md)
+    write_json(out.with_suffix(".json"), data)
     typer.echo(f"Báo cáo: {out} (+ {out.with_suffix('.json').name})")
     if failures:
         _fail(f"{len(failures)} video lỗi (xem mục 'Video lỗi' trong báo cáo).")
+
+
+def _write_frozen_now(
+    frozen: str,
+    frozen_file: Path,
+    engine_config: Path,
+    rows: Any,
+    cameras_dir: Path,
+    camera_config: Path,
+    manifest: Path,
+) -> None:
+    from datetime import date
+
+    from postcare.eval.frozen import write_frozen
+    from postcare.replay.runner import code_version
+
+    cams = sorted({_rel(p) for p in _camera_paths(rows, cameras_dir, camera_config)})
+    write_frozen(
+        frozen_file,
+        frozen,
+        {
+            "date": date.today().isoformat(),
+            "commit": code_version()["commit"],
+            "engine_config": _rel(engine_config),
+            "camera_config": ", ".join(cams),
+            "split": "test",
+            "videos": str(len(rows)),
+            "manifest": str(manifest),
+        },
+    )
+    typer.echo(
+        f"Cảnh báo: {frozen_file} chưa có; đã ghi config_hash {frozen}. Hãy commit file này."
+    )
+
+
+def _final_report(
+    ev: Any,
+    frozen: str,
+    frozen_file: Path,
+    delivery: list[Path] | None,
+    workflow: Path | None,
+    note: list[str] | None,
+) -> tuple[str, dict[str, Any]]:
+    from postcare.eval.delivery import summarize
+    from postcare.eval.report import FinalExtras, final_report_json, render_final_markdown
+
+    try:
+        stats = summarize(delivery) if delivery else None
+        wf = json.loads(workflow.read_text(encoding="utf-8")) if workflow else None
+    except (OSError, ValueError, KeyError) as exc:
+        _fail(f"Không đọc được --delivery/--workflow: {exc}")
+    extras = FinalExtras(
+        frozen_hash=frozen,
+        frozen_file=_rel(frozen_file),
+        delivery=stats,
+        delivery_source=", ".join(_rel(p) for p in delivery) if delivery else None,
+        workflow=wf,
+        workflow_source=_rel(workflow) if workflow else None,
+        notes=tuple(note or ()),
+    )
+    return render_final_markdown(ev, extras), final_report_json(ev, extras)
+
+
+@app.command("measure-delivery")
+def measure_delivery(
+    duration: Annotated[float, typer.Option(help="Số giây lắng nghe WebSocket")],
+    out: Annotated[Path, typer.Option(help="File mẫu, ví dụ runs/<id>/delivery.jsonl")],
+    api: Annotated[str | None, typer.Option(help="Địa chỉ API, mặc định API_BASE_URL")] = None,
+    username: Annotated[str, typer.Option(help="Tài khoản nhân viên để lấy token")] = "nurse",
+    password: Annotated[
+        str | None,
+        typer.Option(
+            envvar="POSTCARE_MEASURE_PASSWORD",
+            help="Mật khẩu (mặc định SEED_PASSWORD của môi trường dev)",
+            show_default=False,
+        ),
+    ] = None,
+) -> None:
+    """Đo delivery latency: ghi mỗi `event.created` nhận qua WS (F29 R3, R4).
+
+    Chạy trên cùng máy với API; luồng sự kiện lấy từ worker hoặc `postcare simulate`.
+    """
+    import asyncio
+
+    from postcare.eval.delivery import (
+        delivery_stats,
+        login_token,
+        record_delivery,
+        write_sample,
+        ws_url,
+    )
+
+    if duration <= 0:
+        _fail("--duration phải > 0.", 2)
+    settings = get_settings()
+    base = api or settings.api_base_url
+    try:
+        token = login_token(base, username, password or settings.seed_password)
+    except httpx.HTTPError as exc:
+        _fail(f"Không đăng nhập được API {base} ({exc}).")
+    if out.exists():
+        _fail(f"{out} đã có; chọn file khác (không trộn hai lần đo).", 2)
+    typer.echo(f"Đo delivery latency {duration:g} s qua {base} …")
+
+    def on_sample(s: Any) -> None:
+        write_sample(out, s)
+        typer.echo(f"  #{s.event_id} {s.code}: {s.latency_ms:.1f} ms")
+
+    try:
+        samples = asyncio.run(record_delivery(ws_url(base, token), duration, on_sample=on_sample))
+    except KeyboardInterrupt:
+        typer.echo("Đã dừng.")
+        samples = []
+    except OSError as exc:
+        _fail(f"Lỗi kết nối WebSocket: {exc}")
+    stats = delivery_stats(samples)
+    if stats.samples == 0:
+        typer.echo("0 mẫu: không nhận được event.created nào.")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.touch()
+        return
+    typer.echo(
+        f"{stats.samples} mẫu: trung vị {stats.median_ms:.1f} ms, p90 {stats.p90_ms:.1f} ms → {out}"
+    )
+
+
+def _parse_iso(value: str, name: str) -> Any:
+    from datetime import UTC, datetime
+
+    try:
+        dt = datetime.fromisoformat(value)
+    except ValueError:
+        _fail(f"{name} không phải thời điểm ISO 8601: {value}", 2)
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
+@app.command("workflow-report")
+def workflow_report(
+    from_: Annotated[
+        str, typer.Option("--from", help="Thời điểm bắt đầu ISO (thiếu múi giờ: UTC)")
+    ],
+    to: Annotated[str, typer.Option("--to", help="Thời điểm kết thúc ISO (không gồm)")],
+    out: Annotated[Path, typer.Option(help="File kết quả, ví dụ runs/<id>/workflow.json")],
+) -> None:
+    """Chỉ số workflow từ bảng alerts trong [from, to) (F29 R5, R6)."""
+    from postcare.domain.workflow_metrics import workflow_metrics
+    from postcare.replay.writers import write_json
+
+    start, end = _parse_iso(from_, "--from"), _parse_iso(to, "--to")
+    if end <= start:
+        _fail("--to phải sau --from.", 2)
+    factory = make_session_factory(make_engine(get_settings().database_url))
+    with factory() as db:
+        data = workflow_metrics(db, start, end).to_dict()
+    write_json(out, data)
+    typer.echo(json.dumps(data, ensure_ascii=False, indent=2))
+    typer.echo(f"→ {out}")
 
 
 def _pose_adapter_factory(model: str | None, models_dir: Path | None) -> tuple[Any, dict[str, Any]]:
