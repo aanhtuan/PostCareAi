@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F08 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | Done <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 3 phiên |
@@ -44,6 +44,11 @@ Cho quản trị viên vẽ vùng giường (Bed ROI) dạng polygon bằng các
   - `thresholds = {}` nghĩa là "Khôi phục mặc định" *(giả định cách biểu diễn)*;
   - override chỉ chấp nhận khóa có trong `config/engine.default.yaml` và giá trị cùng kiểu với giá trị mặc định; số phải ≥0; khóa lạ hoặc sai kiểu → 400 `VALIDATION_ERROR`, `details` chỉ rõ khóa *(giả định; QA#22)*;
   - khi F10 đã xong, kiểm tra bằng `EngineConfig` sau khi hợp nhất mặc định + override *(F10 AC2)*.
+  - **an toàn (review F08; AGENTS.md quy tắc 6):** quy tắc nằm ở `config/camera_overrides.yaml`, không viết cứng *(giả định giá trị)*:
+    - chỉ khóa trong `allowed` được override: `min_duration_s.*`, `pose.min_keypoint_visibility`, `quality.{low_quality_to_no_observation_s, restore_duration_s, observation_lost_event_s}`, `location.{edge_distance_torso, out_of_roi_margin_torso}`, `activity.{low_threshold, high_threshold}`, `posture.{lying_enter_deg, lying_exit_deg, sitting_enter_deg, sitting_exit_deg}`, `abnormal_movement.min_conditions`. Khóa khác (`privacy.*`, `face.*`, `pose.required_keypoints`, `pose.num_poses`, `debounce`, ngưỡng điều kiện của `abnormal_movement`…) → 400 "không được chỉnh theo camera";
+    - giới hạn an toàn trên giá trị đang áp dụng (`limits`): `min_duration_s.*` 0,3–30 s; `pose.min_keypoint_visibility` 0,3–0,95; thời gian `quality.*` có sàn > 0; `location.edge_distance_torso` ≥ 0,05; `abnormal_movement.min_conditions` 2–5 (điều kiện hạ thấp C1/C4 vẫn bắt buộc trong engine và ngưỡng của nó không override được);
+    - quan hệ (`relations`, theo `engine/posture.py`): `lying_enter_deg ≤ lying_exit_deg < sitting_exit_deg ≤ sitting_enter_deg`; `activity.low_threshold < activity.high_threshold`. Vi phạm → 400, `details.errors[].path` nêu cả hai khóa;
+    - `GET /thresholds` trả thêm `rules` để web kiểm tra giống backend (ThresholdsForm).
 - **R5.** Ngưỡng chính hiển thị trên form, chọn theo HS §5.5 ("thời gian duy trì, ngưỡng chất lượng, khoảng cách tới biên giường và mức thay đổi vận động") và ghi chú ở event-engine.md §6 ("ngưỡng posture được override theo từng camera"):
   - thời gian duy trì: các khóa `min_duration_s.*`;
   - chất lượng: `pose.min_keypoint_visibility`, `quality.low_quality_to_no_observation_s`;
@@ -80,11 +85,11 @@ Cho quản trị viên vẽ vùng giường (Bed ROI) dạng polygon bằng các
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** ADMIN click lên khung hình để vẽ polygon (≥3 điểm), kéo để sửa điểm, xóa điểm; polygon lưu với toạ độ chuẩn hóa 0–1. Vai trò khác không vào được màn hình và API trả 403. *(PDF §7.2; QA#15)* — *Kiểm chứng:* component test `RoiEditor adds point on click with normalized coords`, `RoiEditor drags and deletes points`, `RoiEditor disables save with fewer than 3 points`; API test `test_put_roi_saves_normalized_polygon`, `test_put_roi_requires_admin`.
-- [ ] **AC2.** Backend từ chối polygon tự cắt nhau (400 `INVALID_ROI_POLYGON`), cũng như polygon <3 điểm, toạ độ ngoài [0, 1] hoặc suy biến. *(data-model.md `cameras.roi_polygon`; api-conventions.md)* — *Kiểm chứng:* unit test `test_validate_roi_rejects_self_intersection` (hình "nơ"), `test_validate_roi_accepts_convex_and_concave`, `test_validate_roi_rejects_out_of_range`, `test_validate_roi_rejects_collinear`; API test `test_put_roi_self_intersecting_400`.
-- [ ] **AC3.** Sửa được các ngưỡng chính ở R5; "Khôi phục mặc định" xóa override và form hiện lại giá trị mặc định; khóa lạ hoặc sai kiểu → 400. Mỗi lần lưu tăng `config_version` và ghi audit. *(HS §5.5; QA#22)* — *Kiểm chứng:* API test `test_put_thresholds_override`, `test_reset_thresholds_with_empty_object`, `test_thresholds_unknown_key_400`, `test_thresholds_wrong_type_400`, `test_camera_config_changes_bump_version_and_audit`; component test `ThresholdsForm resets to defaults`.
-- [ ] **AC4.** Worker nhận ROI mới trong ≤5 giây sau khi lưu. *(A02)* — *Kiểm chứng:* test tích hợp `test_worker_receives_roi_within_5s` (đồng hồ giả lập, dùng worker của F06); kiểm tra tay: lưu ROI rồi xem log worker, ghi vào mục 10.
-- [ ] **AC5.** Màn hình hiện chỉ báo "Độ sáng trung bình" và "FPS" của camera; chưa có heartbeat thì hiện "Chưa có dữ liệu". *(PDF §9.1)* — *Kiểm chứng:* component test `ImageQualityIndicator shows brightness and fps`, `ImageQualityIndicator shows no data`.
+- [x] **AC1.** ADMIN click lên khung hình để vẽ polygon (≥3 điểm), kéo để sửa điểm, xóa điểm; polygon lưu với toạ độ chuẩn hóa 0–1. Vai trò khác không vào được màn hình và API trả 403. *(PDF §7.2; QA#15)* — *Kiểm chứng:* component test `RoiEditor adds point on click with normalized coords`, `RoiEditor drags and deletes points`, `RoiEditor disables save with fewer than 3 points`; API test `test_put_roi_saves_normalized_polygon`, `test_put_roi_requires_admin`.
+- [x] **AC2.** Backend từ chối polygon tự cắt nhau (400 `INVALID_ROI_POLYGON`), cũng như polygon <3 điểm, toạ độ ngoài [0, 1] hoặc suy biến. *(data-model.md `cameras.roi_polygon`; api-conventions.md)* — *Kiểm chứng:* unit test `test_validate_roi_rejects_self_intersection` (hình "nơ"), `test_validate_roi_accepts_convex_and_concave`, `test_validate_roi_rejects_out_of_range`, `test_validate_roi_rejects_collinear`; API test `test_put_roi_self_intersecting_400`.
+- [x] **AC3.** Sửa được các ngưỡng chính ở R5; "Khôi phục mặc định" xóa override và form hiện lại giá trị mặc định; khóa lạ hoặc sai kiểu → 400. Mỗi lần lưu tăng `config_version` và ghi audit. *(HS §5.5; QA#22)* — *Kiểm chứng:* API test `test_put_thresholds_override`, `test_reset_thresholds_with_empty_object`, `test_thresholds_unknown_key_400`, `test_thresholds_wrong_type_400`, `test_camera_config_changes_bump_version_and_audit`; component test `ThresholdsForm resets to defaults`.
+- [x] **AC4.** Worker nhận ROI mới trong ≤5 giây sau khi lưu. *(A02)* — *Kiểm chứng:* test tích hợp `test_worker_receives_roi_within_5s` (đồng hồ giả lập, dùng worker của F06); kiểm tra tay: lưu ROI rồi xem log worker, ghi vào mục 10.
+- [x] **AC5.** Màn hình hiện chỉ báo "Độ sáng trung bình" và "FPS" của camera; chưa có heartbeat thì hiện "Chưa có dữ liệu". *(PDF §9.1)* — *Kiểm chứng:* component test `ImageQualityIndicator shows brightness and fps`, `ImageQualityIndicator shows no data`.
 
 ## 6. Kế hoạch test
 
@@ -104,26 +109,67 @@ Cho quản trị viên vẽ vùng giường (Bed ROI) dạng polygon bằng các
 - *(giả định)* Trước khi có `EngineConfig` (F10), override được kiểm tra theo cấu trúc của `config/engine.default.yaml` (khóa có tồn tại, cùng kiểu, số ≥0).
 - *(giả định)* Danh sách ngưỡng chính ở R5.
 - *(giả định)* Camera offline vẫn sửa được polygon đã lưu.
+- *(giả định)* Lưu lại ROI/ngưỡng y hệt giá trị đang có → 200, không tăng `config_version`, không audit (như F03 R16).
+- *(giả định)* Sửa ROI/ngưỡng được cả khi phiên đang mở (khác đổi nguồn/giường ở F03 R14); worker tạo engine mới.
+- *(giả định)* `GET /thresholds` cũng chỉ ADMIN (chỉ màn hình cấu hình dùng).
 - *(giả định)* Chỉ báo chất lượng chỉ hiển thị số liệu, không kết luận "tốt/kém"; làm mới mỗi 2 giây.
 
 ## 8. Câu hỏi mở
 
-- F08 (nhánh B+C, M0) có thể xong trước F10 (nhánh A, M1), nên chưa có `EngineConfig` để kiểm tra override. Đề xuất ở R4: kiểm tra theo cấu trúc file YAML, chuyển sang `EngineConfig` khi F10 xong. Người dùng xác nhận cách này hoặc thêm F10 vào phụ thuộc của F08. **Không chặn.**
+- ~~F08 có thể xong trước F10, nên chưa có `EngineConfig` để kiểm tra override.~~ **Đã giải quyết:** F10 đã Done khi làm F08; override được validate bằng `EngineConfig` sau khi hợp nhất với mặc định (R4).
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+Khảo sát: `validate_roi_polygon` đã có (F12, `schemas/roi.py`); `EngineConfig.load(default, overrides)` đã có (F10) nên override được kiểm tra bằng `EngineConfig` (giải quyết câu hỏi mở mục 8); worker đã tải lại cấu hình khi `config_version` đổi và tạo engine mới theo `engine_key` (F06); `CameraStream`, `RoiOverlay`, `useCameraDetail` có từ F07; pattern ghi ADMIN + `_audit` + `_locked` ở `domain/catalog.py` (F03).
 
-1. …
+1. **Hình học** (`schemas/roi.py`): thêm `RoiPolygonError(ValueError)` có `reason` (mã máy: `TOO_FEW_POINTS`, `TOO_MANY_POINTS`, `INVALID_POINT`, `OUT_OF_RANGE`, `DUPLICATE_POINT`, `SELF_INTERSECTION`, `ZERO_AREA`), giới hạn 20 điểm, từ chối giá trị không phải số (kể cả bool). Không đổi hành vi với F12 (vẫn là `ValueError`, thông điệp cũ). Test: `server/tests/schemas/test_roi.py`.
+2. **Domain** `server/src/postcare/domain/camera_config.py`: `update_roi`, `get_thresholds`, `update_thresholds`. Khóa hàng camera, so sánh trước/sau; có thay đổi → `config_version += 1` + `record_audit` (`camera.update_roi`, `camera.update_thresholds`, `before`/`after`) trong cùng transaction; không đổi gì → 200, không tăng version, không audit *(giả định, như F03 R16)*. Ngưỡng: hợp nhất `config/engine.default.yaml` + override rồi `EngineConfig.from_mapping`; lỗi → 400 `VALIDATION_ERROR`, `details.errors[{path, msg}]` với `path` dạng `thresholds.posture.lying_enter_deg`.
+3. **API** `api/v1/cameras.py`: `PUT /cameras/{id}/roi` → `{camera_id, roi_polygon, config_version}`; `GET/PUT /cameras/{id}/thresholds` → `{defaults, overrides, effective, config_version}`. Cả ba chỉ ADMIN (`require_admin`; GET cũng chỉ ADMIN vì chỉ màn hình cấu hình dùng). DTO trong `domain/dto.py`. `make gen-api-types`.
+4. **Test API** `server/tests/api/test_camera_roi.py`, `test_camera_thresholds.py`: lưu ROI chuẩn hóa; 403 cho NURSE, CHARGE_NURSE, DOCTOR, FAMILY; 400 `INVALID_ROI_POLYGON` + `details.reason` cho tự cắt, <3, ngoài [0,1], thẳng hàng, >20 điểm, không phải số; 404 camera lạ; override, reset `{}`, khóa lạ / sai kiểu / số âm → 400 kèm đường dẫn khóa; lưu lỗi không tăng `config_version`; audit before/after.
+5. **Tích hợp** `server/tests/integration/test_worker_receives_roi.py`: worker thật (F06) ↔ API thật qua `TestClient`, đồng hồ giả; ADMIN lưu ROI → worker có ROI mới và engine mới ≤5 s; không lưu → giữ cấu hình.
+6. **Web**: `client.ts` thêm `PUT`; `utils/polygon.ts` (cùng bộ kiểm tra, cùng mã lý do); `pages/CameraConfig/{CameraConfigPage,RoiEditor,ThresholdsForm,ImageQualityIndicator,thresholdKeys}.tsx/ts`; route `/cameras/:id/config` bọc `RequireRole ADMIN`; nút "Cấu hình" ở bảng camera màn hình Quản lý (chỉ ADMIN); hook `useCameraThresholds`, `useSaveRoi`, `useSaveThresholds`. RoiEditor: nền là MJPEG (URL như `CameraStream`), lớp phủ nhận click/kéo, toạ độ = vị trí / kích thước khung đang hiển thị; offline → nền trống + "Mất kết nối camera", vẫn sửa được. Text trong `vi.ts`.
+7. **Test web**: `polygon.test.ts`, `RoiEditor.test.tsx`, `ThresholdsForm.test.tsx`, `ImageQualityIndicator.test.tsx`, `CameraConfigPage.test.tsx` (vai trò khác bị chuyển về Tổng quan).
+8. **Doc**: api-conventions.md (endpoint, body, lỗi, quyền), data-model.md (`roi_polygon` ≤20 điểm, audit action), spec mục 10.
+9. **Kiểm chứng**: `make check` một lần; thủ công DB `postcare_f08`, API cổng 8018, worker trên clip Pexels, lưu ROI qua API/UI, xem log worker tải lại và trạng thái giường đổi.
+
+Rủi ro: jsdom không có kích thước layout → test RoiEditor giả `getBoundingClientRect`. ROI sửa khi phiên đang mở là được phép (khác với đổi nguồn/giường, F03 R14) *(giả định: hiệu chỉnh ROI là việc khi lắp camera, không làm mất dữ liệu phiên)*.
 
 ## 10. Ghi chú bàn giao
 
-> Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+**2026-11-18 – builder (Claude Code), nhánh `feat/F08-camera-roi`.**
+
+Bằng chứng theo AC:
+- **AC1:** `RoiEditor.test.tsx` (`adds point on click with normalized coords`, `drags and deletes points`, `disables save with fewer than 3 points`, offline vẫn sửa được); `CameraConfigPage.test.tsx` (PUT đúng body; NURSE/CHARGE_NURSE/DOCTOR bị chuyển về Tổng quan); `test_camera_roi.py` (`test_put_roi_saves_normalized_polygon`, `test_put_roi_requires_admin` ×3, `test_put_roi_family_forbidden`, 401 khi chưa đăng nhập).
+- **AC2:** `tests/schemas/test_roi.py` (nơ, cạnh chồng, lồi/lõm, ngoài [0,1], thẳng hàng, trùng điểm, >20, không phải số/bool/NaN); `polygon.test.ts` cùng bộ ca; `test_put_roi_invalid_polygon_400` (8 ca, kiểm `details.reason`, không tăng version, không audit).
+- **AC3:** `test_camera_thresholds.py` (`test_put_thresholds_override`, `test_reset_thresholds_with_empty_object`, `test_thresholds_unknown_key_400`, `test_thresholds_wrong_type_400`, `test_thresholds_out_of_range_400`, `test_camera_config_changes_bump_version_and_audit`); `ThresholdsForm.test.tsx` (`resets to defaults`, chỉ lưu giá trị khác mặc định, giữ override ngoài form).
+- **AC4:** `tests/integration/test_worker_receives_roi.py` (worker F06 thật ↔ API thật, đồng hồ giả: ROI và ngưỡng mới ≤5 s; không lưu gì → giữ engine). Kiểm tra tay bên dưới.
+- **AC5:** `ImageQualityIndicator.test.tsx` (số liệu; `runtime = null` → "Chưa có dữ liệu").
+
+`make check` xanh (1134 passed, 10 contracts kept, web 147 passed, build OK).
+
+Kiểm tra tay (DB `postcare_f08`, `postcare seed`, API cổng 8018, worker `--video pexels-3753707.mp4`, model full):
+- Camera A01 chưa có ROI → worker log "Camera chưa có ROI giường", `state = null`.
+- 13:15:37.7 ADMIN `PUT /roi` → `config_version 2`; 13:15:38 worker log "Cấu hình mới (config_version 2…): tạo engine mới"; vài giây sau `GET /overview` có `body_state SITTING`, `observation_quality GOOD`.
+- `PUT /thresholds {posture.sitting_enter_deg: 70}` lúc 13:15:53 → worker tạo engine mới 13:15:54; `{}` → khôi phục, `config_version 4`.
+- NURSE `PUT /roi` → 403; nơ → 400 `INVALID_ROI_POLYGON` `reason SELF_INTERSECTION`; khóa gõ sai → 400 có `thresholds.posture.lying_entr_deg`. `audit_logs`: `camera.update_roi` 1→2, `camera.update_thresholds` 2→3, 3→4.
+- Chưa mở màn hình web trên trình duyệt thật (máy hạn chế bộ nhớ); UI được kiểm bằng component test. Người review nên thử `/cameras/1/config` với `make dev`.
+
+**Review lần 1 (2026-11-18): Chưa đạt (an toàn).** Override theo camera có thể vô hiệu hóa quy tắc an toàn (ví dụ `min_duration_s.OUT_OF_BED = 0`, `face.enabled`, `privacy.*`, `abnormal_movement.min_conditions = 1`), chưa kiểm tra quan hệ hysteresis, `web/tsconfig.tsbuildinfo` bị commit. Đã sửa (test trước):
+- `config/camera_overrides.yaml` (khóa được phép, giới hạn, quan hệ) + `load_override_rules`, `rule_violations` trong `domain/camera_config.py`; thứ tự kiểm tra: khóa được phép → `EngineConfig` → giới hạn/quan hệ.
+- Test: `test_thresholds_safety_limits_400` (gồm `{"min_duration_s":{"OUT_OF_BED":0}}`), `test_thresholds_key_not_overridable_400`, `test_thresholds_relations_400`, `test_thresholds_at_floor_accepted`, `test_get_thresholds_returns_rules_for_web`, `tests/domain/test_camera_override_rules.py` (mặc định thỏa mọi quy tắc); web `ThresholdsForm` chặn lưu dưới sàn/trên trần và sai quan hệ.
+- `*.tsbuildinfo` vào `.gitignore`, gỡ khỏi git.
+- Thêm (tùy chọn của review): phím mũi tên dịch điểm ROI đang chọn (Shift: bước lớn), test `arrow keys move the selected point`.
+- `make check` xanh sau khi sửa. **Kết luận: Đạt** → Done.
+
+Ghi chú cho người sau:
+- `validate_roi_polygon` giờ ném `RoiPolygonError(ValueError)` có `reason`; thêm giới hạn 20 điểm và từ chối giá trị không phải số (ảnh hưởng nhẹ tới file cấu hình replay F12: vẫn là `ValueError`).
+- `streamUrl` tách ra `web/src/api/stream.ts`, dùng chung cho `CameraStream` (F07) và `RoiEditor`.
+- Nút "Cấu hình" ở bảng camera màn hình Quản lý (chỉ ADMIN, camera đang dùng).
 
 ## 11. Definition of Done
 
-- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
-- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
-- [ ] Doc liên quan đã cập nhật cùng PR.
-- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [x] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [x] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [x] Doc liên quan đã cập nhật cùng PR.
+- [x] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).

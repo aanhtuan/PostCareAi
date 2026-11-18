@@ -10,6 +10,8 @@ import type {
   BedOut,
   CameraDetailOut,
   CameraOut,
+  CameraRoiOut,
+  CameraThresholdsOut,
   EventOut,
   HandoverOut,
   OverviewOut,
@@ -288,5 +290,44 @@ export function useLiveOverview(pollMs: number) {
     queryKey: qk.overview,
     queryFn: () => api<OverviewOut>('/overview'),
     refetchInterval: pollMs,
+  });
+}
+
+// ---------- Cấu hình camera (F08): chỉ ADMIN ----------
+
+const thresholdsKey = (cameraId: number) => ['cameras', 'thresholds', cameraId] as const;
+
+/** Ngưỡng mặc định, override và giá trị đang áp dụng của camera. */
+export function useCameraThresholds(cameraId: number) {
+  return useQuery({
+    queryKey: thresholdsKey(cameraId),
+    queryFn: () => api<CameraThresholdsOut>(`/cameras/${cameraId}/thresholds`),
+  });
+}
+
+/** Lưu Bed ROI; xong thì làm mới chi tiết camera (ROI, config_version) và danh sách camera. */
+export function useSaveRoi(cameraId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (roi: number[][]) =>
+      api<CameraRoiOut>(`/cameras/${cameraId}/roi`, {
+        method: 'PUT',
+        body: { roi_polygon: roi },
+      }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['cameras'] }),
+  });
+}
+
+/** Thay toàn bộ override ngưỡng; `{}` = khôi phục mặc định. */
+export function useSaveThresholds(cameraId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (thresholds: Record<string, unknown>) =>
+      api<CameraThresholdsOut>(`/cameras/${cameraId}/thresholds`, {
+        method: 'PUT',
+        body: { thresholds },
+      }),
+    onSuccess: (data) => qc.setQueryData(thresholdsKey(cameraId), data),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['cameras'] }),
   });
 }

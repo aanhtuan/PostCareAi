@@ -5,12 +5,16 @@ from sqlalchemy.orm import Session
 
 from postcare.api.deps import get_session, get_store, require_admin, require_staff
 from postcare.db.models import Camera, User
-from postcare.domain import catalog
+from postcare.domain import camera_config, catalog
 from postcare.domain.dto import (
     CameraCreate,
     CameraDetailOut,
     CameraOut,
+    CameraRoiIn,
+    CameraRoiOut,
     CameraRuntimeOut,
+    CameraThresholdsIn,
+    CameraThresholdsOut,
     CameraUpdate,
     Page,
 )
@@ -80,3 +84,38 @@ def restore_camera(
     camera_id: int, user: User = Depends(require_admin), db: Session = Depends(get_session)
 ) -> CameraOut:
     return catalog.restore_camera(db, camera_id, user)
+
+
+# ---------- Cấu hình camera (F08): chỉ ADMIN; mỗi lần đổi tăng config_version + audit ----------
+
+
+@router.put("/{camera_id}/roi", response_model=CameraRoiOut)
+def update_roi(
+    camera_id: int,
+    body: CameraRoiIn,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_session),
+) -> CameraRoiOut:
+    """Lưu Bed ROI (toạ độ chuẩn hóa 0–1). Sai → 400 `INVALID_ROI_POLYGON`, `details.reason`."""
+    return camera_config.update_roi(db, camera_id, body.roi_polygon, user)
+
+
+@router.get(
+    "/{camera_id}/thresholds",
+    response_model=CameraThresholdsOut,
+    dependencies=[Depends(require_admin)],
+)
+def get_thresholds(camera_id: int, db: Session = Depends(get_session)) -> CameraThresholdsOut:
+    """Ngưỡng mặc định, override của camera và giá trị đang áp dụng."""
+    return camera_config.get_thresholds(db, camera_id)
+
+
+@router.put("/{camera_id}/thresholds", response_model=CameraThresholdsOut)
+def update_thresholds(
+    camera_id: int,
+    body: CameraThresholdsIn,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_session),
+) -> CameraThresholdsOut:
+    """Thay toàn bộ override; `{}` = khôi phục mặc định. Sai → 400 kèm đường dẫn khóa."""
+    return camera_config.update_thresholds(db, camera_id, body.thresholds, user)

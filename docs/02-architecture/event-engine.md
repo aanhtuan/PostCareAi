@@ -179,7 +179,7 @@ Các sự kiện mức LOG/INFO chỉ vào timeline. MEDIUM/HIGH tạo cảnh b�
 
 ## 6. Cấu hình và ngưỡng mặc định
 
-File `config/engine.default.yaml`. Mọi giá trị dưới đây là ***giả định khởi điểm***: hiệu chỉnh trên tập dev (F16), **chốt** bằng `config_hash` trước khi chạy tập test (F29; HS §8.2). Lần hiệu chỉnh dev 18/11/2026 chỉ đổi `abnormal_movement.window_s`, `hold_after_s`, `final_low_position_ratio`; các ngưỡng tư thế/vị trí/thời gian giữ vẫn là giá trị khởi điểm vì chưa có video rời giường quay theo camera-setup.md ([calibration-2026-11-18.md](../04-guides/calibration-2026-11-18.md)). Thời gian tính bằng giây, khoảng cách chuẩn hóa theo chiều dài thân (`torso_length`) trừ khi ghi khác.
+Override theo camera (F08) chỉ được chỉnh các khóa và trong giới hạn của `config/camera_overrides.yaml` để không vô hiệu hóa quy tắc an toàn. File `config/engine.default.yaml`. Mọi giá trị dưới đây là ***giả định khởi điểm***: hiệu chỉnh trên tập dev (F16), **chốt** bằng `config_hash` trước khi chạy tập test (F29; HS §8.2). Lần hiệu chỉnh dev 18/11/2026 chỉ đổi `abnormal_movement.window_s`, `hold_after_s`, `final_low_position_ratio`; các ngưỡng tư thế/vị trí/thời gian giữ vẫn là giá trị khởi điểm vì chưa có video rời giường quay theo camera-setup.md ([calibration-2026-11-18.md](../04-guides/calibration-2026-11-18.md)). Thời gian tính bằng giây, khoảng cách chuẩn hóa theo chiều dài thân (`torso_length`) trừ khi ghi khác.
 
 ```yaml
 version: 1

@@ -75,7 +75,7 @@ F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được tr�
 | F05 | Nguồn video (Camera Service) | M0 | Done |
 | F06 | Kết nối worker với backend | M0 | Done |
 | F07 | Theo dõi trực tiếp cơ bản | M0 | Done |
-| F08 | Cấu hình camera và Bed ROI | M0 | Todo |
+| F08 | Cấu hình camera và Bed ROI | M0 | Done |
 | F09 | Dashboard khung (Tổng quan) | M0 | Done |
 | F10 | Schema quan sát chung và khung Event Engine | M1 | Done |
 | F11 | Pose adapter MediaPipe | M1 | Done |
@@ -86,7 +86,7 @@ F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được tr�
 | F16 | Công cụ đánh giá trên tập phát triển | M1 | Done |
 | F17 | Lưu sự kiện và tạo cảnh báo | M2 | Done |
 | F18 | Realtime gateway (WebSocket) | M2 | Done |
-| F19 | Vòng đời cảnh báo và audit | M2 | Todo |
+| F19 | Vòng đời cảnh báo và audit | M2 | Done |
 | F20 | Màn hình Cảnh báo | M2 | Todo |
 | F21 | Dashboard Tổng quan realtime | M2 | Todo |
 | F22 | Timeline / Lịch sử theo dõi | M2 | Todo |
