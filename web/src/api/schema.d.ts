@@ -1379,6 +1379,8 @@ export interface components {
             bed_id: number;
             /** Code */
             code: string;
+            /** Is Active */
+            is_active: boolean;
             /** Event Counts */
             event_counts: {
                 [key: string]: number;
@@ -1389,6 +1391,10 @@ export interface components {
             alerts_unresolved: number;
             /** State Change Count */
             state_change_count: number;
+            /** Outcome Counts */
+            outcome_counts: {
+                [key: string]: number;
+            };
         };
         /** HandoverOut */
         HandoverOut: {

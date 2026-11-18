@@ -762,10 +762,12 @@ class TimelineItemOut(BaseModel):
 class HandoverBedOut(BaseModel):
     bed_id: int
     code: str
-    event_counts: dict[EventCode, int]
+    is_active: bool  # giường đã xóa chỉ hiện khi có sự kiện trong khoảng
+    event_counts: dict[EventCode, int]  # sắp theo mã
     alerts_resolved: int
     alerts_unresolved: int
     state_change_count: int
+    outcome_counts: dict[AlertOutcome, int]  # kết quả kiểm tra đã ghi trước cuối khoảng
 
 
 class HandoverOut(BaseModel):

@@ -5242,6 +5242,10 @@
             "type": "string",
             "title": "Code"
           },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
           "event_counts": {
             "additionalProperties": {
               "type": "integer"
@@ -5263,16 +5267,28 @@
           "state_change_count": {
             "type": "integer",
             "title": "State Change Count"
+          },
+          "outcome_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/AlertOutcome"
+            },
+            "type": "object",
+            "title": "Outcome Counts"
           }
         },
         "type": "object",
         "required": [
           "bed_id",
           "code",
+          "is_active",
           "event_counts",
           "alerts_resolved",
           "alerts_unresolved",
-          "state_change_count"
+          "state_change_count",
+          "outcome_counts"
         ],
         "title": "HandoverBedOut"
       },
