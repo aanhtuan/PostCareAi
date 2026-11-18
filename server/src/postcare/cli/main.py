@@ -1,4 +1,4 @@
-"""Lệnh CLI `postcare`: version, seed, simulate, worker, probe, replay, models, openapi."""
+"""Lệnh CLI `postcare`: version, seed, simulate, worker, workers, probe, replay, models, openapi."""
 
 import json
 import os
@@ -261,6 +261,84 @@ def worker(
         http.close()
     if code:
         raise typer.Exit(code)
+
+
+@app.command()
+def workers(
+    camera_ids: Annotated[
+        list[int] | None,
+        typer.Option(
+            "--camera-id",
+            "--camera",
+            help="Id camera (lặp lại được). Bỏ trống: mọi camera đang dùng có gắn giường (DB)",
+        ),
+    ] = None,
+    video: Annotated[
+        list[str] | None,
+        typer.Option(help="Gán clip cho một camera: <camera_id>=<file> (lặp lại được)"),
+    ] = None,
+    model: Annotated[str | None, typer.Option(help="Biến thể model pose cho mọi worker")] = None,
+    models_dir: Annotated[Path | None, typer.Option(help="Thư mục model")] = None,
+    api: Annotated[str | None, typer.Option(help="Địa chỉ API, mặc định API_BASE_URL")] = None,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="In log chi tiết")] = False,
+    dry_run: Annotated[bool, typer.Option(help="Chỉ in lệnh của từng worker, không chạy")] = False,
+) -> None:
+    """Chạy nhiều worker cùng lúc, mỗi camera một tiến trình (F31). Ctrl+C dừng tất cả.
+
+    Một worker dừng (lỗi, mất nguồn) không làm dừng worker khác; launcher không tự chạy lại.
+    """
+    import shlex
+
+    from postcare.worker.launcher import (
+        LauncherError,
+        WorkerLauncher,
+        WorkerSpec,
+        parse_video_args,
+        worker_command,
+    )
+
+    ids = list(dict.fromkeys(camera_ids or [])) or _worker_camera_ids()
+    if not ids:
+        _fail("Không có camera nào đang dùng và gắn giường.")
+    try:
+        videos = parse_video_args(video or [], ids)
+    except LauncherError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    for cam, path in videos.items():
+        if not path.is_file():
+            _fail(f"Không tìm thấy file video cho camera {cam}: {path}", 2)
+    extra: list[str] = []
+    if model:
+        extra += ["--model", model]
+    if models_dir:
+        extra += ["--models-dir", str(models_dir)]
+    if api:
+        extra += ["--api", api]
+    if verbose:
+        extra.append("--verbose")
+    specs = [WorkerSpec(camera_id=cid, video=videos.get(cid)) for cid in ids]
+
+    def command(spec: WorkerSpec) -> list[str]:
+        return worker_command(spec, extra_args=extra)
+
+    if dry_run:
+        for spec in specs:
+            typer.echo(shlex.join(command(spec)))
+        return
+    typer.echo(f"Chạy {len(specs)} worker: camera {', '.join(map(str, ids))}. Ctrl+C dừng tất cả.")
+    code = WorkerLauncher(specs, command=command, log=typer.echo).run()
+    typer.echo("Đã dừng mọi worker.")
+    if code:
+        raise typer.Exit(code)
+
+
+def _worker_camera_ids() -> list[int]:
+    from postcare.domain.cameras import worker_camera_ids
+
+    settings = get_settings()
+    factory = make_session_factory(make_engine(settings.database_url))
+    with factory() as db:
+        return worker_camera_ids(db)
 
 
 @app.command()
