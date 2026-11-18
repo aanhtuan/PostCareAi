@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F28 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M4 |
 | Ước lượng | 2 phiên |
@@ -93,6 +93,26 @@ Giảm lượng hình ảnh nhận dạng mà người dùng phải xem trên da
 ## 9. Kế hoạch triển khai
 
 > Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+
+Khảo sát (2026-11-18): cột `cameras.display_mode` (mặc định `BLUR`), `PrivacyConfig` (`head_box_scale`, `pixelate_blocks`, `head_hold_s`) trong `config/engine.default.yaml` và việc loại `privacy.*` khỏi `config_hash` đã có (F01, F10), nên câu hỏi mở mục 8 đã được giải quyết: đổi `privacy.*` không đổi hash. `head_region.estimate_head_box` (F25) dùng lại được. Override theo camera không cho `privacy.*` (F08), nên mọi camera dùng cùng một bộ `privacy.*` của file mặc định.
+
+1. **Render (R4–R7).** `vision/render.py` (đã có `encode_jpeg`, `draw_debug_overlay`):
+   - `resolve_display_mode(value) -> DisplayMode`: thiếu/không hợp lệ → `BLUR` (R1).
+   - `pixelate(region, blocks)`; `render_raw(image)` (bản sao); `render_blur(image, boxes, blocks)` (`boxes=None` → mờ toàn khung); `render_skeleton(shape, persons, roi)` chỉ nhận kích thước khung, vẽ trên nền trơn mới (R5: không thể dùng pixel gốc).
+   - `PrivacyRenderer(privacy, min_visibility)` có trạng thái giữ vùng đầu: mọi người phát hiện đều có vùng đầu → dùng và nhớ (`ts_ms`); có người thiếu vùng đầu hoặc không có người → hợp với vùng đầu đã nhớ nếu chưa quá `head_hold_s` (tính bằng `ts_ms` của khung, không đọc đồng hồ), quá thì mờ toàn khung (R7). `ts_ms` lùi (nguồn mở lại) → coi như hết hạn. `render(image, persons, ts_ms, mode, roi)`.
+2. **Worker (R1, R3, R4, R8).** `WorkerConfig.display_mode`: validator trước khi parse, giá trị thiếu/lạ → `BLUR` + WARNING. Worker giữ `persons` của khung vừa xử lý (không có engine vì chưa có ROI → không người, BLUR mờ toàn khung, SKELETON nền trơn) và gọi `PrivacyRenderer.render` trước `encode_jpeg`. Tham số `renderer` (mặc định đọc `config/engine.default.yaml`). `engine_key` bỏ `config_version` (ROI, ngưỡng, phiên, giường đã nằm trong khóa), để đổi chế độ hiển thị không tạo lại engine (R8) *(giả định)*.
+3. **API (R2).** `PUT /api/v1/cameras/{id}/display-mode` `{display_mode}` → `CameraOut`; guard `require_roles(ADMIN, CHARGE_NURSE)`; `camera_config.update_display_mode`: khóa dòng, đổi → `config_version += 1` + audit `camera.update_display_mode` `{display_mode, config_version}` cùng transaction; giá trị y hệt → không tăng, không audit (như ROI). Camera không tồn tại → 404. Giá trị lạ → 422 `VALIDATION_ERROR` (cách mọi endpoint xử lý body sai; mục 6 ghi 400 là lệch với `api/errors.py`, sửa theo code). `make gen-api-types`.
+4. **Replay (R8, R9).** `replay_video(..., display_mode=BLUR)`: `_Preview` render privacy rồi vẽ lớp debug; `run.json` thêm `display_mode`. CLI `--display-mode RAW|BLUR|SKELETON` (mặc định `BLUR`; giá trị lạ → lỗi typer).
+5. **Web (R10).** `web/src/pages/LiveView/DisplayModeControl.tsx`: nhãn chế độ hiện tại (từ `useCameraDetail`), ADMIN/CHARGE_NURSE thấy `SegmentedControl` đổi chế độ (`useSaveDisplayMode`, invalidate `cameras`); lỗi → thông báo chung. Text `vi.displayMode.*`, `vi.live.displayMode*` trong `vi.ts`.
+6. **Test trước:**
+   - `tests/vision/…` không cần model → đặt ở `tests/render/test_privacy_render.py`: `test_skeleton_render_independent_of_source_pixels` (hai ảnh nhiễu khác nhau → output giống từng byte; màu đánh dấu duy nhất của nguồn không xuất hiện; cả JPEG), `test_blur_uses_pose_head_region_without_face` (không keypoint mắt/mũi, chỉ tai → vẫn mờ; vùng ngoài giữ nguyên), `test_blur_two_people`, `test_blur_holds_last_head_box`, `test_blur_falls_back_to_full_frame` (không người quá `head_hold_s` → khác ảnh gốc ở mọi khối), `test_invalid_display_mode_defaults_to_blur`, `test_raw_render_is_copy`.
+   - `tests/api/test_camera_display_mode.py`: `test_put_display_mode_by_role` (ADMIN, CHARGE_NURSE 200; NURSE, DOCTOR, FAMILY 403), `test_display_mode_change_writes_audit_and_bumps_version`, giá trị y hệt không audit, `"FOO"` → 422, camera không tồn tại → 404, config nội bộ trả chế độ mới.
+   - `tests/worker/test_worker_display_mode.py`: `test_worker_applies_new_display_mode` (khung SKELETON trong ≤ 5 s sau khi đổi; engine không tạo lại), `test_worker_invalid_display_mode_uses_blur`, khung SKELETON không chứa màu nguồn.
+   - `tests/replay/test_display_mode_events.py`: `test_display_mode_does_not_change_events` (3 chế độ, `events.jsonl`/`frames.jsonl` giống nhau), CLI nhận `--display-mode`, giá trị lạ bị từ chối.
+   - `web/src/pages/LiveView/DisplayModeControl.test.tsx` (4 vai trò; DOCTOR/NURSE không thấy nút; đổi gọi PUT).
+7. **Doc.** `api-conventions.md` (endpoint, ma trận, audit), `event-engine.md` (ý nghĩa khóa `privacy.*`), F06/F07/F12 §10 nếu cần, `README.md` (bỏ ghi chú RAW tạm), `overview.md` nếu cần, spec §10.
+
+Rủi ro: pixelate 12 khối trên vùng đầu lớn vẫn có thể nhận ra hình dáng → kiểm bằng mắt khi replay; chi phí render ở 5 fps nhỏ (chỉ khung gửi đi mới render).
 
 ## 10. Ghi chú bàn giao
 
