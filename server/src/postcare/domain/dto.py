@@ -290,6 +290,12 @@ class CameraRoiIn(StrictIn):
     roi_polygon: list[Any]
 
 
+class CameraDisplayModeIn(StrictIn):
+    """`PUT /cameras/{id}/display-mode` (F28 R2). Giá trị ngoài `RAW`/`BLUR`/`SKELETON` → 422."""
+
+    display_mode: DisplayMode
+
+
 class CameraRoiOut(BaseModel):
     camera_id: int
     roi_polygon: list[list[float]]

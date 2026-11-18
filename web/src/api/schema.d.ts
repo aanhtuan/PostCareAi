@@ -392,6 +392,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cameras/{camera_id}/display-mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Display Mode
+         * @description Đổi chế độ hiển thị `RAW` / `BLUR` / `SKELETON`; đổi → tăng `config_version` + audit.
+         */
+        put: operations["update_display_mode_api_v1_cameras__camera_id__display_mode_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions": {
         parameters: {
             query?: never;
@@ -1116,6 +1136,13 @@ export interface components {
             runtime?: components["schemas"]["CameraRuntimeOut"] | null;
             /** Roi Polygon */
             roi_polygon?: number[][] | null;
+        };
+        /**
+         * CameraDisplayModeIn
+         * @description `PUT /cameras/{id}/display-mode` (F28 R2). Giá trị ngoài `RAW`/`BLUR`/`SKELETON` → 422.
+         */
+        CameraDisplayModeIn: {
+            display_mode: components["schemas"]["DisplayMode"];
         };
         /** CameraOut */
         CameraOut: {
@@ -3003,6 +3030,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CameraThresholdsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_display_mode_api_v1_cameras__camera_id__display_mode_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                camera_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CameraDisplayModeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CameraOut"];
                 };
             };
             /** @description Validation Error */

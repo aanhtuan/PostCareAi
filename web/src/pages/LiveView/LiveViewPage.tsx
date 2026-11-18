@@ -1,5 +1,5 @@
-// "Theo dõi trực tiếp" (F07; PDF §9.1): ảnh camera thật qua MJPEG, Bed ROI vẽ đè, trạng thái
-// camera và phiên. Trạng thái cập nhật realtime qua WebSocket (F21 AC5: `bed.state`,
+// "Theo dõi trực tiếp" (F07; PDF §9.1): ảnh camera qua MJPEG (đã render theo chế độ hiển thị
+// trong worker, F28), Bed ROI vẽ đè, chế độ hiển thị, trạng thái camera và phiên. Trạng thái cập nhật realtime qua WebSocket (F21 AC5: `bed.state`,
 // `event.created`, `camera.status`); polling 2 s chỉ là đường dự phòng khi mất WebSocket.
 import {
   Anchor,
@@ -26,6 +26,7 @@ import { PriorityBadge } from '../../components/Badges';
 import { RestStatusBadge } from '../../components/RestStatusBadge';
 import { fmt, vi } from '../../i18n/vi';
 import { formatTime } from '../../utils/time';
+import { DisplayModeControl } from './DisplayModeControl';
 import { FaceSignalsPanel } from './FaceSignalsPanel';
 
 const POLL_MS = 2000; // giả định F07 R5; chỉ khi WebSocket không mở (F21)
@@ -122,6 +123,12 @@ export function LiveViewPage() {
                     <Text size="sm" c="dimmed">
                       {vi.live.roiNotConfigured}
                     </Text>
+                  )}
+                  {cameraDetail.data && (
+                    <DisplayModeControl
+                      cameraId={bed.camera.id}
+                      mode={cameraDetail.data.display_mode}
+                    />
                   )}
                 </>
               ) : (

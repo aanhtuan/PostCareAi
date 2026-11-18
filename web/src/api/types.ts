@@ -18,6 +18,7 @@ export type AlertOutcome = S['AlertOutcome'];
 export type EventCode = S['EventCode'];
 export type CameraStatus = S['CameraStatus'];
 export type CameraSourceType = S['CameraSourceType'];
+export type DisplayMode = S['DisplayMode'];
 
 export type ShiftOut = S['ShiftOut'];
 // F37: khu vực, quản lý ca trực.
