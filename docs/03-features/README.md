@@ -14,9 +14,9 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F04](F04-monitoring-sessions.md) | Phiên theo dõi | M0 | MVP | B+C | F03 | PDF §4.2, §10.1; HS §6.2 | Done |
 | [F05](F05-camera-service.md) | Nguồn video (Camera Service) | M0 | MVP | A | F00 | PDF §10, tr.10; HS §4.2 | Done |
 | [F06](F06-worker-backend-link.md) | Kết nối worker với backend | M0 | MVP | B | F04, F05 | PDF §10; HS §4.2, §6.1 | Done |
-| [F07](F07-live-view.md) | Theo dõi trực tiếp cơ bản | M0 | MVP | C | F06 | PDF §9.1; HS §4.3 | Todo |
+| [F07](F07-live-view.md) | Theo dõi trực tiếp cơ bản | M0 | MVP | C | F06 | PDF §9.1; HS §4.3 | Done |
 | [F08](F08-camera-config-roi.md) | Cấu hình camera và Bed ROI | M0 | MVP | B+C | F07 | PDF §7.2, §9.1; HS §4.1 | Todo |
-| [F09](F09-overview-dashboard-skeleton.md) | Dashboard khung (Tổng quan) | M0 | MVP | B+C | F04, F06 | PDF §9.1; HS §4.3 Hình 3 | Todo |
+| [F09](F09-overview-dashboard-skeleton.md) | Dashboard khung (Tổng quan) | M0 | MVP | B+C | F04, F06 | PDF §9.1; HS §4.3 Hình 3 | Done |
 | [F10](F10-observation-schema-engine-core.md) | Schema quan sát chung và khung Event Engine | M1 | MVP | A | F00 | PDF §10; HS §6.1 | Done |
 | [F11](F11-pose-adapter.md) | Pose adapter MediaPipe | M1 | MVP | A | F05, F10 | PDF §6.1; HS §5.2, §5.5 | Done |
 | [F12](F12-replay-cli.md) | Replay CLI và fixture | M1 | MVP | A | F11 | PDF §12, §13; HS §8.1 | Done |
