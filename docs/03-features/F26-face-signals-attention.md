@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F26 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M3 |
 | Ước lượng | 3 phiên |
@@ -91,6 +91,33 @@ Biến các hệ số blendshape (F25) thành **tín hiệu quan sát theo thờ
 ## 9. Kế hoạch triển khai
 
 > Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+
+Phụ thuộc F25, F23 đã `Done`. Không có câu hỏi mở mức chặn. Không có migration, endpoint hay thư viện mới; `FaceSignalsIn` (API nội bộ) và `FaceSignals` (snapshot) đã có sẵn nên không cần `make gen-api-types`.
+
+Code dùng lại: `FaceObservation` (`schemas/observation.py`, F25), `FaceSignals`/`BodyStateSnapshot` (`schemas/state.py`), `FaceConfig` (`schemas/engine_config.py`), `EventDraft`/`VisibilityBuffer` (`engine/rules/common.py`), `Debouncer` (`engine/debounce.py`), `RuleSet` (`engine/rules/__init__.py`), worker đã gửi `face_signals` từ snapshot (`worker/loop.py`).
+
+1. **Test trước (engine)**: `server/tests/engine/face_builders.py` (builder `face(signals={…}, seconds=…)` gắn `FaceObservation` tổng hợp vào chuỗi `PoseSequence`), `server/tests/engine/test_face_signals.py` (AC1, AC4), `server/tests/engine/test_rules_face.py` (AC2, AC3, debounce, cô lập).
+   - AC1: `test_face_signals_on_off_with_threshold`, `test_face_signals_below_threshold_stay_off` (âm tính), `test_face_signal_single_frame_spike_smoothed` (âm tính), `test_face_signals_hold_on_skipped_frames`, `test_eyes_closed_prolonged`, `test_signal_uses_max_of_keys`.
+   - AC2: `test_face_attention_two_signals_held`; âm tính `test_short_brow_down_while_lying_no_event`, `test_single_signal_long_no_event`, `test_eyes_closed_and_prolonged_count_once`, `test_signals_shorter_than_hold_no_event`, `test_face_attention_requires_target`.
+   - AC3: `test_face_attention_escalates_with_high_activity`, `test_face_attention_escalates_with_state_change`, `test_face_attention_medium_when_still`, `test_no_observation_transition_not_state_change` (âm tính).
+   - AC4: `test_face_not_ok_clears_signals_and_no_event` (mặt quay đi giữa chừng → reset), `test_face_too_small_no_signals`.
+   - R7: `test_face_attention_debounced`. Cô lập: `test_face_does_not_change_body_events` (cùng chuỗi pose có/không có face → cùng sự kiện cơ thể).
+2. **`engine/face.py`**: `FaceTracker` (EMA `smoothing.ema_alpha` trên giá trị max của các khóa, ngưỡng `face.signals.*.threshold`, `eyes_closed_prolonged_s`, giữ giá trị khi `face = None`, reset khi `status ≠ OK`, mất quan sát hoặc đổi mục tiêu) → `FaceReading` (status, `FaceSignals`, giá trị đã làm mượt, số tín hiệu đếm cho FACE_ATTENTION).
+3. **`engine/rules/face.py`**: `FaceRules` (đoạn giữ ≥ `attention_min_signals` tín hiệu trong `attention_hold_s`, phát một lần mỗi đoạn; ưu tiên `MEDIUM`, nâng `HIGH` theo R5). `EventDraft` thêm `priority` tùy chọn; `RuleSet` dùng nó (kiểm tra theo catalog ở `EngineEvent`).
+4. **`engine/engine.py`**: ghép `FaceTracker` + `face_status`/`face_signals` vào snapshot; truyền `FaceReading` vào `RuleSet`.
+5. **Web**: `web/src/pages/LiveView/FaceSignalsPanel.tsx` + `FaceSignalsPanel.test.tsx`; text trong `vi.ts` (`faceSignal`, `live.faceSignals…`); chèn khối vào `LiveViewPage.tsx` (thay dòng "Khuôn mặt").
+6. **Kiểm chứng thật**: `postcare replay` bật face trên clip cận mặt `data/external` (pexels); thống kê tần suất từng tín hiệu và FACE_ATTENTION. S12–S14 chưa có trong tập dev: ghi rõ.
+7. **Doc**: `event-engine.md` mục 3 (bước 8), mục 5 (FACE_ATTENTION nâng ưu tiên), mục 8 (cách tính tín hiệu); spec §10.
+8. `make check` + `make test-vision`.
+
+Rủi ro: ngưỡng mặc định chưa hiệu chỉnh trên người bệnh thật (chỉ clip stock); mặt nằm xoay ngang thường `NOT_VISIBLE` (F25) nên ít tín hiệu, đúng tinh thần "không biết".
+
+Giả định thêm khi lập kế hoạch *(giả định)*:
+- Khóa của tín hiệu không có trong `blendshapes` ở frame `OK` → tín hiệu đó tắt và bỏ giá trị làm mượt cũ.
+- Mất quan sát cơ thể (`NO_OBSERVATION`) hoặc đổi người mục tiêu → reset tín hiệu mặt như `face_status ≠ OK`.
+- Mỗi đoạn giữ liên tục chỉ phát FACE_ATTENTION tối đa một lần (giống `ACTIVITY_*`, F23); đoạn mới cần tín hiệu tụt dưới `attention_min_signals` rồi bật lại.
+- `confidence` của FACE_ATTENTION = visibility trung bình keypoint bắt buộc trong đoạn (như các rule khác).
+- "Đổi `body_state`" = trong cửa sổ có ≥ 2 trạng thái ổn định khác nhau, không tính `NO_OBSERVATION`.
 
 ## 10. Ghi chú bàn giao
 
