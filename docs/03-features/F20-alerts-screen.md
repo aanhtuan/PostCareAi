@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F20 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -142,7 +142,11 @@ Prototype đã có màn hình Cảnh báo. Việc của F20 là đối chiếu t
 
 **`make check` (2026-11-18):** format-check, lint, typecheck, lint-imports, check-api-types xanh; pytest `1134 passed, 6 deselected`. Bước vitest trong `make check` bị Node hết bộ nhớ trên máy dev (không phải lỗi test); chạy lại riêng `npx vitest run --maxWorkers=2` trong `web/`: `24 files, 175 tests passed`; `npm run build` xanh.
 
-**Chưa làm:** kiểm thủ công AC3 với worker thật (cảnh báo mới tự hiện, âm thanh HIGH trên trình duyệt sau khi đã thao tác). Người review hoặc phiên sau chạy `make dev` + `make worker CAMERA=<id>` rồi ghi kết quả vào đây.
+**Kiểm thủ công AC3 (2026-11-18):** DB dev riêng `postcare_f20` (`postcare seed --reset`), API cổng 8020, `postcare simulate --bed A01 --speed 4 --away 4`. Một client WebSocket (`/api/v1/ws`, tài khoản `nurse`) nhận `bed.state`, `camera.status`, `event.created`, `alert.created` (alert 5, giường A01, mức Cần chú ý, Chờ tiếp nhận). Cảnh báo có trong `GET /api/v1/alerts?bed_id=…`, nằm đầu danh sách. Vòng đời qua API: DOCTOR tiếp nhận → 403; `nurse` tiếp nhận → 200; `charge` tiếp nhận → 409 "Cảnh báo đã được tiếp nhận bởi Nguyễn Thị Hoa"; outcome `PATIENT_SAFE` + ghi chú → 200; resolve → 200 `RESOLVED`; client WS nhận đủ 3 `alert.updated` cho cảnh báo này. Âm thanh trên trình duyệt thật không kiểm (không có trình duyệt có loa trong phiên này); đã có test component `high priority plays sound once`.
+
+**Review (2026-11-18): Đạt.** Sửa theo review:
+- `AlertsPage.test.tsx::409 shows message and refreshes the card` render `<Notifications />` và kiểm toàn bộ câu "Cảnh báo đã được tiếp nhận bởi …".
+- `AlertsPage.test.tsx::high priority plays sound once` đẩy cùng một `alert.created` hai lần: đỏ trước khi sửa (âm thanh phát 2 lần). Sửa `web/src/realtime/RealtimeProvider.tsx`: nhớ id cảnh báo đã báo (tối đa 500 id mỗi kết nối), `alert.created` lặp lại không hiện thông báo và không phát âm thanh lần nữa. Cache vẫn được làm mới bình thường. Merge `main` (chưa có F21) trước khi sửa; khi F21 merge, nếu F21 có bộ báo cảnh báo riêng thì giữ một chỗ khử trùng duy nhất.
 
 ## 11. Definition of Done
 
