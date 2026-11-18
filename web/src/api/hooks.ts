@@ -14,6 +14,7 @@ import type {
   CameraOut,
   CameraRoiOut,
   CameraThresholdsOut,
+  DisplayMode,
   EventOut,
   HandoverOut,
   OverviewOut,
@@ -334,6 +335,21 @@ export function useSaveThresholds(cameraId: number) {
         body: { thresholds },
       }),
     onSuccess: (data) => qc.setQueryData(thresholdsKey(cameraId), data),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['cameras'] }),
+  });
+}
+
+// ---------- Chế độ hiển thị (F28): ADMIN và CHARGE_NURSE ----------
+
+/** Đổi chế độ hiển thị của camera; xong thì làm mới chi tiết camera (worker áp dụng ≤ 5 s). */
+export function useSaveDisplayMode(cameraId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (displayMode: DisplayMode) =>
+      api<CameraOut>(`/cameras/${cameraId}/display-mode`, {
+        method: 'PUT',
+        body: { display_mode: displayMode },
+      }),
     onSettled: () => qc.invalidateQueries({ queryKey: ['cameras'] }),
   });
 }

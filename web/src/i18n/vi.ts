@@ -7,6 +7,7 @@ import type {
   BodyState,
   CameraSourceType,
   CameraStatus,
+  DisplayMode,
   EventCode,
   FaceStatus,
   ObservationQuality,
@@ -109,6 +110,13 @@ const cameraStatus: Record<CameraStatus, string> = {
   ONLINE: 'Camera hoạt động',
   OFFLINE: 'Mất kết nối camera',
   UNKNOWN: 'Chưa rõ trạng thái camera',
+};
+
+// Chế độ hiển thị (glossary.md; F28).
+const displayMode: Record<DisplayMode, string> = {
+  RAW: 'Video gốc',
+  BLUR: 'Làm mờ khuôn mặt',
+  SKELETON: 'Chỉ skeleton + ROI',
 };
 
 const sourceType: Record<CameraSourceType, string> = {
@@ -215,6 +223,7 @@ export const vi = {
     openLive: 'Mở theo dõi trực tiếp',
   },
   cameraStatus,
+  displayMode,
   camera: {
     notAssigned: 'Chưa gắn camera',
     name: 'Tên camera',
@@ -262,6 +271,10 @@ export const vi = {
     face: 'Khuôn mặt',
     camera: 'Camera',
     session: 'Phiên theo dõi',
+    displayMode: 'Chế độ hiển thị',
+    changeDisplayMode: 'Đổi chế độ hiển thị',
+    displayModeSaved: 'Đã đổi chế độ hiển thị. Hình ảnh sẽ cập nhật trong vài giây.',
+    rawHint: 'Video gốc chỉ dùng trong môi trường thử nghiệm.',
   },
   alerts: {
     title: 'Cảnh báo',
