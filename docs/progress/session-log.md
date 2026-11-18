@@ -7,6 +7,7 @@ Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](..
 - **Đã làm:** Done và đã push thêm F07, F08, F09, F17–F23, F26–F28, F31. Sửa lỗi an toàn F08 (ghi đè ngưỡng không được tắt luật "không tin một frame"), F35 (đổi vai trò → đóng WS), F19 (race khi resolve), F28 (render lỗi → bỏ khung, không gửi ảnh gốc). Giới hạn vitest `maxWorkers: 2` để tránh hết RAM.
 - **Demo đã chạy thử (DB `postcare_demo`, API 8090, web 5190):** 2 worker MediaPipe song song trên clip ghép lặp (A01 Pexels 3753707 → BED_EDGE; A02 GMDCSA24 ngã → ABNORMAL_MOVEMENT HIGH). Live View hiện video thật, làm mờ mặt, ROI; toast cảnh báo ưu tiên cao realtime.
 - **Đang dở:** F24 (Done trên nhánh `feat/F24-handover`, chưa merge). F29 (nhánh `feat/F29-final-eval` có tooling + báo cáo, builder dừng giữa chừng). F36 (nhánh `feat/F36-family-access` mới có plan + test đỏ). F30 chưa bắt đầu.
+- **Bàn giao sang máy khác:** đã commit WIP và push các nhánh `feat/F24-handover` (Done, chờ merge), `feat/F29-final-eval` (WIP), `feat/F36-family-access` (WIP, chưa chạy test). Hướng dẫn cài lại và tiếp tục: mục "Đang làm" trong TASKS.md.
 - **Bước tiếp theo:** merge F24; tiếp tục F29 và F36 bằng builder; F30 (runbook, `--loop` cho worker file, `make demo-seed`, E2E Playwright, chạy trọn 3 lần).
 - **Blocker:** Không. Lưu ý: worker `--video` không tự lặp và không thoát khi hết clip (demo dùng video ghép trong scratchpad) → F30 thêm `--loop`. Dữ liệu rời giường camera cố định vẫn thiếu.
 

@@ -10,10 +10,35 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 
 ## Đang làm
 
-- **Đợt hiện tại (18/11/2026):** Done 21 feature: F00–F07, F09–F17, F23, F25, F35, F37, cộng hiệu chỉnh ngưỡng trên tập dev ([calibration-2026-11-18.md](../04-guides/calibration-2026-11-18.md), config_hash chốt cho F29 `cb7a5ed7…44ec`). Đang làm: F08 (cấu hình camera, ROI), F18 (realtime gateway). Tiếp theo: F19 → F20, F21, F22, F24; F26 → F27; F28 → F36; F31 R1–R3; F29; F30.
-  - Quy trình: builder trong worktree → code-reviewer → sửa → merge vào `main` → `make check` → push (người dùng cho phép push nhánh feature và `main`).
-  - Hạ tầng: mỗi worktree dùng DB test riêng (`postcare_<x>_test`), `main` dùng `postcare_main_test`. Máy 16 GB: chạy tối đa 2 `make check` cùng lúc; Docker từng treo khi quá tải (khởi động lại Docker Desktop + `wsl --shutdown`).
-- **Lưu ý cho F16:** nhãn trên dữ liệu ngoài chỉ phủ một số mã sự kiện mỗi video (cột notes); F16 phải bỏ qua mã không được gán nhãn khi tính FP *(giả định, datasets.md)*. Script dựng manifest/truth chưa nằm trong repo; quy tắc dựng ghi ở datasets.md §3.5, cần đưa thành lệnh trong F16.
+**Trạng thái bàn giao (18/11/2026, tối).** `main` = 32 feature Done (F00–F23, F25–F28, F31, F35, F37) + hiệu chỉnh ngưỡng dev. Mọi nhánh dưới đây đã push lên GitHub.
+
+| Feature | Nhánh | Trạng thái | Việc còn lại |
+|---|---|---|---|
+| F24 Bàn giao ca | `feat/F24-handover` | Code xong, review Đạt (đã sửa, có bằng chứng in bằng Playwright), spec Done | Merge vào `main` → `make check` → push; đánh dấu Done ở ROADMAP/README |
+| F29 Đánh giá chính thức | `feat/F29-final-eval` | Đã có `--frozen`, `measure-delivery`, `workflow-report`, báo cáo nháp; commit cuối là WIP | Chạy eval tập **test** với cấu hình đã chốt, hoàn thiện `docs/04-guides/final-evaluation-2026-11-18.md`, `make check`, review |
+| F36 Quyền xem của người nhà | `feat/F36-family-access` | Plan + test (đỏ) + phần code đang viết dở (migration `0007_f36_family_access_grants`, domain, API, WS family stream); commit cuối là WIP, **chưa chạy test** | Làm cho test xanh, UI staff cấp/thu hồi + trang `/family`, kiểm tay, review |
+| F30 Sẵn sàng demo | — | Chưa bắt đầu | Phụ thuộc F24, F31, F36: runbook, `--loop` cho worker phát file, `make demo-seed`, E2E Playwright, chạy trọn 3 lần |
+
+**Tiếp tục trên máy khác (Windows):**
+
+```bash
+git clone https://github.com/aanhtuan/PostCareAi.git && cd PostCareAi
+cp .env.example .env                      # API từ chối secret mặc định change-me
+docker run -d --name postcare-db -e POSTGRES_USER=postcare -e POSTGRES_PASSWORD=postcare -e POSTGRES_DB=postcare -p 5432:5432 -v postcare-pgdata:/var/lib/postgresql/data postgres:16
+docker exec postcare-db createdb -U postcare postcare_test
+make setup && make db-upgrade && make seed && make models && make check
+```
+
+- Công cụ: Git, uv, Node 24, GNU Make, Docker, gh ([dev-setup.md](../04-guides/dev-setup.md)). Máy cũ không có winget nên make/gh cài bằng zip có kiểm tra checksum.
+- Dữ liệu `data/` (~2,5 GB, gitignore) không có trong repo: tải lại theo [datasets.md](../04-guides/datasets.md); `data/eval/manifest.csv` + `truth.csv` cần dựng lại theo §3.5 (gồm cột `camera_config`). Model: `make models`.
+- Tiếp nhánh dở: `git fetch && git switch feat/F36-family-access` (tương tự F29, F24). Nhánh WIP chưa qua review.
+
+**Demo đã chạy được (cách dựng lại):** DB riêng `postcare_demo` (`docker exec postcare-db createdb -U postcare postcare_demo`, rồi `DATABASE_URL=…/postcare_demo` + `alembic upgrade head` + `postcare seed --reset`), API `uvicorn … --port 8090`, web `VITE_API_TARGET=http://127.0.0.1:8090 npm --prefix web run dev -- --port 5190`, đặt ROI camera 1/2 bằng `PUT /api/v1/cameras/{id}/roi` từ `config/cameras/pexels-3753707.yaml` và `gmdcsa24-room.yaml`, rồi `postcare workers --camera 1 --camera 2 --video 1=<clip A01> --video 2=<clip A02> --api http://127.0.0.1:8090`. Worker chưa có `--loop` và không tự thoát khi hết clip, nên demo dùng clip đã ghép lặp nhiều lần bằng OpenCV (A01: Pexels 3753707 × 10 → BED_EDGE; A02: GMDCSA24 Subject 1 Fall 12 × 12 + giữ khung cuối 6 s → ABNORMAL_MOVEMENT HIGH). F30 sẽ thay bằng `--loop`.
+
+**Quy trình và hạ tầng đã dùng:** builder trong worktree → code-reviewer → sửa → merge vào `main` → `make check` → push (người dùng cho phép push nhánh feature và `main`, không force-push). Mỗi worktree dùng DB test riêng (`postcare_<x>_test`), `main` dùng `postcare_main_test`. Máy 16 GB: tối đa 2 `make check` cùng lúc; vitest giới hạn `maxWorkers: 2`; Docker từng treo khi thiếu RAM (khởi động lại Docker Desktop + `wsl --shutdown`).
+
+- **Lưu ý cho F16/F29:** nhãn trên dữ liệu ngoài chỉ phủ một số mã sự kiện mỗi video (cột notes, `eval_codes`); mã không gán nhãn không tính FP *(giả định, datasets.md)*.
+- **Giới hạn đã biết:** không có video công khai quay rời giường bằng camera cố định (BED_EXIT chưa bắt được trên clip stock; cần nhóm tự quay S01–S16). MediaPipe mất dấu người nằm sàn ở 38/71 ca ngã dev. Điện thoại thật (DroidCam/IP Webcam) chưa thử. S02, S07, S12, S14, S16 chưa có dữ liệu.
 
 ## Tiếp theo
 

@@ -31,17 +31,17 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F21](F21-overview-realtime.md) | Dashboard Tổng quan realtime | M2 | MVP | B+C | F09, F18 | PDF §9.1; HS §4.3 Hình 3 | Done |
 | [F22](F22-timeline.md) | Timeline / Lịch sử theo dõi | M2 | MVP | B+C | F19 | PDF §9.1, §9.3; HS §4.3, §6.2 | Done |
 | [F23](F23-activity-abnormal-movement.md) | Mức vận động và chuyển động bất thường | M2 | MVP | A | F15 | PDF §7.3; HS §5.1–5.2 | Done |
-| [F24](F24-shift-handover.md) | Bàn giao ca | M2 | MVP | B+C | F19, F22 | PDF §9.1; HS §2.2 | Todo |
+| [F24](F24-shift-handover.md) | Bàn giao ca | M2 | MVP | B+C | F19, F22 | PDF §9.1; HS §2.2 | In review |
 | [F25](F25-face-adapter-quality.md) | Face adapter và cổng chất lượng khuôn mặt | M3 | MVP | A | F11, F13 | PDF §6.2, §17; HS §4.1, §5.3 | Done |
 | [F26](F26-face-signals-attention.md) | Tín hiệu khuôn mặt và FACE_ATTENTION | M3 | MVP | A+C | F25, F23 | PDF §6.2, §7.4; HS §5.3 | Done |
 | [F27](F27-rest-activity-status.md) | Trạng thái nghỉ/hoạt động (tham khảo) | M3 | MVP | A+C | F23, F26 | PDF §6.3; HS §5.3, §7.3 | Done |
 | [F28](F28-privacy-display-modes.md) | Chế độ riêng tư khi hiển thị | M4 | MVP | A+C | F07, F11 | PDF §11, §16; HS §6.3 | Done |
-| [F29](F29-final-evaluation.md) | Đánh giá chính thức và chỉ số realtime/workflow | M4 | MVP | A+B | F16, F18, F19, F26 | PDF §11, §13; HS §8.2 | Todo |
+| [F29](F29-final-evaluation.md) | Đánh giá chính thức và chỉ số realtime/workflow | M4 | MVP | A+B | F16, F18, F19, F26 | PDF §11, §13; HS §8.2 | In progress |
 | [F30](F30-demo-readiness.md) | Sẵn sàng demo | M4 | MVP | C | F20–F28, F31 (R1–R3), F36 | PDF §16; HS §8.3; QA#32 | Todo |
 | [F31](F31-multi-camera.md) | Nhiều camera/giường chạy đồng thời (R1–R3 cho demo chung kết) | M4 (R1–R3) / Sau MVP | MVP (R1–R3) | A+B | F06, F17 | HS §9.2; PDF §18; QA#32 | Done |
 | [F32](F32-alert-escalation.md) | Chuyển tiếp cảnh báo chưa được tiếp nhận | Sau MVP | Sau MVP | B | F19 | HS §9.2; PDF §18 | Todo |
 | [F33](F33-mobile-notifications.md) | Thông báo di động cho điều dưỡng | Sau MVP | Sau MVP | B+C | F18 | HS §9.2; PDF §18, tr.10 | Todo |
 | [F34](F34-long-term-statistics.md) | Dashboard thống kê dài hạn theo ca | Sau MVP | Sau MVP | B+C | F24 | HS §9.2; PDF §18 | Todo |
 | [F35](F35-user-management.md) | Quản lý người dùng trên UI | M0 | MVP | B+C | F02 | Yêu cầu người dùng (2026-11-17); QA#36 | Done |
-| [F36](F36-family-access.md) | Quyền xem của người nhà theo phiên | M4 | MVP | B+C | F02, F04, F18, F22, F28, F35 | Yêu cầu người dùng (2026-11-17); QA#31 | Todo |
+| [F36](F36-family-access.md) | Quyền xem của người nhà theo phiên | M4 | MVP | B+C | F02, F04, F18, F22, F28, F35 | Yêu cầu người dùng (2026-11-17); QA#31 | In progress |
 | [F37](F37-area-shift-management.md) | Quản lý khu vực và ca trực | M0 | MVP | B+C | F03 | Yêu cầu người dùng (2026-11-17); QA#36 | Done |
