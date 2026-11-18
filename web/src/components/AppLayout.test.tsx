@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { UserOut } from '../api/types';
 import { vi as text } from '../i18n/vi';
+import { RealtimeContext } from '../realtime/RealtimeProvider';
+import type { WsStatus } from '../realtime/wsClient';
 import { renderWithProviders } from '../test/render';
 import { AppLayout } from './AppLayout';
 
@@ -77,5 +79,33 @@ describe('AppLayout header', () => {
     renderWithProviders(<AppLayout />, USERS[0], '/', { logout });
     await userEvent.setup().click(screen.getByRole('button', { name: text.auth.logout }));
     expect(logout).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('RealtimeStatus (F18 R13)', () => {
+  const renderWith = (status: WsStatus) =>
+    renderWithProviders(
+      <RealtimeContext.Provider value={status}>
+        <AppLayout />
+      </RealtimeContext.Provider>,
+      USERS[0],
+    );
+
+  it('shows the lost-connection indicator while reconnecting', () => {
+    renderWith('reconnecting');
+    expect(screen.getByText(text.realtime.reconnecting)).toBeInTheDocument();
+    expect(screen.queryByText(text.realtime.connected)).not.toBeInTheDocument();
+  });
+
+  it('hides the indicator once connected', () => {
+    renderWith('open');
+    expect(screen.getByText(text.realtime.connected)).toBeInTheDocument();
+    expect(screen.queryByText(text.realtime.reconnecting)).not.toBeInTheDocument();
+  });
+
+  it('first connection is not shown as lost', () => {
+    renderWith('connecting');
+    expect(screen.getByText(text.realtime.connecting)).toBeInTheDocument();
+    expect(screen.queryByText(text.realtime.reconnecting)).not.toBeInTheDocument();
   });
 });

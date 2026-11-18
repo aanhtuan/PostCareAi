@@ -32,7 +32,7 @@ function notifyAlert(data: AlertCreatedOut): void {
 }
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
-  const { token, logout } = useAuth();
+  const { token, logout, reloadUser } = useAuth();
   const qc = useQueryClient();
   const [status, setStatus] = useState<WsStatus>('connecting');
 
@@ -46,10 +46,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       onStatus: setStatus,
       onReconnected: () => invalidateAll(qc),
       onUnauthorized: logout,
+      onForbidden: reloadUser,
     });
     client.start();
     return () => client.stop();
-  }, [token, qc, logout]);
+  }, [token, qc, logout, reloadUser]);
 
   return <RealtimeContext.Provider value={status}>{children}</RealtimeContext.Provider>;
 }

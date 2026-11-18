@@ -10,6 +10,8 @@ export type AuthState = {
   canWrite: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  /** Đọc lại `/auth/me` (vai trò đổi giữa chừng; F18 R12, WS 4403). */
+  reloadUser: () => void;
 };
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -23,6 +25,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     tokenStore.clear();
     setToken(null);
+    setUser(null);
+  }, []);
+
+  const reloadUser = useCallback(() => {
+    setLoading(true);
     setUser(null);
   }, []);
 
@@ -62,8 +69,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       canWrite: user !== null && WRITE_ROLES.includes(user.role),
       login,
       logout,
+      reloadUser,
     }),
-    [user, token, loading, login, logout],
+    [user, token, loading, login, logout, reloadUser],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
