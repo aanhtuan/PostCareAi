@@ -179,6 +179,25 @@ Không có câu hỏi chặn.
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
 
+**2026-11-18 – triển khai (nhánh `feat/F17-events-alerts`), trạng thái In review.**
+
+| AC | Bằng chứng |
+|---|---|
+| AC1 | Migration: không đổi (`0002` của prototype đã đúng data-model; head vẫn `0006`), `tests/db/test_migrations.py::test_migrations_roundtrip` (downgrade base → upgrade head), `test_models_match_migrations`, `tests/db/test_enums_match.py` (R2). `server/tests/integration/test_worker_events.py::test_worker_fake_exit_sequence_persists_events` (worker thật + engine thật + `FakeFrameSource`/`FakePoseAdapter`, API thật qua `TestClient`: `SIT_UP, BED_EDGE, STAND_UP, BED_EXIT` lưu với đúng phiên/giường/camera, `config_hash`, `explanation.rule_id`; cảnh báo PENDING cho BED_EDGE, BED_EXIT). `server/tests/domain/test_ingest_event.py::test_event_attached_to_open_session_at_occurred_at` (đến sau khi đóng phiên), `test_event_outside_session_window_rejected`, `test_explanation_and_config_hash_stored` |
+| AC2 | `test_ingest_event.py`: `test_high_event_creates_pending_alert`, `test_medium_event_creates_pending_alert`, `test_log_info_event_no_alert` (×4 mã), `test_publisher_called_after_commit` (`real_commit`, đọc bằng kết nối khác), `test_db_error_publishes_nothing`, `test_publisher_failure_keeps_saved_data`, `test_alert_creation_audited_as_system` (R14), `test_priority_from_catalog_not_client` |
+| AC3 | `test_worker_events.py::test_no_active_session_sends_no_engine_events`; `server/tests/api/test_internal_events.py::test_engine_event_without_session_rejected` (409 `NO_ACTIVE_SESSION`); 401 thiếu/sai token; 400 sai mức, `CAMERA_*` từ worker, camera lạ/chưa gắn giường, `event_uid` không phải UUID; 422 mã ngoài enum |
+| AC4 | `server/tests/domain/test_camera_events.py`: `test_online_to_offline_creates_camera_offline_alert` (trường R18, audit), `test_offline_to_online_creates_camera_online_log`, `test_first_online_no_event`, `test_camera_offline_without_session_still_alerts` (R19), `test_camera_without_bed_no_event`. `server/tests/engine/test_rules_observation.py`: `test_prolonged_no_observation_emits_observation_lost_info`, `test_restored_only_after_lost`, `test_short_occlusion_no_observation_lost`, `test_observation_lost_debounced`, `test_missing_person_prolonged_never_bed_exit`, `test_startup_without_observation_counts_as_lost`, `test_new_engine_starts_fresh` |
+| AC5 | `test_internal_events.py::test_same_event_uid_twice_single_row` (1 dòng events, 1 alert, phát 1 lần), `test_concurrent_same_event_uid_single_row` (`real_commit`, 2 luồng) |
+| R20 | `server/tests/api/test_events_list.py` (sắp giảm dần, lọc giường/phiên/from–to/priority/code, phân trang, `limit > 200` → 422, NURSE/CHARGE/DOCTOR/ADMIN đọc được, FAMILY 403, chưa đăng nhập 401) |
+
+Thay đổi code: `engine/rules/observation.py` (mới, R16) ghép vào `RuleSet`; `domain/events.py` kiểm `event_uid` là UUID **trước** khi truy vấn (trước đây chuỗi lạ gây 500). Fixture regression không đổi (không clip nào mất quan sát ≥ 10 s).
+
+Lệch so với spec (ghi lại, không chặn):
+- R9: chống trùng đồng thời dùng unique `event_uid` + bắt `IntegrityError` rồi đọc lại (có từ prototype), không dùng `ON CONFLICT DO NOTHING`; hành vi như nhau, có test đồng thời.
+- Kế hoạch test ghi `limit > 200` → 400; theo api-conventions.md lỗi schema của FastAPI là **422** `VALIDATION_ERROR`, test theo 422.
+- R16: chuỗi mất quan sát tính cả lúc engine khởi động không thấy ai *(giả định)*; `OBSERVATION_RESTORED` phát khi state machine xác lập lại trạng thái (sau `restore_duration_s` + `min_duration_s` của trạng thái), `confidence = 1.0` *(giả định)*. Ghi ở event-engine.md mục 5.
+- F04/F36: sự kiện tới muộn của khoảng đã tạm dừng vẫn nhận (giữ giả định F04 §7).
+
 ## 11. Definition of Done
 
 - [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
