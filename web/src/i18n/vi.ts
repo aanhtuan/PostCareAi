@@ -70,7 +70,7 @@ const activity: Record<ActivityLevel, string> = {
 const rest: Record<RestStatus, string> = {
   RESTING: 'Đang nghỉ - dữ liệu tham khảo',
   ACTIVE: 'Đang hoạt động',
-  UNKNOWN: 'Chưa xác định',
+  UNKNOWN: 'Mức hoạt động: không đủ dữ liệu',
 };
 
 const faceStatus: Record<FaceStatus, string> = {
@@ -224,6 +224,7 @@ export const vi = {
     pending: 'Cảnh báo đang chờ',
     maxPriority: 'Mức ưu tiên cao nhất',
     openLive: 'Mở theo dõi trực tiếp',
+    rest: 'Nghỉ / hoạt động',
   },
   cameraStatus,
   camera: {

@@ -70,6 +70,11 @@ describe('BedCard', () => {
     expect(screen.getByText('Camera hoạt động')).toBeInTheDocument();
   });
 
+  it('shows the reference rest status as a secondary label (F27)', () => {
+    renderCard(bed({ state: { ...bed().state!, rest_status: 'RESTING' } }));
+    expect(screen.getByText('Đang nghỉ - dữ liệu tham khảo')).toBeInTheDocument();
+  });
+
   it('bed without session shows Không theo dõi', () => {
     renderCard(bed({ session: null, state: null }));
     expect(screen.getByText('Không theo dõi')).toBeInTheDocument();
