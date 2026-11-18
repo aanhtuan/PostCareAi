@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F27 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP (theo HS, conflicts C02) |
 | Milestone | M3 |
 | Ước lượng | 1 phiên |
@@ -80,6 +80,29 @@ Hiển thị một **trạng thái tham khảo** về mức hoạt động quan 
 ## 9. Kế hoạch triển khai
 
 > Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+
+Phụ thuộc F23, F26 đã `Done`. Câu hỏi mở (timeline) không chặn: theo mặc định **không** hiện trên timeline *(giả định)*. Không có migration, endpoint hay thư viện mới. `RestStatus` (`schemas/enums.py`), `BodyStateSnapshot.rest_status`, `BedStateIn/Out.rest_status`, khóa `rest.*` (`engine.default.yaml`, `RestConfig`) và việc worker gửi `rest_status` (`worker/loop.py::_state_body`) đã có sẵn; không cần `make gen-api-types`.
+
+Code dùng lại: `ActivityReading` (`engine/activity.py`, F23), `FaceReading` (`engine/face.py`, F26), `PoseSequence`/`run_engine` (`tests/engine/builders.py`), `face`/`with_face` (`tests/engine/face_builders.py`), `vi.rest` (`web/src/i18n/vi.ts`).
+
+1. **Test trước (engine)** `server/tests/engine/test_rest.py`, gọi trực tiếp `RestTracker` với chuỗi đầu vào tổng hợp (ts, body_state, activity_level, face_status, eyes_closed) và một ca qua `Engine` đầy đủ:
+   - AC1: `test_rest_enters_when_low_activity_and_eyes_closed`, `test_rest_exits_on_activity_or_eyes_open`; âm tính: `test_low_activity_eyes_open_not_resting`, `test_brief_low_activity_not_resting` (LOW < `low_activity_s`), `test_brief_eyes_closed_not_resting`, `test_eyes_open_few_frames_keeps_resting` (hysteresis `active_hold_s`).
+   - AC2: `test_no_resting_without_clear_face` (mặt `TOO_SMALL`/`NOT_VISIBLE` + LOW 10 phút → `UNKNOWN`), `test_resting_to_unknown_when_face_lost`, `test_unknown_when_no_observation_or_activity_unknown`.
+   - AC3: `test_rest_transitions_emit_no_events` (qua `Engine`: nghỉ → hoạt động → nghỉ, không có sự kiện nào; mỗi lần chuyển có entry LOG `rest_explanation`), `test_rest_deterministic`.
+   - AC3 API: `test_state_with_rest_status_creates_no_alert` trong `server/tests/api/test_internal_cameras.py`.
+2. **`engine/rest.py`**: `RestTracker.update(ts_ms, body_state, activity, face) -> RestReading` (status + entry LOG của lần chuyển gần nhất).
+3. **`engine/engine.py`**: bước 8b sau `_update_face`; `_snapshot` nhận `rest_status`, `rest_explanation`. `schemas/state.py`: thêm `BodyStateSnapshot.rest_explanation` (xem giả định).
+4. **Web**: `web/src/components/RestStatusBadge.tsx` + `RestStatusBadge.test.tsx` (3 giá trị, không có "ngủ"/"tỉnh"); dùng trong `LiveViewPage.tsx` (dòng "Nghỉ / hoạt động") và `BedCard.tsx` (nhãn phụ). `vi.rest.UNKNOWN` = "Mức hoạt động: không đủ dữ liệu". `vi.test.ts` đã quét từ cấm; kiểm tra có "ngủ", "tỉnh".
+5. **Doc**: `event-engine.md` mục 2/3/5 (rest_status, rest_explanation, quy tắc chuyển); spec §10.
+6. `make check`. Replay S12/S13/S16 chưa có video trong tập dev: ghi rõ.
+
+Rủi ro: `activity.low_threshold` và `face.signals.eyes_closed` chưa hiệu chỉnh trên người bệnh; mặt nằm nghiêng thường `NOT_VISIBLE` (F25) nên phần lớn thời gian sẽ là `UNKNOWN` khi ít vận động, đúng tinh thần "không biết thì nói không biết".
+
+Giả định thêm khi lập kế hoạch *(giả định)*:
+- Quy tắc từng frame (theo thứ tự): `body_state = NO_OBSERVATION` hoặc `activity_level = UNKNOWN` → `UNKNOWN` ngay; `LOW` + `face_status ≠ OK` → `UNKNOWN` ngay (kể cả đang `RESTING`); đủ điều kiện R1 → `RESTING`; ứng viên "hoạt động" (`activity ≠ LOW`, hoặc `LOW` + mặt `OK` + mắt mở): từ `UNKNOWN`/`ACTIVE` → `ACTIVE` ngay (mức vận động đã có cửa sổ riêng), từ `RESTING` phải giữ liên tục ≥ `rest.active_hold_s`; `LOW` + mặt `OK` + mắt đóng chưa đủ lâu → giữ trạng thái hiện tại.
+- `activity_level = UNKNOWN` (cửa sổ chưa đủ, vừa đổi mục tiêu) → `rest_status = UNKNOWN`, kể cả khi mặt rõ, mắt mở.
+- "Mặt `OK` trong suốt khoảng đó" (R1) = mặt `OK` liên tục trong suốt đoạn mắt đóng (`eyes_closed` của F26 chỉ bật khi mặt `OK`); thời gian LOW đếm độc lập với mặt.
+- Entry LOG (R5) nằm ở trường mới `BodyStateSnapshot.rest_explanation` (`rule_id`, `from_status`, `to_status`, `activity_level`, `low_activity_ms`, `eyes_closed_ms`, `priority = LOG`) thay vì trộn vào `explanation`, để giữ nguyên hợp đồng F14 R10 (`explanation` = lần chuyển `body_state` gần nhất). Không gửi lên API (như `explanation`).
 
 ## 10. Ghi chú bàn giao
 
