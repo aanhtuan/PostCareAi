@@ -198,3 +198,66 @@ def test_mjpeg_parts_no_frame_yields_nothing() -> None:
     clock = FakeClock()
     parts = _collect(LatestFrameStore(), clock, {})
     assert parts == []
+
+
+def test_mjpeg_parts_ends_when_viewer_no_longer_valid() -> None:
+    """F35: người xem bị khóa / đặt lại mật khẩu giữa chừng → stream dừng ở lần kiểm tra kế tiếp."""
+    clock = FakeClock()
+    t0 = clock.now()
+    store = LatestFrameStore()
+    state = {"valid": True, "checks": 0}
+
+    async def fake_sleep(seconds: float) -> None:
+        clock.advance(seconds)
+        store.put(1, JPEG_A, received_at=clock.now())  # worker vẫn gửi khung đều
+        if clock.now() - t0 >= timedelta(seconds=6):
+            state["valid"] = False
+
+    async def check() -> bool:
+        state["checks"] += 1
+        return state["valid"]
+
+    async def run() -> list[bytes]:
+        gen = mjpeg_parts(
+            store,
+            1,
+            stale_after_s=3.0,
+            poll_s=0.5,
+            now=clock.now,
+            sleep=fake_sleep,
+            still_valid=check,
+            revalidate_s=5.0,
+        )
+        return [part async for part in gen]
+
+    store.put(1, JPEG_A, received_at=clock.now())
+    parts = asyncio.run(run())
+    assert parts  # đã phát trước khi bị khóa
+    # Hợp lệ ở lần kiểm tra t = 5 s, không hợp lệ ở t = 10 s → dừng ngay sau đó.
+    assert timedelta(seconds=6) <= clock.now() - t0 <= timedelta(seconds=10.5)
+    assert state["checks"] == 2
+
+
+def test_mjpeg_stream_ends_when_user_locked_mid_stream(
+    client: TestClient, login: Login, app, db: Session, settings: Settings
+) -> None:
+    app.state.settings = settings.model_copy(
+        update={
+            "stream_stale_frame_s": 30.0,
+            "stream_poll_interval_s": 0.02,
+            "stream_revalidate_s": 0.1,
+        }
+    )
+    token = _token(login, "nurse")
+    app.state.frames.put(1, JPEG_A)
+    nurse = db.scalar(select(User).where(User.username == "nurse"))
+    assert nurse is not None
+    start = time.monotonic()
+    with client.stream("GET", f"{URL}?token={token}") as r:
+        assert r.status_code == 200
+        nurse.is_active = False
+        db.commit()
+        body = r.read()
+    # Không chờ tới stale_frame_s (30 s): đóng sau lần kiểm tra lại kế tiếp.
+    assert time.monotonic() - start < 10.0
+    assert body.count(b"--frame\r\n") >= 1
