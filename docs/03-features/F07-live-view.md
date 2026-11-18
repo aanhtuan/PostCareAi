@@ -167,3 +167,22 @@ Trạng thái: **Done**.
 - [ ] Doc liên quan đã cập nhật cùng PR.
 - [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).
+
+## 12. Mở rộng hai khung theo yêu cầu người dùng (2026-11-19)
+
+Nguồn: yêu cầu trực tiếp của người dùng muốn sản phẩm giống demo hai khung và xác nhận giữ chế độ riêng tư ở trái, thêm skeleton ở phải. Đây là mở rộng *(giả định theo yêu cầu người dùng)* của F07/F28, không thay đổi rule engine.
+
+### Kế hoạch triển khai
+
+1. Worker vẽ thêm JPEG skeleton trên nền mới từ cùng observation và khung hình với luồng hiện tại. Không đổi display_mode, không gửi thêm pixel gốc.
+2. Thêm tham số `view=display|skeleton` cho POST frame và GET MJPEG; mặc định display tương thích client cũ. Hai bộ đệm RAM riêng; áp dụng cùng xác thực, giới hạn kích thước, hết hạn, kiểm tra lại tài khoản. Không DB migration, không lưu ảnh.
+3. UI hai khung cạnh nhau từ 768 px, xếp dọc trên màn hình nhỏ; trạng thái/sự kiện hiện phía dưới. Mọi nhãn trong vi.ts.
+4. Chưa có ROI: vẫn chạy pose cho phần hiển thị, không chạy engine và không phát state/event; UI nói rõ cần vùng giường để theo dõi sự kiện. Skeleton là các người quan sát được, chưa phải xác nhận mục tiêu bệnh nhân.
+5. Test bảo vệ luồng riêng tư, tách bộ đệm, quyền/stale ở cả hai view, không chạy engine khi thiếu ROI, UI hai luồng và offline. Chạy make check + test-vision; kiểm chứng browser và worker thật.
+
+### Acceptance criteria bổ sung
+
+- [ ] AC5: Hai khung display và skeleton xuất phát từ cùng frame/observation; trái giữ display_mode hiện tại; skeleton không chứa pixel gốc. Hai kết nối MJPEG có thể lệch thời gian truyền, không cam kết đồng bộ từng pixel trên trình duyệt.
+- [ ] AC6: Cả hai luồng yêu cầu quyền nhân viên và cùng cơ chế hết hạn; không fallback từ skeleton sang ảnh display.
+- [ ] AC7: Thiếu ROI vẫn thấy pose khi model quan sát được người, không phát state/event, có hướng dẫn cấu hình.
+- [ ] AC8: Hai khung có nhãn tiếng Việt, responsive, ẩn khi camera offline; trạng thái/sự kiện hiện có tiếp tục cập nhật.

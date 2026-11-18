@@ -19,6 +19,7 @@ type Props = {
   offlineText?: string;
   /** Thử mở lại stream sau lỗi ảnh (giả định 3 s). */
   retryMs?: number;
+  view?: 'display' | 'skeleton';
 };
 
 const DEFAULT_RETRY_MS = 3000;
@@ -31,6 +32,7 @@ export function CameraStream({
   alt,
   offlineText = vi.cameraStatus.OFFLINE,
   retryMs = DEFAULT_RETRY_MS,
+  view = 'display',
 }: Props) {
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
@@ -92,7 +94,7 @@ export function CameraStream({
       <img
         key={attempt}
         ref={imgRef}
-        src={streamUrl(cameraId, token, attempt)}
+        src={streamUrl(cameraId, token, attempt, view)}
         alt={alt}
         style={{ display: 'block', width: '100%', height: 'auto', borderRadius: 8 }}
         onLoad={(e) => setSize({ w: e.currentTarget.clientWidth, h: e.currentTarget.clientHeight })}

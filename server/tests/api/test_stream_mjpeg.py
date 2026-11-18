@@ -273,3 +273,33 @@ def test_mjpeg_stream_ends_when_user_locked_mid_stream(
     # Không chờ tới stale_frame_s (30 s): đóng sau lần kiểm tra lại kế tiếp.
     assert time.monotonic() - start < 10.0
     assert body.count(b"--frame\r\n") >= 1
+
+
+def test_skeleton_stream_isolated_and_requires_auth(client, login, app) -> None:
+    token = _token(login, "nurse")
+    app.state.frames.put(1, JPEG_A)
+    # Không dùng ảnh display thay cho skeleton khi worker cũ chưa gửi skeleton.
+    assert client.get(f"{URL}?token={token}&view=skeleton").status_code == 404
+    app.state.frames.put(1, JPEG_B, view="skeleton")
+    assert client.get(f"{URL}?view=skeleton").status_code == 401
+    r = client.get(f"{URL}?token={token}&view=skeleton")
+    assert r.status_code == 200
+    assert JPEG_B in r.content and JPEG_A not in r.content
+    app.state.frames.put(1, JPEG_B, datetime.now(UTC) - timedelta(seconds=10), view="skeleton")
+    assert client.get(f"{URL}?token={token}&view=skeleton").status_code == 404
+    assert app.state.frames.get(1).data == JPEG_A
+
+
+def test_skeleton_frame_ingest_keeps_views_separate(client, app) -> None:
+    from tests.conftest import WORKER_TOKEN
+
+    url = "/internal/v1/cameras/1/frame?view=skeleton"
+    assert client.post(url, content=JPEG_B).status_code == 401
+    headers = {"X-Worker-Token": WORKER_TOKEN, "Content-Type": "image/jpeg"}
+    app.state.frames.put(1, JPEG_A)
+    assert client.post(url, content=JPEG_B, headers=headers).status_code == 204
+    assert app.state.frames.get(1, view="skeleton").data == JPEG_B
+    assert app.state.frames.get(1).data == JPEG_A
+    assert client.post(url, content=b"bad", headers=headers).status_code == 400
+    invalid = client.post(url.replace("skeleton", "raw"), content=JPEG_B, headers=headers)
+    assert invalid.status_code == 422

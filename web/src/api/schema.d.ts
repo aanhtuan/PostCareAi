@@ -3905,6 +3905,7 @@ export interface operations {
     stream_mjpeg_api_v1_cameras__camera_id__stream_mjpeg_get: {
         parameters: {
             query?: {
+                view?: string;
                 token?: string | null;
             };
             header?: never;
@@ -4079,7 +4080,9 @@ export interface operations {
     };
     frame_internal_v1_cameras__camera_id__frame_post: {
         parameters: {
-            query?: never;
+            query?: {
+                view?: string;
+            };
             header?: {
                 "x-worker-token"?: string | null;
             };

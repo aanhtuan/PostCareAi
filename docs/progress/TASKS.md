@@ -42,6 +42,12 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 
 ## Đã xong gần đây
 
+- [x] 2026-11-19: Mở rộng Theo dõi trực tiếp theo yêu cầu người dùng: khung trái giữ chế độ riêng tư hiện tại, khung phải skeleton + vùng giường từ cùng observation; tách bộ đệm/luồng MJPEG, giữ quyền và stale policy, hỗ trợ pose preview khi chưa có ROI nhưng không phát state/event. Đã thêm test worker/API/UI mục tiêu; đang chờ `make check` và kiểm chứng browser sau restart dịch vụ.
+
+- [x] 2026-11-19 00:31: Minh họa clip stock Pexels 8090735 → MediaPipe → skeleton/ROI và engine thật; 115 khung, 1 sự kiện ở mép giường, chưa có rời giường. Mở http://127.0.0.1:5180/ để xem video gốc cạnh skeleton. `make test-vision`: 5 passed, 1 skipped; không thay webcam A01 hoặc source ứng dụng. Chi tiết trong session-log.
+
+- [x] 2026-11-19: Cài và chạy clone Linux mới `/home/atuna/Downloads/PostCareAI-fresh`: dependency/hook, PostgreSQL 16 riêng (`postcare-fresh-db`, cổng 55433), migration 0006, seed nền, 4 model khớp SHA256; API 8002, web 5175, đăng nhập UI nurse và WebSocket thành công. `make test-vision`: 2 passed, 4 skipped (thiếu video); `make check` PASS: 1360 pytest + 253 Vitest + build; webcam USB index 0 và worker đã chạy, /live nhận MJPEG 640x480, còn cần ROI/phiên để phát hiện sự kiện. Hướng dẫn local (không commit): `reports/LOCAL-SETUP.local.md`. Webcam thật đã hoạt động; chưa nghiệm thu hành vi quanh giường.
+
 - [x] 2026-11-17: **F00 Done.** Mypy, import-linter (8 contract), pre-commit/pre-push, CI GitHub Actions (Ubuntu + Windows, run 44107632897 xanh), `config/engine.default.yaml`, msw, `postcare version`/`openapi --check`. Chi tiết: spec F00 mục 10.
 - [x] 2026-11-17: Hợp nhất đề xuất nhóm vào tài liệu (QA#31–QA#37, F35–F37, pitch, DEMO-PLAN, datasets); dữ liệu ngoài 2,5 GB trong `data/external/`.
 

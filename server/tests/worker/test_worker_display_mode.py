@@ -96,3 +96,24 @@ def test_render_error_drops_frame_and_keeps_running() -> None:
     assert h.engines and len(h.engines[0].processed) > 10  # engine vẫn chạy
     assert h.api.paths("/state")  # trạng thái vẫn gửi
     assert h.api.paths("/heartbeat")
+
+
+def test_worker_sends_separate_skeleton_without_changing_display_mode() -> None:
+    h = make_harness(config=default_config(display_mode="RAW"))
+    h.run_until(2.0)
+    primary = h.api.paths("/frame")
+    skeleton = h.api.paths("/frame?view=skeleton")
+    assert primary and len(skeleton) == len(primary)
+    assert all(float(np.median(_decode(c[3]))) < SOURCE_GRAY / 2 for c in skeleton)
+    assert all(abs(float(np.median(_decode(c[3]))) - SOURCE_GRAY) < 5 for c in primary)
+    assert h.worker.config.display_mode is DisplayMode.RAW
+
+
+def test_no_roi_observes_pose_for_display_without_engine_or_events() -> None:
+    h = make_harness(config=default_config(roi_polygon=None, display_mode="BLUR"))
+    h.run_until(2.0)
+    assert h.adapters[0].calls
+    assert not h.engines
+    assert not h.api.paths("/state")
+    assert not h.api.paths("/events")
+    assert h.api.paths("/frame?view=skeleton")

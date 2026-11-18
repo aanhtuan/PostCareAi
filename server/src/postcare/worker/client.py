@@ -100,10 +100,14 @@ class WorkerApiClient:
             raise WorkerApiError(f"heartbeat lỗi {r.status_code} ({_error_code(r)})")
         return int(r.json()["config_version"])
 
-    def post_frame(self, jpeg: bytes) -> None:
-        r = self._request(
-            "POST", f"{self._base}/frame", content=jpeg, headers={"Content-Type": "image/jpeg"}
-        )
+    def post_frame(self, jpeg: bytes, *, view: str = "display") -> None:
+        kwargs: dict[str, Any] = {
+            "content": jpeg,
+            "headers": {"Content-Type": "image/jpeg"},
+        }
+        if view != "display":
+            kwargs["params"] = {"view": view}
+        r = self._request("POST", f"{self._base}/frame", **kwargs)
         if r.status_code != 204:
             raise WorkerApiError(f"frame lỗi {r.status_code} ({_error_code(r)})")
 

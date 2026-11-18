@@ -92,6 +92,16 @@ describe('LiveViewPage', () => {
     expect(screen.queryByText(vi.live.roiNotConfigured)).toBeNull();
   });
 
+  it('shows a separate skeleton stream while preserving the privacy mode', async () => {
+    setup(bed(), { ...camera('ONLINE', ROI), display_mode: 'BLUR' });
+    const display = await screen.findByRole('img', { name: 'Giường A01' });
+    const skeleton = await screen.findByRole('img', { name: vi.live.skeletonTitle });
+    expect(display.getAttribute('src')).not.toContain('view=skeleton');
+    expect(skeleton.getAttribute('src')).toContain('view=skeleton');
+    expect(screen.getByText(vi.displayMode.BLUR)).toBeInTheDocument();
+    expect(screen.getByText(vi.live.displayTitle)).toBeInTheDocument();
+  });
+
   it('LiveViewPage links to the bed timeline (F22 R7)', async () => {
     setup(bed());
     const link = await screen.findByRole('link', { name: vi.timeline.title });
