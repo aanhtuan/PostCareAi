@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F27 |
-| Trạng thái | In progress |
+| Trạng thái | In review |
 | Ưu tiên | MVP (theo HS, conflicts C02) |
 | Milestone | M3 |
 | Ước lượng | 1 phiên |
@@ -51,10 +51,10 @@ Hiển thị một **trạng thái tham khảo** về mức hoạt động quan 
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** Ít vận động kéo dài + mắt đóng (mặt rõ) → `RESTING` ("Đang nghỉ - dữ liệu tham khảo"). Vận động tăng hoặc mắt mở giữ ≥ `rest.active_hold_s` → `ACTIVE` ("Đang hoạt động"). *(HS §5.3; PDF §6.3)* — *Kiểm chứng:* test `test_rest_enters_when_low_activity_and_eyes_closed`, `test_rest_exits_on_activity_or_eyes_open`; mở mắt 1–3 frame không làm đổi trạng thái.
-- [ ] **AC2.** Mặt không rõ → không bao giờ `RESTING`; đang `RESTING` mà mất mặt → `UNKNOWN`. *(HS §9.1)* — *Kiểm chứng:* test `test_no_resting_without_clear_face`, `test_resting_to_unknown_when_face_lost`.
-- [ ] **AC3.** Chuyển đổi trạng thái nghỉ/hoạt động không tạo sự kiện hay cảnh báo; chỉ có entry LOG trong `explanation` của state. *(HS §5.3; event-engine.md mục 5)* — *Kiểm chứng:* test engine `test_rest_transitions_emit_no_events` (chuỗi nghỉ → hoạt động → nghỉ, `EngineOutput.events` không có mã nào do rest); test API `test_state_with_rest_status_creates_no_alert`.
-- [ ] **AC4.** UI hiển thị đúng câu và không có từ "ngủ" / "tỉnh". *(glossary.md; PDF §6.3)* — *Kiểm chứng:* component test cho 3 giá trị `rest_status`; `vi.test.ts` quét từ cấm.
+- [x] **AC1.** Ít vận động kéo dài + mắt đóng (mặt rõ) → `RESTING` ("Đang nghỉ - dữ liệu tham khảo"). Vận động tăng hoặc mắt mở giữ ≥ `rest.active_hold_s` → `ACTIVE` ("Đang hoạt động"). *(HS §5.3; PDF §6.3)* — *Kiểm chứng:* test `test_rest_enters_when_low_activity_and_eyes_closed`, `test_rest_exits_on_activity_or_eyes_open`; mở mắt 1–3 frame không làm đổi trạng thái.
+- [x] **AC2.** Mặt không rõ → không bao giờ `RESTING`; đang `RESTING` mà mất mặt → `UNKNOWN`. *(HS §9.1)* — *Kiểm chứng:* test `test_no_resting_without_clear_face`, `test_resting_to_unknown_when_face_lost`.
+- [x] **AC3.** Chuyển đổi trạng thái nghỉ/hoạt động không tạo sự kiện hay cảnh báo; chỉ có entry LOG trong `explanation` của state. *(HS §5.3; event-engine.md mục 5)* — *Kiểm chứng:* test engine `test_rest_transitions_emit_no_events` (chuỗi nghỉ → hoạt động → nghỉ, `EngineOutput.events` không có mã nào do rest); test API `test_state_with_rest_status_creates_no_alert`.
+- [x] **AC4.** UI hiển thị đúng câu và không có từ "ngủ" / "tỉnh". *(glossary.md; PDF §6.3)* — *Kiểm chứng:* component test cho 3 giá trị `rest_status`; `vi.test.ts` quét từ cấm.
 
 ## 6. Kế hoạch test
 
@@ -107,6 +107,25 @@ Giả định thêm khi lập kế hoạch *(giả định)*:
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+**2026-11-18, builder (trạng thái In review).** Nhánh `feat/F27-rest-status`.
+
+Đã làm:
+- `engine/rest.py` (`RestTracker`, `RestReading`): quy tắc mục 9; ghép vào `engine/engine.py` (bước 8b sau mặt). Snapshot có `rest_status` thật và trường mới `rest_explanation` (entry LOG). Worker, API, WS đã gửi `rest_status` sẵn, không sửa.
+- Web: `components/RestStatusBadge.tsx`; dùng ở `LiveViewPage.tsx` và nhãn phụ trên `BedCard.tsx`; `vi.rest.UNKNOWN` = "Mức hoạt động: không đủ dữ liệu", `vi.bedCard.rest`.
+- Doc: `event-engine.md` mục 2, 5 (cách tính `rest_status`, `rest_explanation`).
+
+Bằng chứng AC:
+- AC1: `tests/engine/test_rest.py::test_rest_enters_when_low_activity_and_eyes_closed`, `test_rest_exits_on_activity_or_eyes_open`; âm tính `test_low_activity_eyes_open_not_resting`, `test_brief_low_activity_not_resting`, `test_brief_eyes_closed_not_resting`, `test_eyes_open_few_frames_keeps_resting` (1–3 frame), `test_exit_hold_restarts_when_condition_breaks`.
+- AC2: `test_no_resting_without_clear_face` (TOO_SMALL/NOT_VISIBLE/LOW_CONFIDENCE, 10 phút), `test_resting_to_unknown_when_face_lost`, `test_eyes_closed_but_face_not_ok_relies_on_activity`, `test_unknown_when_no_observation_or_activity_unknown`.
+- AC3: `test_rest_transitions_emit_no_events` (qua `Engine`: nghỉ → hoạt động → nghỉ), `test_transition_writes_log_entry`, `test_rest_does_not_change_body_explanation`, `test_rest_deterministic`; API `tests/api/test_rest_status_api.py::test_state_with_rest_status_creates_no_alert` (đã xanh từ trước vì API chưa bao giờ tạo sự kiện từ state; giữ làm test hồi quy).
+- AC4: `web/src/components/RestStatusBadge.test.tsx` (3 giá trị, không "ngủ"/"tỉnh", không mã nội bộ), `BedCard.test.tsx` (nhãn phụ), `vi.test.ts` (quét từ cấm).
+- `make check` xanh (2026-11-18): server 1270 passed, web 236 passed, build OK.
+
+Chưa làm / cần biết:
+- Replay S12, S13, S16 chưa có video trong tập dev: chưa kiểm chứng trên video thật; `make test-vision` không chạy (feature không đổi adapter).
+- Timeline: theo mặc định câu hỏi mở, không hiện *(giả định)*.
+- `rest_explanation` là trường mới thay vì trộn vào `explanation` (lệch nhẹ so với chữ của R5, xem giả định mục 9).
 
 ## 11. Definition of Done
 
