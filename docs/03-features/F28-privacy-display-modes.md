@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F28 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP |
 | Milestone | M4 |
 | Ước lượng | 2 phiên |
@@ -83,6 +83,7 @@ Giảm lượng hình ảnh nhận dạng mà người dùng phải xem trên da
 - *(giả định QA#18)* ADMIN và CHARGE_NURSE được đổi chế độ.
 - *(giả định)* Làm mờ bằng pixelate; khóa mới `privacy.head_box_scale`, `privacy.pixelate_blocks`, `privacy.head_hold_s`.
 - *(giả định)* Mất vùng đầu quá `privacy.head_hold_s` → mờ toàn khung.
+- *(giả định, quyết định của điều phối, ưu tiên riêng tư)* `privacy.head_box_scale = 2.4` (trước là 1.8): keypoint đầu của pose lệch so với mặt thật khi mặt nghiêng cận cảnh, nên nới rộng vùng mờ. Khóa này không tính vào `config_hash`, không đổi sự kiện.
 - *(giả định)* Tùy chọn `--display-mode` của replay.
 - *(giả định)* Giới hạn: pose chỉ phát hiện tối đa `pose.num_poses` người; người thứ ba trở đi có thể không được làm mờ. Ghi vào runbook (F30): dùng `SKELETON` khi có nhiều người trong khung.
 
@@ -140,15 +141,20 @@ Kiểm tra: `make check` exit 0 (pytest 1269 passed, vitest 203 passed), `make t
 Thủ công (replay `--preview`, model lite mặc định, `runs/` không commit):
 - pexels-6130032 (nằm nghiêng, cận mặt; 137 khung, 0 sự kiện) và pexels-8090735 (ngồi mép giường; 115 khung, 1 sự kiện `BED_EDGE`): `events.jsonl` và `frames.jsonl` cùng md5 ở cả 3 chế độ.
 - Khung xem: RAW giữ nguyên ảnh; BLUR pixelate thành khối vùng đầu, phần còn lại giữ nguyên; SKELETON nền xám đậm chỉ có ROI vàng, skeleton xanh và bảng debug, không thấy giường, người hay đồ vật.
-- Giới hạn thấy được: ở pexels-6130032 (mặt nghiêng cận cảnh), keypoint đầu của pose lệch so với mặt thật, nên ô mờ phủ phần lớn mặt nhưng mép mũi/cằm có lúc lộ ở rìa. Có thể tăng `privacy.head_box_scale` (1.8 → khoảng 2.2–2.5) sau khi xem thêm clip (khóa này không tính vào `config_hash`). Chưa đổi giá trị (câu hỏi mở cho review).
+- Giới hạn thấy được: ở pexels-6130032 (mặt nghiêng cận cảnh), keypoint đầu của pose lệch so với mặt thật, nên ô mờ phủ phần lớn mặt nhưng mép mũi/cằm có lúc lộ ở rìa. Có thể tăng `privacy.head_box_scale` (1.8 → khoảng 2.2–2.5) sau khi xem thêm clip (khóa này không tính vào `config_hash`). Review đã chốt 2.4 (xem đoạn dưới).
 - Chưa thử MJPEG với camera thật (ca thủ công của mục 6).
 
 Lệch với spec: giá trị lạ → 422 (không phải 400) theo `api/errors.py`; `engine_key` bỏ `config_version` (giả định, để R8 giữ cả khi đổi chế độ lúc đang chạy).
 
+
+**2026-11-18, review: Đạt.** Sửa theo review (cùng nhánh, đã merge `main` trước; xung đột import ở `LiveViewPage.tsx` với F26 `FaceSignalsPanel`, giữ cả hai):
+1. `worker/loop.py` `_maybe_send_frame`: render + `encode_jpeg` bọc `try/except Exception`. Lỗi → WARNING, bỏ khung đó, **không bao giờ** gửi ảnh gốc thay thế; `step()` chạy tiếp. Test trước: `tests/worker/test_worker_display_mode.py::test_render_error_drops_frame_and_keeps_running` (renderer luôn raise → không có `POST /frame`; engine vẫn xử lý khung, state và heartbeat vẫn gửi).
+2. `privacy.head_box_scale` 1.8 → 2.4 (`config/engine.default.yaml`, `event-engine.md`, mục 7). Chạy lại pexels-6130032 (mặt nghiêng cận cảnh), `BLUR`: ở khung 60 và 110, ô mờ phủ hết mặt (mắt, mũi, miệng, cằm). Ở khung 20 (đầu ngửa), mép môi/đầu mũi nằm sát rìa trái ô mờ, lộ một phần nhỏ. Với `head_box_scale` 1.8 và 2.4, `config_hash` (886768c0eef0…), `events.jsonl` và `frames.jsonl` giống hệt nhau. `frames.jsonl` khác lần chạy trước review vì code engine mới merge từ `main`, không phải vì khóa privacy.
+
 ## 11. Definition of Done
 
-- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
-- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
-- [ ] Doc liên quan đã cập nhật cùng PR.
-- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [x] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [x] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [x] Doc liên quan đã cập nhật cùng PR.
+- [x] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).
