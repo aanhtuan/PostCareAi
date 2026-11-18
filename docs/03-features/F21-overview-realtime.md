@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F21 |
-| Trạng thái | In progress |
+| Trạng thái | In review |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -88,11 +88,11 @@ Feature này nâng màn hình "Tổng quan" khung của F09 thành bản realtim
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** Thẻ giường hiện một trong ba trạng thái *Đang theo dõi / Cần kiểm tra / Cảnh báo mới* theo quy tắc A12, kèm trạng thái cơ thể và chất lượng quan sát *(HS Hình 3; A12)*. — *Kiểm chứng:* `web/src/pages/Overview/bedCardStatus.test.ts` (`pending alert gives Cảnh báo mới`, `acknowledged open alert gives Cần kiểm tra`, `no observation gives Cần kiểm tra`, `otherwise Đang theo dõi`, `pending wins over acknowledged`); `OverviewPage.test.tsx::renders body state and observation quality`.
-- [ ] **AC2.** Mỗi thẻ hiện số cảnh báo đang chờ và mức ưu tiên cao nhất của giường *(PDF §9.1 (tr.11))*. — *Kiểm chứng:* `server/tests/api/test_overview.py::test_overview_alert_counts_and_max_priority`; `OverviewPage.test.tsx::shows pending count and max priority`.
-- [ ] **AC3.** Hai khối "Sự kiện cần chú ý" và "Diễn biến gần đây" cập nhật realtime, không hiện mã nội bộ *(HS §4.3, Hình 3)*. — *Kiểm chứng:* `OverviewPage.test.tsx` (`attention block updates on alert.created`, `recent activity updates on event.created`, `does not render internal codes`).
-- [ ] **AC4.** Không còn polling; chỉ refetch khi WebSocket kết nối lại *(F18)*. — *Kiểm chứng:* `OverviewPage.test.tsx::no refetch interval` (fake timers: không có request mới sau 30 giây); `refetches after reconnect`.
-- [ ] **AC5.** Màn hình "Theo dõi trực tiếp" (F07) hiển thị realtime **trạng thái cơ thể hiện tại, chất lượng quan sát và sự kiện gần nhất** của giường, cập nhật từ WS `bed.state` và `event.created` *(PDF §9.1 (tr.11))*. — *Kiểm chứng:* `LiveViewPage.test.tsx` (`shows body state from bed.state`, `shows observation quality label`, `shows latest event text from vi.ts`).
+- [x] **AC1.** Thẻ giường hiện một trong ba trạng thái *Đang theo dõi / Cần kiểm tra / Cảnh báo mới* theo quy tắc A12, kèm trạng thái cơ thể và chất lượng quan sát *(HS Hình 3; A12)*. — *Kiểm chứng:* `web/src/pages/Overview/bedCardStatus.test.ts` (`pending alert gives Cảnh báo mới`, `acknowledged open alert gives Cần kiểm tra`, `no observation gives Cần kiểm tra`, `otherwise Đang theo dõi`, `pending wins over acknowledged`); `OverviewPage.test.tsx::renders body state and observation quality`.
+- [x] **AC2.** Mỗi thẻ hiện số cảnh báo đang chờ và mức ưu tiên cao nhất của giường *(PDF §9.1 (tr.11))*. — *Kiểm chứng:* `server/tests/api/test_overview.py::test_overview_alert_counts_and_max_priority`; `OverviewPage.test.tsx::shows pending count and max priority`.
+- [x] **AC3.** Hai khối "Sự kiện cần chú ý" và "Diễn biến gần đây" cập nhật realtime, không hiện mã nội bộ *(HS §4.3, Hình 3)*. — *Kiểm chứng:* `OverviewPage.test.tsx` (`attention block updates on alert.created`, `recent activity updates on event.created`, `does not render internal codes`).
+- [x] **AC4.** Không còn polling; chỉ refetch khi WebSocket kết nối lại *(F18)*. — *Kiểm chứng:* `OverviewPage.test.tsx::no refetch interval` (fake timers: không có request mới sau 30 giây); `refetches after reconnect`.
+- [x] **AC5.** Màn hình "Theo dõi trực tiếp" (F07) hiển thị realtime **trạng thái cơ thể hiện tại, chất lượng quan sát và sự kiện gần nhất** của giường, cập nhật từ WS `bed.state` và `event.created` *(PDF §9.1 (tr.11))*. — *Kiểm chứng:* `LiveViewPage.test.tsx` (`shows body state from bed.state`, `shows observation quality label`, `shows latest event text from vi.ts`).
 
 ## 6. Kế hoạch test
 
@@ -155,7 +155,33 @@ Không có migration, không đổi OpenAPI, không thêm thư viện.
 
 ## 10. Ghi chú bàn giao
 
-> Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+**18/11/2026 — triển khai xong, chờ review.** Nhánh `feat/F21-overview-realtime`.
+
+**Bằng chứng theo AC:**
+
+| AC | Test |
+|---|---|
+| AC1 | `bedCardStatus.test.ts` (F09/F21, có ca tạm dừng, camera mất kết nối); `OverviewPage.test.tsx::renders body state and observation quality`, `card updates from bed.state without refetch` (không gọi lại `/overview`) |
+| AC2 | `test_timeline_handover.py::test_overview_alert_counts_and_max_priority`; ca âm mới `server/tests/api/test_overview.py::test_overview_resolved_alerts_not_counted`; `OverviewPage.test.tsx::shows pending count and max priority`, `card turns to Cảnh báo mới immediately on alert.created`; `invalidation.test.ts::alert.created bumps the bed card immediately` |
+| AC3 | `OverviewPage.test.tsx::attention block updates on alert.created`, `recent activity updates on event.created` (ca âm: sự kiện LOG không vào khối chú ý), `does not render internal codes` |
+| AC4 | `OverviewPage.test.tsx::no refetch interval while WebSocket open` (fake timers 30 s, không request mới), `polls as fallback while WebSocket disconnected`, `refetches after reconnect`; `invalidation.test.ts::bursts of messages coalesce into one invalidation per key` |
+| AC5 | `LiveViewPage.test.tsx` (`shows body state from bed.state`, `shows observation quality label`, `shows latest event text from vi.ts`, `no bed.state shows Không đủ dữ liệu quan sát`, `no polling while WebSocket open`) |
+| Toast/âm thanh | `alertNotifier.test.ts` (`HIGH alert shows toast and sound once`, `MEDIUM alert toast without sound`, `duplicate alert.created is ignored`) |
+
+**Thay đổi chính:**
+- `web/src/realtime/status.ts`: `RealtimeContext`, `useRealtimeStatus`, `fallbackInterval`. `useOverview` và `useCameraDetail` chỉ polling khi WebSocket không mở; bỏ `useLiveOverview` (LiveView dùng chung `useOverview`, nên polling dự phòng của LiveView là 5 s thay vì 2 s; chi tiết camera vẫn 2 s).
+- `web/src/realtime/invalidation.ts`: invalidate gộp 200 ms (`INVALIDATE_COALESCE_MS`, `flushInvalidations`); `alert.created` tăng `pending_alert_count`, nâng `max_open_priority` của thẻ ngay bằng `setQueryData`; kết nối lại hủy hàng chờ rồi invalidate toàn bộ.
+- `web/src/realtime/alertNotifier.ts`: toast một lần mỗi `alert.id` (id notification `alert-<id>`), âm thanh chỉ `HIGH`; `RealtimeProvider` giữ một notifier suốt vòng đời.
+- `web/src/test/render.tsx`: `renderWithProviders(..., { ws, qc })`, `testQueryClient()`.
+- Doc: `api-conventions.md` mục WebSocket.
+
+**`make check`:** xanh (1096 pytest, 163 vitest, lint-imports 10 kept, build web).
+
+**Kiểm chứng thủ công (18/11/2026):** DB `postcare_f21` (migrate + `postcare seed`, thêm bệnh nhân BN-001 và mở phiên A01 qua API), API cổng 8021, Vite cổng 5181 (`VITE_API_TARGET=http://127.0.0.1:8021`), `postcare simulate --bed A01 --scenario bed-exit --speed 2 --away 4`.
+- Probe WebSocket qua proxy Vite: 9 `bed.state` trễ tối đa 2 ms, `alert.created` tối đa 16 ms, `event.created` tối đa 22 ms; `GET /overview` ngay sau mỗi `bed.state` khớp trạng thái, `pending_alert_count` tăng 0 → 1 → 2 theo BED_EDGE/BED_EXIT.
+- Trình duyệt (đăng nhập `nurse`, Tổng quan): theo dõi chữ trên thẻ A01 mỗi 50 ms; thẻ đổi Nằm → Đang nâng thân → Ngồi → Ở mép giường → Đứng → Ngoài giường → Ngồi → Nằm trong vòng < 1 s sau mỗi bước của simulator; khi hết heartbeat chuyển "Không đủ dữ liệu quan sát / Sự cố camera". Trong ~40 s chỉ có 4 request `/overview` (lần tải đầu + refetch gộp do `alert.*`/`session.updated`), không có chu kỳ 5 s. Không thấy mã nội bộ trên trang.
+
+**Người sau cần biết:** chưa kiểm chứng toast/âm thanh trên trình duyệt thật (chỉ unit test; trình duyệt có thể chặn âm thanh trước thao tác đầu tiên). `postcare seed` (không `--reset`) không tạo bệnh nhân và phiên mẫu; dùng `make seed` hoặc mở phiên thủ công.
 
 ## 11. Definition of Done
 
