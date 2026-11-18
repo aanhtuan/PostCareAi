@@ -1,12 +1,19 @@
 """Realtime gateway (F18): WsHub cài `Publisher`; route `GET /api/v1/ws?token=`.
 
 Endpoint REST chạy trong thread pool, nên `publish()` chuyển message về event loop
-bằng `call_soon_threadsafe`. Mỗi client có hàng đợi riêng; client chậm bị loại, không chặn ai.
+bằng `call_soon_threadsafe`. Mỗi kết nối có hàng đợi riêng; client chậm bị đóng (1013) để tự
+kết nối lại và làm mới dữ liệu, không chặn ai.
+
+Mỗi kết nối là một `Connection` (user, vai trò, bộ lọc `accept`). F36 thêm luồng `FAMILY` bằng
+cách đăng ký với bộ lọc theo quyền xem và đóng 4403 bằng `close_where`, không phải viết lại hub
+(QA#31).
 """
 
 import asyncio
 import contextlib
 import logging
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -19,15 +26,27 @@ logger = logging.getLogger(__name__)
 
 CLOSE_UNAUTHORIZED = 4401
 CLOSE_FORBIDDEN = 4403  # FAMILY trước F36 (F35 R2; api-conventions.md)
-_CLOSE = "__close__"  # message nội bộ trong hàng đợi: đóng kết nối, không gửi cho client
+CLOSE_TRY_AGAIN = 1013  # client chậm bị loại: kết nối lại và làm mới (F18 R7, giả định)
+CLOSE_MESSAGE = "__close__"  # message nội bộ trong hàng đợi: đóng kết nối, không gửi cho client
 QUEUE_SIZE = 200
+
+Message = dict[str, Any]
+Accept = Callable[[Message], bool]
 
 router = APIRouter()
 
 
+@dataclass(eq=False)
+class Connection:
+    queue: "asyncio.Queue[Message]"
+    user_id: int | None
+    role: str | None
+    accept: Accept | None = None
+
+
 class WsHub:
     def __init__(self) -> None:
-        self._clients: dict[asyncio.Queue[dict[str, Any]], int | None] = {}
+        self._conns: dict[asyncio.Queue[Message], Connection] = {}
         self._loop: asyncio.AbstractEventLoop | None = None
 
     def bind_loop(self, loop: asyncio.AbstractEventLoop) -> None:
@@ -35,66 +54,79 @@ class WsHub:
 
     @property
     def client_count(self) -> int:
-        return len(self._clients)
+        return len(self._conns)
+
+    def _call_in_loop(self, fn: Callable[..., None], *args: Any) -> None:
+        loop = self._loop
+        if loop is None or loop.is_closed():
+            return
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+        if running is loop:
+            fn(*args)
+        else:
+            loop.call_soon_threadsafe(fn, *args)
 
     def publish(self, type_: str, payload: dict[str, Any]) -> None:
         message = {"type": type_, "payload": payload, "sent_at": datetime.now(UTC).isoformat()}
-        loop = self._loop
-        if loop is None or loop.is_closed():
-            return
-        try:
-            running = asyncio.get_running_loop()
-        except RuntimeError:
-            running = None
-        if running is loop:
-            self._fanout(message)
-        else:
-            loop.call_soon_threadsafe(self._fanout, message)
+        self._call_in_loop(self._fanout, message)
 
-    def _fanout(self, message: dict[str, Any]) -> None:
-        for queue in list(self._clients):
+    def _fanout(self, message: Message) -> None:
+        for conn in list(self._conns.values()):
+            if conn.accept is not None:
+                try:
+                    if not conn.accept(message):
+                        continue
+                except Exception:
+                    logger.exception("Bộ lọc kết nối WebSocket lỗi; bỏ qua message cho kết nối này")
+                    continue
             try:
-                queue.put_nowait(message)
+                conn.queue.put_nowait(message)
             except asyncio.QueueFull:
-                logger.warning("Loại client WebSocket gửi chậm")
-                self._clients.pop(queue, None)
+                logger.warning("Đóng client WebSocket gửi chậm (%s)", CLOSE_TRY_AGAIN)
+                self._close(conn, CLOSE_TRY_AGAIN)
+
+    def close_where(self, predicate: Callable[[Connection], bool], code: int) -> None:
+        """Đóng mọi kết nối thỏa `predicate` với mã `code`. Gọi SAU commit."""
+        self._call_in_loop(self._close_matching, predicate, code)
 
     def disconnect_user(self, user_id: int, code: int = CLOSE_UNAUTHORIZED) -> None:
         """Đóng kết nối của user: 4401 (khóa, đặt lại mật khẩu), 4403 (không còn là nhân viên)."""
-        loop = self._loop
-        if loop is None or loop.is_closed():
-            return
-        try:
-            running = asyncio.get_running_loop()
-        except RuntimeError:
-            running = None
-        if running is loop:
-            self._close_user(user_id, code)
-        else:
-            loop.call_soon_threadsafe(self._close_user, user_id, code)
+        self.close_where(lambda c: c.user_id == user_id, code)
 
-    def _close_user(self, user_id: int, code: int) -> None:
-        for queue, owner in list(self._clients.items()):
-            if owner != user_id:
+    def _close_matching(self, predicate: Callable[[Connection], bool], code: int) -> None:
+        for conn in list(self._conns.values()):
+            try:
+                matched = predicate(conn)
+            except Exception:
+                logger.exception("Điều kiện đóng kết nối WebSocket lỗi; bỏ qua kết nối này")
                 continue
-            self._clients.pop(queue, None)
-            while not queue.empty():  # bỏ message chưa gửi: không gửi thêm gì cho người bị khóa
-                queue.get_nowait()
-            queue.put_nowait({"type": _CLOSE, "code": code})
+            if matched:
+                self._close(conn, code)
 
-    def register(self, user_id: int | None = None) -> asyncio.Queue[dict[str, Any]]:
-        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=QUEUE_SIZE)
-        self._clients[queue] = user_id
+    def _close(self, conn: Connection, code: int) -> None:
+        self._conns.pop(conn.queue, None)
+        while not conn.queue.empty():  # bỏ message chưa gửi: không gửi thêm gì sau khi đóng
+            conn.queue.get_nowait()
+        conn.queue.put_nowait({"type": CLOSE_MESSAGE, "code": code})
+
+    def register(
+        self, user_id: int | None = None, *, role: str | None = None, accept: Accept | None = None
+    ) -> asyncio.Queue[Message]:
+        queue: asyncio.Queue[Message] = asyncio.Queue(maxsize=QUEUE_SIZE)
+        self._conns[queue] = Connection(queue, user_id, role, accept)
         return queue
 
-    def unregister(self, queue: asyncio.Queue[dict[str, Any]]) -> None:
-        self._clients.pop(queue, None)
+    def unregister(self, queue: asyncio.Queue[Message]) -> None:
+        self._conns.pop(queue, None)
 
 
-async def _sender(ws: WebSocket, queue: asyncio.Queue[dict[str, Any]]) -> None:
+async def _sender(ws: WebSocket, queue: asyncio.Queue[Message]) -> None:
     while True:
         message = await queue.get()
-        if message.get("type") == _CLOSE:
+        if message.get("type") == CLOSE_MESSAGE:
             await ws.close(code=message["code"])
             return
         await ws.send_json(message)
@@ -125,7 +157,7 @@ async def websocket_endpoint(ws: WebSocket, token: str | None = None) -> None:
         return
 
     hub: WsHub = app.state.hub
-    queue = hub.register(user_id)
+    queue = hub.register(user_id, role=role.value)
     tasks = [asyncio.create_task(_sender(ws, queue)), asyncio.create_task(_receiver(ws))]
     try:
         _, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)

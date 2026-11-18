@@ -63,7 +63,7 @@ async def _watch_cameras(app: FastAPI) -> None:
 
 def create_app(settings: Settings | None = None, *, watch_cameras: bool = True) -> FastAPI:
     settings = settings or get_settings()
-    install_access_log_redaction()  # `?token=` của MJPEG/WS không vào access log
+    install_access_log_redaction()  # `?token=` của MJPEG/WS không vào log uvicorn
     engine = make_engine(settings.database_url)
 
     @asynccontextmanager
