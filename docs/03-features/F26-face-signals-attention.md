@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F26 |
-| Trạng thái | In progress |
+| Trạng thái | In review |
 | Ưu tiên | MVP |
 | Milestone | M3 |
 | Ước lượng | 3 phiên |
@@ -57,11 +57,11 @@ Biến các hệ số blendshape (F25) thành **tín hiệu quan sát theo thờ
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** Engine tính các tín hiệu mắt đóng/mở, nhắm kéo dài, hạ lông mày, nheo mắt, thay đổi vùng mũi-miệng theo thời gian. "Theo dõi trực tiếp" hiển thị chúng bằng tiếng Việt. *(HS §5.1, §5.3)* — *Kiểm chứng:* test `test_face_signals_on_off_with_threshold`, `test_eyes_closed_prolonged`; component test `FaceSignalsPanel.test.tsx` với payload `bed.state` mẫu.
-- [ ] **AC2.** `FACE_ATTENTION` chỉ tạo khi ≥ `face.attention_min_signals` tín hiệu cùng duy trì ≥ `face.attention_hold_s`. Hạ lông mày ngắn khi đang nằm yên **không** tạo sự kiện. *(HS §5.3; PDF §7.4)* — *Kiểm chứng:* test `test_face_attention_two_signals_held` (dương tính); `test_short_brow_down_while_lying_no_event`, `test_single_signal_long_no_event` (âm tính); dùng builder `face(signals={…}, seconds=…)`.
-- [ ] **AC3.** Tín hiệu mặt kèm `activity_level = HIGH` hoặc đổi `body_state` trong cửa sổ giữ → `priority = HIGH`, có `escalated_by` trong `explanation`; không kèm → `MEDIUM`. *(HS §5.3; PDF §7.4; C05)* — *Kiểm chứng:* test `test_face_attention_escalates_with_high_activity`, `test_face_attention_escalates_with_state_change`, `test_face_attention_medium_when_still`.
-- [ ] **AC4.** `face_status ≠ OK` → không có tín hiệu, không có `FACE_ATTENTION`, UI hiện "Không đủ dữ liệu khuôn mặt", không hiện câu nào hàm ý bình thường. *(HS §9.1)* — *Kiểm chứng:* test `test_face_not_ok_clears_signals_and_no_event` (mặt quay đi giữa chừng → bộ đếm reset); component test trạng thái `NOT_VISIBLE`.
-- [ ] **AC5.** Text mới trong `vi.ts` qua test từ cấm (không có "đau", "chẩn đoán", "bất tỉnh", "ngủ"…). *(glossary.md; PDF §9.2)* — *Kiểm chứng:* `web/src/i18n/vi.test.ts` trong `make check`.
+- [x] **AC1.** Engine tính các tín hiệu mắt đóng/mở, nhắm kéo dài, hạ lông mày, nheo mắt, thay đổi vùng mũi-miệng theo thời gian. "Theo dõi trực tiếp" hiển thị chúng bằng tiếng Việt. *(HS §5.1, §5.3)* — *Kiểm chứng:* test `test_face_signals_on_off_with_threshold`, `test_eyes_closed_prolonged`; component test `FaceSignalsPanel.test.tsx` với payload `bed.state` mẫu.
+- [x] **AC2.** `FACE_ATTENTION` chỉ tạo khi ≥ `face.attention_min_signals` tín hiệu cùng duy trì ≥ `face.attention_hold_s`. Hạ lông mày ngắn khi đang nằm yên **không** tạo sự kiện. *(HS §5.3; PDF §7.4)* — *Kiểm chứng:* test `test_face_attention_two_signals_held` (dương tính); `test_short_brow_down_while_lying_no_event`, `test_single_signal_long_no_event` (âm tính); dùng builder `face(signals={…}, seconds=…)`.
+- [x] **AC3.** Tín hiệu mặt kèm `activity_level = HIGH` hoặc đổi `body_state` trong cửa sổ giữ → `priority = HIGH`, có `escalated_by` trong `explanation`; không kèm → `MEDIUM`. *(HS §5.3; PDF §7.4; C05)* — *Kiểm chứng:* test `test_face_attention_escalates_with_high_activity`, `test_face_attention_escalates_with_state_change`, `test_face_attention_medium_when_still`.
+- [x] **AC4.** `face_status ≠ OK` → không có tín hiệu, không có `FACE_ATTENTION`, UI hiện "Không đủ dữ liệu khuôn mặt", không hiện câu nào hàm ý bình thường. *(HS §9.1)* — *Kiểm chứng:* test `test_face_not_ok_clears_signals_and_no_event` (mặt quay đi giữa chừng → bộ đếm reset); component test trạng thái `NOT_VISIBLE`.
+- [x] **AC5.** Text mới trong `vi.ts` qua test từ cấm (không có "đau", "chẩn đoán", "bất tỉnh", "ngủ"…). *(glossary.md; PDF §9.2)* — *Kiểm chứng:* `web/src/i18n/vi.test.ts` trong `make check`.
 
 ## 6. Kế hoạch test
 
@@ -122,6 +122,49 @@ Giả định thêm khi lập kế hoạch *(giả định)*:
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+**2026-11-18, builder (trạng thái In review).** Nhánh `feat/F26-face-signals`.
+
+Đã làm:
+- `engine/face.py` (`FaceTracker`, `FaceReading`): max các khóa → EMA `smoothing.ema_alpha` → ngưỡng; `eyes_closed_prolonged`; giữ giá trị khi `face = None` tối đa `face.run_every_n_frames` frame; `status ≠ OK` hoặc đổi mục tiêu → xóa.
+- `engine/rules/face.py` (`FaceRules`): đoạn giữ, MEDIUM/HIGH, `escalated_by`; `EventDraft.priority` (tùy chọn) trong `rules/common.py`, `RuleSet` dùng nó.
+- `engine/engine.py`: snapshot có `face_status`, `face_signals` thật; worker đã gửi sẵn (`_state_body`).
+- Web: `pages/LiveView/FaceSignalsPanel.tsx` (thay dòng "Khuôn mặt" trên "Theo dõi trực tiếp"), `vi.faceSignal`, `vi.live.faceSignals/faceNoData/faceNoSignal`.
+- Doc: `event-engine.md` mục 2, 5, 8.
+
+Bằng chứng AC:
+- AC1: `tests/engine/test_face_signals.py` (`test_face_signals_on_off_with_threshold`, `test_face_signals_below_threshold_stay_off`, `test_face_signal_single_frame_spike_smoothed`, `test_signal_uses_max_of_keys`, `test_face_signals_hold_on_skipped_frames`, `test_eyes_closed_prolonged`, `test_eyes_closed_prolonged_resets_when_eyes_open`); `tests/worker/test_worker_face_signals.py`; `web/src/pages/LiveView/FaceSignalsPanel.test.tsx`.
+- AC2: `tests/engine/test_rules_face.py::test_face_attention_two_signals_held`; âm tính `test_short_brow_down_while_lying_no_event`, `test_single_signal_long_no_event`, `test_eyes_closed_and_prolonged_count_once`, `test_face_attention_requires_target`, `test_min_signals_from_config`; `test_signals_interrupted_by_skipped_face_still_count`.
+- AC3: `test_face_attention_escalates_with_high_activity`, `test_face_attention_escalates_with_state_change`, `test_face_attention_medium_when_still`, `test_no_observation_transition_not_state_change`.
+- AC4: `test_face_not_ok_clears_signals_and_no_event`, `test_face_too_small_never_attention`, `test_face_too_small_no_signals`, `test_face_not_ok_clears_signals_immediately`, `test_face_missing_longer_than_cycle_is_not_visible`, `test_no_face_data_is_not_visible`; component test `NOT_VISIBLE/TOO_SMALL/LOW_CONFIDENCE` → "Không đủ dữ liệu khuôn mặt", không liệt kê tín hiệu.
+- AC5: `web/src/i18n/vi.test.ts` (quét từ cấm) xanh với text mới.
+- R7 / cô lập: `test_face_attention_debounced`, `test_face_attention_once_per_held_segment`, `test_face_does_not_change_body_events` (cùng chuỗi pose có/không mặt → cùng sự kiện cơ thể).
+
+Kiểm chứng thật (replay bật face, ROI cả khung, 15 FPS, `POSTCARE_MODELS_DIR` checkout chính, 19 clip stock `data/external/pexels`, `mixkit`). **Tập dev chưa có clip S12–S14 (evaluation.md)**, nên chưa đối chiếu được kỳ vọng "S14 có FACE_ATTENTION, S12/S13 không". Ô tín hiệu: số khung bật (trung vị / p90 giá trị thô trên khung mặt `OK`).
+
+| Clip | Face chạy | OK | eyes_closed | brow_down | eye_squint | mouth_change | FACE_ATTENTION |
+|---|---|---|---|---|---|---|---|
+| pexels-6130032 (nằm, cận mặt) | 69 | 59 | 8 (0.50/0.61) | 77 (0.88/0.95) | 111 (0.56/0.81) | 0 | 0 (cơ thể `NO_OBSERVATION`, R4) |
+| pexels-3753707 | 161 | 117 | 118 (0.62/0.81) | 8 (0.13/0.26) | 30 (0.34/0.57) | 0 | 0 |
+| pexels-6944081 | 379 | 295 | 4 (0.16/0.35) | 0 | 0 (0.26/0.41) | 0 | 0 |
+| pexels-6010961 | 122 | 105 | 18 (0.37/0.52) | 0 | 93 (0.32/0.67) | 0 | 0 |
+| pexels-9902443 | 109 | 100 | 12 (0.19/0.49) | 0 | 76 (0.49/0.54) | 0 | 0 |
+| mixkit-29966 | 189 | 101 | 79 (0.56/0.75) | 2 | 114 (0.54/0.76) | 6 | 0 |
+| mixkit-5568 | 132 | 36 | 51 (0.68/0.77) | 2 | 71 (0.72/0.75) | 0 | 0 |
+| pexels-4052924 | 209 | 41 | 46 (0.63/0.73) | 2 | 78 (0.68/0.84) | 0 | 0 |
+| pexels-8090735 | 58 | 29 | 56 (0.71/0.79) | 0 | 10 (0.45/0.52) | 0 | 0 |
+| 10 clip còn lại (xa, nằm xoay ngang, mặt khuất) | — | 0–17 | ≤ 6 | ≤ 6 | ≤ 32 | 0 | 0 |
+
+`nose_sneer` = 0 ở mọi clip (giá trị thô ≈ 0). Không có FACE_ATTENTION trên clip nào: cặp tín hiệu duy trì chỉ xuất hiện ở pexels-6130032, nơi hông ngoài khung nên cơ thể `NO_OBSERVATION` (R4 chặn đúng thiết kế). Nhận xét hiệu chỉnh: `eyeBlink*` và `eyeSquint*` của diễn viên trung tính / nhìn xuống thường ≥ 0,5–0,7, nên `eyes_closed` và `eye_squint` bật khá nhiều; hai tín hiệu này cùng nhóm vùng mắt có thể đủ `attention_min_signals = 2` khi người bệnh nhìn xuống lâu. Chưa đổi ngưỡng (chưa có clip S12–S14 để đối chiếu); đề nghị hiệu chỉnh khi có tập dev.
+
+Sau bước kiểm chứng thật đã đổi một giả định: mất quan sát cơ thể **không** xóa tín hiệu mặt (mục 7 kế hoạch), vì clip cận mặt có mặt `OK` nhưng cơ thể `NO_OBSERVATION`.
+
+Kiểm tra: `make check` một lần: format, lint, typecheck, lint-imports, check-api-types xanh, pytest 1124 passed; bước vitest trong `make check` hết bộ nhớ Node (máy thiếu RAM khi nhiều builder chạy song song), chạy lại riêng `npx vitest run --no-file-parallelism --maxWorkers=1`: 23 file / 150 test passed; `npm run build` xanh. `make test-vision`: 6 passed. Không chạy `scripts/dev.ps1 check` (giới hạn bộ nhớ).
+
+Người sau cần biết:
+- F27 dùng `FaceReading` / `Engine` snapshot `face_signals.eyes_closed` (thời gian nhắm mắt có `eyes_closed_prolonged`).
+- `frames.jsonl` của replay chưa ghi `face_signals` (chỉ `face_status`); thống kê trên tính lại bằng `Engine` từ `observations.jsonl`.
+- LiveView vẫn polling (F21 sẽ chuyển WS); khối mặt đọc `state.face_status`, `state.face_signals` nên không đổi khi chuyển.
 
 ## 11. Definition of Done
 
