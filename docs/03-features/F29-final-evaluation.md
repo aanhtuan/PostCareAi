@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F29 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M4 |
 | Ước lượng | 2 phiên |
@@ -95,7 +95,35 @@ Chạy **lần đánh giá chính thức** trên tập test với ngưỡng **đ
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+Lập 2026-11-18 (builder F29). Phụ thuộc F16, F18, F19, F26 đều Done.
+
+**Khảo sát.** `postcare eval` (F16) đã có replay theo split, ghép truth, metric, báo cáo `.local.md/.json`, và chặn cứng `--split test`. `EngineConfig.config_hash()` bỏ khối `privacy` (F28). WS `/api/v1/ws` phát `event.created` sau commit, payload là `EventOut` có `created_at` (đặt bằng `utcnow()` phía Python lúc flush). `websockets` 17 đã có qua `uvicorn[standard]`. `eval` không được import `db`/`api` (import-linter), nên workflow nằm ở `domain`.
+
+**Hash cấu hình so với lần hiệu chỉnh.** Hash hiện tại của `config/engine.default.yaml` là `886768c0eef0c652ed49eef0519e31a8e4423581f6378a29efbbff3023b9f8d1`, khác hash đã chốt ở [calibration-2026-11-18.md](../04-guides/calibration-2026-11-18.md) (`cb7a5ed7…`). So sánh từng khóa (cùng schema hiện tại) cho thấy chỉ khác **`face.head_crop_scale` 1.6 → 2.2** (F25, merge sau lần hiệu chỉnh) và `privacy.head_box_scale` 1.8 → 2.4 (F28, không tính vào hash). Đặt lại `head_crop_scale = 1.6` cho đúng `cb7a5ed7…`. Mọi khóa body/movement/rest/observation không đổi. `postcare eval` chạy replay **không** bật face (runner không truyền `FaceGate`), nên khóa này không ảnh hưởng sự kiện trên tập test; tập test cũng không có truth cho mã face. Lưu ý trung thực: F25 chọn 2.2 khi đếm khung face `OK` trên 8 clip, trong đó 4 clip thuộc tập test (pexels-6010768, pexels-6010961, mixkit-5457, mixkit-5568). Việc này không chạm metric sự kiện nhưng được ghi ở mục giới hạn của báo cáo. **Quyết định:** chốt hash hiện tại `886768c0…` (đúng cấu hình sẽ demo), không chỉnh bất kỳ ngưỡng nào sau khi xem tập test.
+
+**Thay đổi so với mô tả spec (ghi rõ):**
+- Báo cáo do lệnh sinh ra là `reports/final-eval.local.md` + `.local.json` (gitignore, như F16). Bản tổng hợp commit là `docs/04-guides/final-evaluation-2026-11-18.md` (tiếng Việt, số liệu lấy từ báo cáo local). `reports/frozen-config.txt` commit theo R1.
+- `eval --out` là tên khác của `--report` (đã có ở F16).
+- ROI giường cho `gmd_s3_adl_03` (dòng GMDCSA24 test duy nhất có `SIT_UP`, datasets.md §3.5): vẽ bằng mắt trên 1 khung đầu clip **trước** khi chạy, không xem kết quả; file `config/cameras/gmdcsa24-s3-bed.yaml` với `thresholds: {}` (không đổi hash). Clip stock tập test để trống `camera_config` theo datasets.md §3.5.
+
+**Các bước:**
+1. Test trước (không media), xác nhận đỏ, commit `test(F29): …`:
+   - `tests/eval/test_frozen.py`: `test_eval_test_split_requires_frozen`, `test_eval_test_split_rejects_hash_mismatch` (biến thể engine config đổi 1 ngưỡng), `test_eval_test_split_rejects_stale_run_events` (events.jsonl trong `--runs-dir` mang hash cũ khi `--reuse`), `test_eval_test_split_rejects_frozen_file_mismatch`, `test_eval_test_split_runs_with_matching_hash`, `test_freeze_writes_frozen_config`.
+   - `tests/eval/test_delivery.py`: `test_delivery_stats_median_p90`, `test_delivery_stats_zero_samples`, `test_delivery_record_from_message`.
+   - `tests/api/test_measure_delivery.py`: `test_measure_delivery_records_event_created` (TestClient + WS, POST event nội bộ, 1 mẫu latency ≥ 0).
+   - `tests/domain/test_workflow_metrics.py`: `test_workflow_metrics_on_seeded_alerts` (thời điểm biết trước, so số tính tay; chưa tiếp nhận không vào thời gian chờ; `outcome = null` vào tỷ lệ chưa ghi; đếm PENDING/ACKNOWLEDGED cuối khoảng), `test_workflow_metrics_empty_range`.
+   - `tests/eval/test_final_report.py`: `test_final_report_has_required_sections`, `test_final_report_missing_delivery_says_not_measured`.
+2. Code:
+   - `eval/frozen.py`: đọc/ghi `reports/frozen-config.txt` (hash, ngày, commit, engine config, camera config); kiểm hash cấu hình hợp nhất của từng dòng test; quét `runs/<video>/events.jsonl` + `run.json` sau khi chạy (và trước khi `--reuse`).
+   - `eval/delivery.py`: `DeliverySample`, `sample_from_message`, `delivery_stats`, `read_samples`, client `record_delivery` (websockets, async) + login httpx.
+   - `domain/workflow_metrics.py`: `workflow_metrics(db, start, end)` (SQL `count` theo trạng thái/outcome; thời lượng lấy bằng SELECT cột rồi tính phân vị như `eval.metrics.percentile`).
+   - `eval/report.py`: `FinalExtras` + `render_final_markdown` (thêm mục chốt cấu hình, delivery, workflow, buổi thử workflow R7 "chưa đo" nếu thiếu, hiệu năng, giới hạn).
+   - `cli/main.py`: `eval freeze`, `eval --split test --frozen <hash> [--frozen-file] [--delivery] [--workflow] [--out]`, `measure-delivery`, `workflow-report`.
+   - Doc: evaluation.md (§5–§6 lệnh F29), dev-setup.md nếu cần, tech-stack.md (bảng hiệu năng, ghi `websockets` dùng qua uvicorn[standard]).
+3. Chạy chính thức: `eval freeze` → commit `reports/frozen-config.txt` → `eval --split test --frozen 886768c0…` (model `full`, `--max-fps 15`) một lần. Delivery: DB `postcare_f29`, API cổng 8029, `postcare simulate` + `measure-delivery` cùng máy; workflow-report trên khoảng đó (cảnh báo tiếp nhận/xử lý bằng script API: chỉ để kiểm công cụ, không phải số đo người dùng). Buổi thử R7 cần người thật: ghi "chưa đo".
+4. Viết `docs/04-guides/final-evaluation-2026-11-18.md`; điền §10; `make check` một lần; trạng thái In review.
+
+**Rủi ro:** thời gian replay ~190 video (chạy nền); MediaPipe mất người nằm sàn (đã biết); hash lệch do override camera (kiểm bằng `eval freeze` trước khi chạy).
 
 ## 10. Ghi chú bàn giao
 
