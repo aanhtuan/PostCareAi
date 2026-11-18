@@ -4,6 +4,7 @@ import type {
   ActivityLevel,
   AlertOutcome,
   AlertStatus,
+  BedStateOut,
   BodyState,
   CameraSourceType,
   CameraStatus,
@@ -78,6 +79,16 @@ const faceStatus: Record<FaceStatus, string> = {
   NOT_VISIBLE: 'Không thấy khuôn mặt',
   TOO_SMALL: 'Khuôn mặt quá nhỏ trong khung hình',
   LOW_CONFIDENCE: 'Khuôn mặt chưa đủ rõ',
+};
+
+// Tín hiệu khuôn mặt (F26): chỉ mô tả điều quan sát được, không kết luận.
+const faceSignal: Record<keyof BedStateOut['face_signals'], string> = {
+  eyes_closed: 'Mắt đóng',
+  eyes_closed_prolonged: 'Nhắm mắt kéo dài',
+  brow_down: 'Hạ lông mày',
+  eye_squint: 'Nheo mắt',
+  nose_sneer: 'Nhăn vùng mũi',
+  mouth_change: 'Thay đổi vùng miệng',
 };
 
 const priority: Record<Priority, string> = {
@@ -238,6 +249,7 @@ export const vi = {
   activity,
   rest,
   faceStatus,
+  faceSignal,
   priority,
   alertTitle,
   alertStatus,
@@ -268,7 +280,9 @@ export const vi = {
     noEvent: 'Chưa có sự kiện',
     activity: 'Mức vận động',
     rest: 'Nghỉ / hoạt động',
-    face: 'Khuôn mặt',
+    faceSignals: 'Tín hiệu khuôn mặt',
+    faceNoData: 'Không đủ dữ liệu khuôn mặt',
+    faceNoSignal: 'Không có tín hiệu nào đang bật',
     camera: 'Camera',
     session: 'Phiên theo dõi',
     displayMode: 'Chế độ hiển thị',

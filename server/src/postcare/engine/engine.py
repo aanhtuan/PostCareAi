@@ -5,6 +5,7 @@ chỉ lấy từ `obs.ts_ms` (AGENTS.md quy tắc 5; event-engine.md mục 1).
 """
 
 from postcare.engine.activity import ActivityMeter, ActivityReading
+from postcare.engine.face import FaceReading, FaceTracker
 from postcare.engine.features import FeatureExtractor
 from postcare.engine.pipeline import FrameAssessment
 from postcare.engine.quality import QualityGate, assess_quality
@@ -39,6 +40,7 @@ class Engine:
         self._gate = QualityGate(config)
         self._state_machine = StateMachine(config)
         self._activity = ActivityMeter(config)
+        self._face = FaceTracker(config)
         self._rules = RuleSet(config, self.config_hash)
         self._last_ts_ms: int | None = None
         self._last_snapshot: BodyStateSnapshot | None = None
@@ -85,12 +87,13 @@ class Engine:
             body_state = self._state_machine.update(assessment, obs.ts_ms)
         self._body_state = body_state
         activity = self._update_activity(obs.ts_ms, assessment)
+        face = self._update_face(obs, assessment)
         snapshot = _snapshot(
-            body_state, assessment.quality, self._state_machine.explanation, activity
+            body_state, assessment.quality, self._state_machine.explanation, activity, face
         )
-        # Bước 6–9: sự kiện từ chuỗi trạng thái ổn định, vận động (F23) + debounce (F15)
+        # Bước 6–9: sự kiện từ chuỗi trạng thái ổn định, vận động (F23), mặt (F26) + debounce (F15)
         events = self._rules.evaluate(
-            obs.ts_ms, assessment, body_state, self._state_machine.history, activity
+            obs.ts_ms, assessment, body_state, self._state_machine.history, activity, face
         )
         # Output đầu tiên luôn là "đổi" để worker gửi trạng thái ban đầu (giả định F10).
         changed = snapshot != self._last_snapshot
@@ -108,6 +111,16 @@ class Engine:
         if assessment.features is None or assessment.target is None:
             return self._activity.hold()
         return self._activity.update(ts_ms, assessment.target, assessment.features)
+
+    def _update_face(self, obs: FrameObservation, assessment: FrameAssessment) -> FaceReading:
+        """Bước 8a (F26 R3). Đổi người mục tiêu → xóa tín hiệu (giả định F26).
+
+        Tín hiệu không phụ thuộc `body_state`: cận cảnh (hông ngoài khung → `NO_OBSERVATION`) vẫn
+        hiển thị được tín hiệu mặt; chỉ FACE_ATTENTION đòi `body_state ≠ NO_OBSERVATION` (R4).
+        """
+        if assessment.target_is_new:
+            self._face.reset()
+        return self._face.update(obs.ts_ms, obs.face)
 
     def _assess(self, obs: FrameObservation) -> FrameAssessment:
         """Bước 1–3: mục tiêu, chất lượng frame, cổng chất lượng, đặc trưng đã làm mượt (F13)."""
@@ -150,15 +163,17 @@ def _snapshot(
     quality: ObservationQuality,
     explanation: Explanation | None = None,
     activity: ActivityReading | None = None,
+    face: FaceReading | None = None,
 ) -> BodyStateSnapshot:
-    # Nghỉ, khuôn mặt chưa suy ra (F26, F27): luôn UNKNOWN / NOT_VISIBLE, không bao giờ mặc định
-    # là "bình thường" (HS §9.1). Vận động (F23): UNKNOWN khi chưa đủ dữ liệu hoặc mất quan sát.
+    # Nghỉ chưa suy ra (F27): luôn UNKNOWN. Mặt (F26): không có dữ liệu → NOT_VISIBLE, không tín
+    # hiệu; không bao giờ mặc định là "bình thường" (HS §9.1). Vận động (F23): UNKNOWN khi chưa đủ
+    # dữ liệu hoặc mất quan sát.
     return BodyStateSnapshot(
         body_state=body_state,
         observation_quality=quality,
         activity_level=ActivityLevel.UNKNOWN if activity is None else activity.level,
         rest_status=RestStatus.UNKNOWN,
-        face_status=FaceStatus.NOT_VISIBLE,
-        face_signals=FaceSignals(),
+        face_status=FaceStatus.NOT_VISIBLE if face is None else face.status,
+        face_signals=FaceSignals() if face is None else face.signals,
         explanation=explanation,
     )
