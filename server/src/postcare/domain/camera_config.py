@@ -21,9 +21,16 @@ from sqlalchemy.orm import Session
 
 from postcare.db.models import Camera, User
 from postcare.domain.audit import record_audit
-from postcare.domain.dto import CameraRoiOut, CameraThresholdsOut, ThresholdRules
+from postcare.domain.dto import (
+    CameraOut,
+    CameraRoiOut,
+    CameraThresholdsOut,
+    ThresholdRules,
+    camera_out,
+)
 from postcare.domain.errors import DomainError, not_found, validation_error
 from postcare.schemas.engine_config import EngineConfig, EngineConfigError, deep_merge
+from postcare.schemas.enums import DisplayMode
 from postcare.schemas.roi import RoiPolygonError, validate_roi_polygon
 from postcare.settings import REPO_ROOT
 
@@ -89,6 +96,28 @@ def update_roi(db: Session, camera_id: int, points: list[Any], user: User) -> Ca
     return CameraRoiOut(
         camera_id=camera.id, roi_polygon=new_roi, config_version=camera.config_version
     )
+
+
+# ---------- Chế độ hiển thị (F28) ----------
+
+
+def update_display_mode(db: Session, camera_id: int, mode: DisplayMode, user: User) -> CameraOut:
+    """Đổi `display_mode` (ADMIN, CHARGE_NURSE; F28 R2). Worker áp dụng qua poll cấu hình (R3)."""
+    camera = _locked_camera(db, camera_id)
+    if not camera.is_active:
+        raise not_found(_CAMERA_NOT_FOUND)
+    if camera.display_mode is not mode:
+        before = {
+            "display_mode": camera.display_mode.value,
+            "config_version": camera.config_version,
+        }
+        camera.display_mode = mode
+        camera.config_version += 1
+        after = {"display_mode": mode.value, "config_version": camera.config_version}
+        _audit(db, user, "camera.update_display_mode", camera, before, after)
+    db.commit()
+    db.refresh(camera)
+    return camera_out(camera)
 
 
 # ---------- Ngưỡng ----------

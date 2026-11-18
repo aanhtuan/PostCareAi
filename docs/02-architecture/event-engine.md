@@ -39,7 +39,7 @@ EngineContext                     # truyền khi tạo Engine(config, context), 
   roi_polygon: RoiPolygon         # points: list[(x, y)] chuẩn hóa 0–1, ≥3 điểm; đổi ROI → worker tạo Engine mới
 
 EngineOutput
-  state: BodyStateSnapshot        # body_state, observation_quality, activity_level, rest_status, face_status, face_signals, explanation (lần chuyển body_state gần nhất; F14)
+  state: BodyStateSnapshot        # body_state, observation_quality, activity_level, rest_status, face_status, face_signals, explanation (lần chuyển body_state gần nhất; F14), rest_explanation (lần chuyển rest_status gần nhất, mức LOG; F27)
   state_changed: bool
   events: list[EngineEvent]       # code, priority, occurred_at_ms, detected_at_ms, confidence, observation_quality, explanation, config_hash (F15)
 ```
@@ -55,7 +55,7 @@ Quy ước của code (F10, file trong `postcare/schemas/`: `observation.py`, `s
 - Mọi schema là Pydantic frozen và JSON round-trip được (định dạng `observations.jsonl`).
 - `EngineEvent` kiểm tra `explanation.rule_id` không rỗng, `priority` thuộc các mức cho phép của mã trong catalog, `occurred_at_ms ≤ detected_at_ms` *(giả định)*.
 - `Engine.process(obs)`: `obs.ts_ms` phải tăng ngặt so với frame trước, `obs.camera_id` phải bằng `context.camera_id`; sai → `ValueError` *(giả định)*. `state_changed` là `true` ở output đầu tiên và khi `BodyStateSnapshot` khác lần trước.
-- Chưa có nghỉ (trước F27): `rest_status = UNKNOWN`. `face_status`, `face_signals` do F26 điền (mục 8); chưa có dữ liệu mặt → `NOT_VISIBLE`, không tín hiệu. `activity_level` do F23 điền (mục 5); `UNKNOWN` khi chưa đủ dữ liệu hoặc mất quan sát. `Engine.activity_index` trả chỉ số vận động hiện tại (None khi `UNKNOWN`).
+- `rest_status` do F27 điền (bước 8b, mục 5); chưa đủ dữ liệu → `UNKNOWN`. `face_status`, `face_signals` do F26 điền (mục 8); chưa có dữ liệu mặt → `NOT_VISIBLE`, không tín hiệu. `activity_level` do F23 điền (mục 5); `UNKNOWN` khi chưa đủ dữ liệu hoặc mất quan sát. `Engine.activity_index` trả chỉ số vận động hiện tại (None khi `UNKNOWN`).
 
 ## 3. Pipeline (mỗi bước là một module, có test riêng)
 
@@ -169,6 +169,15 @@ Các sự kiện mức LOG/INFO chỉ vào timeline. MEDIUM/HIGH tạo cảnh b�
 
 `rest_status` chỉ hiển thị trên Tổng quan và Theo dõi trực tiếp. Nó **không** được ghi vào timeline *(giả định; F27)*.
 
+**Cách tính `rest_status` (F27, `engine/rest.py`, bước 8b sau bước mặt):** dữ liệu tham khảo, không phải phân loại giấc ngủ, không sinh `EngineEvent`. Mỗi frame, theo thứ tự *(giả định F27)*:
+1. `body_state = NO_OBSERVATION` hoặc `activity_level = UNKNOWN` → `UNKNOWN` ngay.
+2. `activity_level = LOW` mà `face_status ≠ OK` → `UNKNOWN` ngay, kể cả đang `RESTING` (mặt không rõ thì không bao giờ "Đang nghỉ"). Đang `RESTING` mà `face_status ≠ OK` → `UNKNOWN` ngay, bất kể mức vận động (review F27).
+3. `LOW` liên tục ≥ `rest.low_activity_s` và `eyes_closed` (mặt `OK`) liên tục ≥ `rest.eyes_closed_s` → `RESTING`.
+4. Ứng viên hoạt động (`activity_level ≠ LOW`, hoặc `LOW` + mặt `OK` + mắt mở): từ `UNKNOWN`/`ACTIVE` → `ACTIVE` ngay; từ `RESTING` phải giữ liên tục ≥ `rest.active_hold_s`.
+5. Còn lại (`LOW`, mặt `OK`, mắt đóng chưa đủ lâu) → giữ trạng thái hiện tại.
+
+Mỗi lần chuyển, `BodyStateSnapshot.rest_explanation` nhận entry mức LOG: `rule_id` (`rest.resting` / `rest.active` / `rest.unknown`), `priority = LOG`, `from_status`, `to_status`, `activity_level`, `face_status`, `low_activity_ms`, `eyes_closed_ms`, `ts_ms`. Trường riêng để `explanation` vẫn là lần chuyển `body_state` gần nhất (F14 R10). Không gửi lên API, không lưu DB.
+
 **Nâng ưu tiên FACE_ATTENTION:** từ MEDIUM lên HIGH khi, trong cửa sổ `face.attention_hold_s`, có `activity_level = HIGH` **hoặc** có chuyển trạng thái cơ thể (không tính vào/ra NO_OBSERVATION). Đây là diễn giải gộp của HS §5.3 và PDF §7.4.
 
 **Cách tính FACE_ATTENTION (F26, `engine/rules/face.py`):**
@@ -253,10 +262,12 @@ rest:
   eyes_closed_s: 30.0
   active_hold_s: 2.0               # giữ trước khi RESTING → ACTIVE (F27)
 privacy:                           # chỉ ảnh hưởng hiển thị, KHÔNG tính vào config_hash (F28)
-  head_box_scale: 1.8
+  head_box_scale: 2.4
   pixelate_blocks: 12
   head_hold_s: 1.0
 ```
+
+Khóa `privacy.*` (F28, `vision.render.PrivacyRenderer`; không override theo camera, F08): `head_box_scale` nới vùng đầu ước lượng từ keypoint pose (cùng hàm `head_region` với F25); `pixelate_blocks` là số khối theo cạnh dài khi pixelate (vùng đầu, hoặc toàn khung); `head_hold_s` là thời gian giữ vùng đầu gần nhất khi khung hiện tại không ước lượng được vùng đầu của mọi người, quá thời gian đó thì mờ toàn khung. Chế độ hiển thị không đi vào engine: cùng input cho cùng sự kiện ở cả ba chế độ.
 
 `EngineConfig.load(path, overrides)` (`postcare/schemas/engine_config.py`) đọc file này, hợp nhất sâu override (dict từ `cameras.thresholds` hoặc file `config/cameras/<setup>.yaml`) rồi validate ở chế độ strict. Khóa lạ, sai kiểu, thiếu khóa → `EngineConfigError` nêu đường dẫn khóa (ví dụ `posture.sitting_enter_deg`).
 
