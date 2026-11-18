@@ -38,10 +38,18 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!token) return;
+    // alert.created có thể đến lại (gửi lại sau khi kết nối lại): mỗi cảnh báo chỉ báo một lần.
+    const notified = new Set<number>();
     const client = new RealtimeClient(token, {
       onMessage: (msg) => {
         applyMessage(qc, msg);
-        if (msg.type === 'alert.created') notifyAlert(msg.payload as AlertCreatedOut);
+        if (msg.type === 'alert.created') {
+          const data = msg.payload as AlertCreatedOut;
+          if (notified.has(data.alert.id)) return;
+          notified.add(data.alert.id);
+          if (notified.size > 500) notified.delete(notified.values().next().value as number);
+          notifyAlert(data);
+        }
       },
       onStatus: setStatus,
       onReconnected: () => invalidateAll(qc),
