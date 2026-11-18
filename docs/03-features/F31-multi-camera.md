@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F31 |
-| Trạng thái | In progress |
+| Trạng thái | In review |
 | Ưu tiên | MVP cho R1–R4; phần còn lại Sau MVP |
 | Milestone | M4 (R1–R4) / Sau MVP |
 | Ước lượng | 3 phiên |
@@ -53,11 +53,11 @@ Sau khi MVP một giường ổn định, cho phép nhiều giường, mỗi gi�
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** 3 worker (A01–A03) chạy cùng lúc; mỗi sự kiện gắn đúng giường, camera và phiên của nó. *(R1)* — *Kiểm chứng:* `tests/integration/test_multi_worker.py::test_three_workers_events_bound_to_own_bed`; thủ công với 1 camera/clip + 1 clip (mục 10).
-- [ ] **AC2.** Một worker mất nguồn hoặc chết → chỉ camera đó `OFFLINE`; các giường khác vẫn `ONLINE` và nhận sự kiện. *(R2)* — *Kiểm chứng:* `test_multi_worker.py::test_source_loss_only_affects_own_camera`, `::test_dead_worker_only_own_camera_offline`; `tests/worker/test_launcher.py::test_child_exit_does_not_stop_others`.
-- [ ] **AC3.** Có bảng FPS/CPU/RAM/độ trễ theo 1 và 2 worker (face bật/tắt) trong `tech-stack.md`, kèm kết luận trung thực về hai camera live. *(R3)* — *Kiểm chứng:* thủ công, reviewer xem bảng.
-- [ ] **AC4.** `postcare workers` khởi động worker cho mọi camera đang hoạt động có giường (bỏ camera ngừng dùng / chưa gắn giường), gán `--video` đúng camera, dừng tất cả khi Ctrl+C hoặc `stop()`, trên Windows và Linux. *(R4)* — *Kiểm chứng:* `tests/worker/test_launcher.py`, `tests/domain/test_worker_cameras.py`, `tests/test_cli_workers.py`.
-- [ ] **AC5.** Runbook 2 worker cho chung kết trong `docs/progress/DEMO-PLAN.md`. *(QA#32)* — *Kiểm chứng:* reviewer đọc.
+- [x] **AC1.** 3 worker (A01–A03) chạy cùng lúc; mỗi sự kiện gắn đúng giường, camera và phiên của nó. *(R1)* — *Kiểm chứng:* `tests/integration/test_multi_worker.py::test_three_workers_events_bound_to_own_bed`; thủ công với 1 camera/clip + 1 clip (mục 10).
+- [x] **AC2.** Một worker mất nguồn hoặc chết → chỉ camera đó `OFFLINE`; các giường khác vẫn `ONLINE` và nhận sự kiện. *(R2)* — *Kiểm chứng:* `test_multi_worker.py::test_source_loss_only_affects_own_camera`, `::test_dead_worker_only_own_camera_offline`; `tests/worker/test_launcher.py::test_child_exit_does_not_stop_others`.
+- [x] **AC3.** Có bảng FPS/CPU/RAM/độ trễ theo 1 và 2 worker (face bật/tắt) trong `tech-stack.md`, kèm kết luận trung thực về hai camera live. *(R3)* — *Kiểm chứng:* thủ công, reviewer xem bảng.
+- [x] **AC4.** `postcare workers` khởi động worker cho mọi camera đang hoạt động có giường (bỏ camera ngừng dùng / chưa gắn giường), gán `--video` đúng camera, dừng tất cả khi Ctrl+C hoặc `stop()`, trên Windows và Linux. *(R4)* — *Kiểm chứng:* `tests/worker/test_launcher.py`, `tests/domain/test_worker_cameras.py`, `tests/test_cli_workers.py`.
+- [x] **AC5.** Runbook 2 worker cho chung kết trong `docs/progress/DEMO-PLAN.md`. *(QA#32)* — *Kiểm chứng:* reviewer đọc.
 
 ## 6. Kế hoạch test
 
@@ -95,7 +95,24 @@ Sau khi MVP một giường ổn định, cho phép nhiều giường, mỗi gi�
 
 ## 10. Ghi chú bàn giao
 
-> Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+2026-11-18, nhánh `feat/F31-multi-worker`.
+
+**Bằng chứng theo AC**
+- **AC1:** `tests/integration/test_multi_worker.py::test_three_workers_events_bound_to_own_bed` (3 worker thật, engine thật, API thật, chạy xen kẽ): mỗi camera đúng `SIT_UP, BED_EDGE, STAND_UP, BED_EXIT`, đúng `bed_id`/`session_id`; không sự kiện camera 2/3 ở A01. Thủ công: lượt đo 2–3 worker trên DB `postcare_f31`, sự kiện nằm đúng cặp camera/giường (1→A01, 2→A02, 3→A03).
+- **AC2:** `test_source_loss_only_affects_own_camera` (camera 2 không mở được nguồn → chỉ camera 2 OFFLINE, 1 và 3 ONLINE, đủ sự kiện), `test_dead_worker_only_own_camera_offline` (worker 2 chết giữa chừng → `mark_offline_cameras` chỉ trả `[2]`), `tests/worker/test_launcher.py::test_child_exit_does_not_stop_others`, `::test_start_failure_of_one_camera_keeps_others`.
+- **AC3:** bảng "Nhiều worker đồng thời (F31, R3)" trong `tech-stack.md`: 1 / 2 / 3 worker, face bật/tắt; mọi cấu hình giữ 15 FPS (trần A03); webcam + clip có face ~46 % CPU máy, ~0.3 GB RAM mỗi worker, ghi sự kiện ≤ ~0.1 s. Chưa thử hai camera thật (chỉ có một webcam), nên chỉ tuyên bố 1 camera trực tiếp + 1 clip.
+- **AC4:** `tests/worker/test_launcher.py` (dựng lệnh, parse `--video`, tiến trình con thật: khởi động/dừng hết, buộc dừng con bỏ qua SIGINT, `run()` trả mã lỗi lớn nhất, dọn con đã chạy khi `start()` lỗi giữa chừng), `tests/domain/test_worker_cameras.py`, `tests/test_cli_workers.py`. Smoke thủ công trên Windows: `WorkerLauncher` với worker thật (webcam camera 1 + clip camera 2) → cả hai ONLINE giữa lượt, dừng sau 15 s, mã 0, không còn tiến trình worker nào.
+- **AC5:** `DEMO-PLAN.md` mục "Chạy hai worker cho chung kết (F31)"; `dev-setup.md`, `README.md` thêm `make workers`; `scripts/dev.ps1 workers` cho Windows không có make.
+
+**make check** (2026-11-18, một lần): format-check, lint, typecheck, lint-imports, check-api-types xanh; pytest 1277 passed, 1 failed: `tests/test_tooling.py::test_dev_ps1_matches_makefile_targets` (target `workers` mới chưa có trong `scripts/dev.ps1`). Đã thêm task `workers` vào `scripts/dev.ps1` (`-Cameras 1,2 -Videos 2=<file>`), chạy lại `tests/test_tooling.py`: 34 passed. Vitest và build web chưa chạy trong lượt này vì `make` dừng ở bước pytest; nhánh không đổi file nào trong `web/`.
+
+**Ghi chú cho người sau**
+- Test tích hợp nhiều worker xanh ngay khi viết: worker F06 đã theo `camera_id`, không cần sửa worker. Phần code mới chỉ là launcher, `python -m postcare`, `worker_camera_ids`, lệnh `workers`, `make workers`.
+- Smoke đầu tiên phát hiện lỗi: `start()` ném lỗi (console cp1252 không in được tiếng Việt) sau khi đã chạy một worker → worker đó mồ côi. Đã sửa (`start()` nằm trong `try/finally` của `run()`), có test `test_run_stops_started_children_when_start_fails_midway`. CLI đã ép stdout UTF-8 nên lệnh `postcare workers` không gặp lỗi này.
+- Windows: `python.exe` của venv là trampoline chạy tiến trình Python thật; `terminate()` trampoline cũng dừng tiến trình con (đã kiểm: không còn tiến trình sót). Đo CPU/RAM phải cộng cả tiến trình con.
+- Windows dừng bằng TerminateProcess (worker không kịp đóng nguồn gọn); camera chuyển OFFLINE sau ~5 s (A02). Ctrl+C trong console thì worker tự dừng gọn.
+- Sau MVP: nhiều camera một giường, nhiều máy/GPU, tự khởi động lại worker.
+
 
 ## 11. Definition of Done
 

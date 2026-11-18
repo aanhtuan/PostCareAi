@@ -6,9 +6,10 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check
 #   powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 simulate -Bed A01 -Scenario bed-exit -Speed 1
 #   powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 worker -Camera 1 [-Video D:\clip.mp4]
+#   powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 workers [-Cameras 1,2] [-Videos 2=D:\clip.mp4]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('help', 'setup', 'dev', 'dev-api', 'dev-web', 'worker', 'seed', 'simulate',
+    [ValidateSet('help', 'setup', 'dev', 'dev-api', 'dev-web', 'worker', 'workers', 'seed', 'simulate',
         'format', 'format-check', 'lint', 'typecheck', 'lint-imports', 'check-api-types', 'test',
         'test-vision', 'build-web', 'build', 'check', 'db-upgrade', 'db-seed', 'models',
         'gen-api-types')]
@@ -18,6 +19,8 @@ param(
     [double]$Speed = 1,
     [string]$Camera = '',
     [string]$Video = '',
+    [string[]]$Cameras = @(),
+    [string[]]$Videos = @(),
     [int]$Port = 8000
 )
 
@@ -40,6 +43,13 @@ function Invoke-Worker {
     if (-not $Camera) { Write-Host 'Missing -Camera <id>' -ForegroundColor Yellow; exit 2 }
     $argList = @('run', 'postcare', 'worker', '--camera-id', $Camera)
     if ($Video) { $argList += @('--video', $Video) }
+    Invoke-Uv $argList
+}
+
+function Invoke-Workers {
+    $argList = @('run', 'postcare', 'workers')
+    foreach ($c in $Cameras) { $argList += @('--camera-id', $c) }
+    foreach ($v in $Videos) { $argList += @('--video', $v) }
     Invoke-Uv $argList
 }
 
@@ -69,6 +79,7 @@ switch ($Task) {
     'dev-api' { Invoke-Uv @('run', 'uvicorn', 'postcare.api.main:app', '--host', '0.0.0.0', '--port', "$Port", '--reload') }
     'dev-web' { Invoke-Npm @('run', 'dev') }
     'worker' { Invoke-Worker }
+    'workers' { Invoke-Workers }
     'seed' { Invoke-Uv @('run', 'postcare', 'seed', '--reset') }
     'simulate' { Invoke-Uv @('run', 'postcare', 'simulate', '--bed', $Bed, '--scenario', $Scenario, '--speed', "$Speed") }
     'format' { Invoke-Uv @('run', 'ruff', 'check', '--fix', '.'); Invoke-Uv @('run', 'ruff', 'format', '.'); Invoke-Npm @('run', 'format') }
@@ -99,7 +110,7 @@ switch ($Task) {
     }
     default {
         Write-Host 'Usage: scripts\dev.ps1 <task> [-Bed A01] [-Scenario bed-exit] [-Speed 1] [-Camera 1] [-Port 8000]'
-        Write-Host 'Tasks: setup dev dev-api dev-web worker seed simulate format format-check lint typecheck'
+        Write-Host 'Tasks: setup dev dev-api dev-web worker workers seed simulate format format-check lint typecheck'
         Write-Host '       lint-imports check-api-types test test-vision build-web build check'
         Write-Host '       db-upgrade db-seed models gen-api-types  (same as make targets; see make help)'
     }
