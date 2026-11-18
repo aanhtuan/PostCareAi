@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F17 |
-| Trạng thái | In progress |
+| Trạng thái | In review |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 3 phiên |
@@ -197,6 +197,8 @@ Lệch so với spec (ghi lại, không chặn):
 - Kế hoạch test ghi `limit > 200` → 400; theo api-conventions.md lỗi schema của FastAPI là **422** `VALIDATION_ERROR`, test theo 422.
 - R16: chuỗi mất quan sát tính cả lúc engine khởi động không thấy ai *(giả định)*; `OBSERVATION_RESTORED` phát khi state machine xác lập lại trạng thái (sau `restore_duration_s` + `min_duration_s` của trạng thái), `confidence = 1.0` *(giả định)*. Ghi ở event-engine.md mục 5.
 - F04/F36: sự kiện tới muộn của khoảng đã tạm dừng vẫn nhận (giữ giả định F04 §7).
+
+Kiểm tra (2026-11-18, sau khi merge `main` có F25): `make check` exit 0 (server 1039 passed, web 87 passed, build OK; lần chạy trước merge có một lần vitest hết bộ nhớ, chạy lại đạt). `scripts\dev.ps1 check` không chạy vì máy thiếu bộ nhớ; job Windows trên CI kiểm thay.
 
 ## 11. Definition of Done
 
