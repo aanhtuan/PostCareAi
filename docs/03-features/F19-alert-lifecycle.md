@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F19 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -108,7 +108,7 @@ Dữ liệu `outcome` còn dùng để tính tỷ lệ cảnh báo sai (PDF §11
 
 ## 7. Giả định
 
-- *(giả định)* Chống tranh chấp bằng `UPDATE` có điều kiện (R2).
+- *(giả định)* Chống tranh chấp bằng `UPDATE` có điều kiện (R2); `outcome`/`resolve` khóa dòng alert (`SELECT … FOR UPDATE`) trước khi kiểm tra trạng thái.
 - *(giả định)* Người đã tiếp nhận bấm lại cũng nhận 409 (R2).
 - *(giả định)* `note` ghi đè, lịch sử nằm ở audit (R3).
 - *(giả định)* Mọi người có quyền ghi đều được ghi kết quả và xử lý, không chỉ người tiếp nhận (R5).
@@ -122,6 +122,27 @@ Dữ liệu `outcome` còn dùng để tính tỷ lệ cảnh báo sai (PDF §11
 ## 9. Kế hoạch triển khai
 
 > Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+
+**Khảo sát (2026-11-18).** Prototype đã có phần lớn F19:
+- `server/src/postcare/domain/alerts.py`: `acknowledge` (UPDATE có điều kiện `status = PENDING`, 409 `ALERT_ALREADY_ACKNOWLEDGED` có tên), `set_outcome`, `resolve`, `list_alerts`, `get_alert`; `record_audit` cùng transaction; `_finish` commit rồi mới `safe_publish("alert.updated")`.
+- `server/src/postcare/api/v1/alerts.py`: đọc dùng `require_staff`, ghi dùng `require_writer` (DOCTOR/FAMILY → 403).
+- `OutcomeIn`/`ResolveIn` (`domain/dto.py`): `extra="forbid"`, `note` tối đa 1000 ký tự.
+- Test có sẵn `server/tests/test_alerts.py`: vòng đời đầy đủ, 409 lần tiếp nhận thứ hai (cả chính người đã tiếp nhận), chuyển sai, `outcome` lạ, 404, thứ tự danh sách. FAMILY 403 ở `tests/api/test_family_role_default_deny.py` (F35).
+
+**AC đã đạt (bằng chứng hiện có):** AC1 phần lớn (`test_full_lifecycle`, `test_invalid_transitions`), AC2 tuần tự (`test_second_acknowledge_is_409_with_name`), AC5 (`test_invalid_transitions`: resolve khi chưa có outcome → `outcome = null`).
+
+**Khoảng trống cần làm:**
+1. `outcome`/`resolve` đọc trạng thái rồi ghi qua ORM, không khóa dòng: hai `resolve` đồng thời đều qua kiểm tra (hai audit `alert.resolve`), hoặc `outcome` ghi đè sau khi đã `RESOLVED`. Sửa: đọc alert bằng `SELECT … FOR UPDATE` cho `set_outcome` và `resolve` *(giả định: cách cài đặt chống tranh chấp, giống R2)*.
+2. Chưa có test tranh chấp hai session DB cho `acknowledge` (AC2) và `resolve`.
+3. Chưa có test audit `before`/`after` + người thực hiện cho từng thao tác, publish sau commit (đọc từ kết nối khác lúc publish), 403/404/409 không ghi audit/không phát (AC3).
+4. Chưa có test DOCTOR 403 cho 3 endpoint ghi, DOCTOR đọc được, không token → 401 (AC4).
+5. Chưa có test ma trận trạng thái × thao tác đầy đủ, cả 3 giá trị `outcome`, `note` > 1000 ký tự, `resolve` ghi đè `note`, lọc `bed_id`/`from`/`to`, `limit > 200`.
+
+**Bước:**
+1. Test trước (`server/tests/api/test_alerts_api.py`, `server/tests/domain/test_alert_lifecycle.py`): các mục 2–5 ở trên. Xác nhận test tranh chấp `resolve` đỏ vì không khóa dòng. Commit `test(F19): …`.
+2. Cài `_get(..., lock=True)` dùng `with_for_update()` trong `set_outcome`, `resolve`. Commit `feat(F19): …`.
+3. Doc: sửa R11 cho khớp api-conventions (lỗi schema → 422 `VALIDATION_ERROR`, không phải 400); ghi giả định khóa dòng; cập nhật tên test ở AC. Không có migration, không đổi API/OpenAPI nên không cần `make gen-api-types`.
+4. `make check` một lần; ghi bằng chứng vào §10; trạng thái "In review".
 
 ## 10. Ghi chú bàn giao
 
