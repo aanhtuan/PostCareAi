@@ -4,7 +4,9 @@
   `smoothing.ema_alpha`, bật khi ≥ `threshold` *(giả định F26 R1)*.
 - `eyes_closed_prolonged`: `eyes_closed` bật liên tục ≥ `face.eyes_closed_prolonged_s` (R2). Chỉ để
   hiển thị; khi đếm cho FACE_ATTENTION nhóm mắt tính một tín hiệu.
-- `face = None` (frame không chạy face): giữ giá trị gần nhất. `status ≠ OK`, mất quan sát cơ thể
+- `face = None` (frame không chạy face): giữ giá trị gần nhất trong tối đa
+  `face.run_every_n_frames` frame liên tiếp, quá số đó coi là `NOT_VISIBLE` (mục 2 event-engine.md,
+  giả định). `status ≠ OK`, mất quan sát cơ thể
   hoặc đổi người mục tiêu: xóa mọi tín hiệu và bộ đếm (R3). Thiếu dữ liệu mặt **không** bao giờ được
   coi là bình thường (HS §9.1).
 
@@ -56,6 +58,8 @@ class FaceTracker:
         self._alpha = config.smoothing.ema_alpha
         self._specs = {name: getattr(sig, name) for name in SIGNAL_NAMES}
         self._prolonged_ms = config.face.eyes_closed_prolonged_s * MS_PER_S
+        self._max_missing = config.face.run_every_n_frames
+        self._missing = 0
         self._smoothed: dict[str, float] = {}
         self._eyes_closed_since_ms: int | None = None
         self._reading = NO_FACE
@@ -65,6 +69,7 @@ class FaceTracker:
         return self._reading
 
     def reset(self, status: FaceStatus = FaceStatus.NOT_VISIBLE) -> FaceReading:
+        self._missing = 0
         self._smoothed.clear()
         self._eyes_closed_since_ms = None
         self._reading = FaceReading(status=status, signals=FaceSignals(), values={})
@@ -72,7 +77,11 @@ class FaceTracker:
 
     def update(self, ts_ms: int, face: FaceObservation | None) -> FaceReading:
         if face is None:
+            self._missing += 1
+            if self._missing > self._max_missing:
+                return self.reset()
             return self._hold(ts_ms)
+        self._missing = 0
         if face.status != FaceStatus.OK:
             return self.reset(face.status)
         a = self._alpha

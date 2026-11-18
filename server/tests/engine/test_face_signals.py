@@ -168,3 +168,17 @@ def test_no_face_data_is_not_visible() -> None:
     outs = run_engine(lying(LEAD_S))
     assert all(o.state.face_status == FaceStatus.NOT_VISIBLE for o in outs)
     assert all(not any(o.state.face_signals.model_dump().values()) for o in outs)
+
+
+def test_face_missing_longer_than_cycle_is_not_visible() -> None:
+    """Quá `face.run_every_n_frames` frame liên tiếp không có face → `NOT_VISIBLE`, xóa tín hiệu."""
+    frames = with_face(
+        lying(LEAD_S + 4), [face(seconds=LEAD_S), face(signals={"brow_down": ON}, seconds=2)]
+    )
+    outs = run_engine(frames)
+    assert at(outs, LEAD_S + 1.9).state.face_signals.brow_down
+    tail = outs[round((LEAD_S + 2) * FPS) + FACE.run_every_n_frames :]
+    assert tail
+    for o in tail:
+        assert o.state.face_status == FaceStatus.NOT_VISIBLE
+        assert not any(o.state.face_signals.model_dump().values())
