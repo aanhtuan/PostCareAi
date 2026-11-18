@@ -205,7 +205,7 @@ Kiểm tra (2026-11-18, sau khi merge `main` có F25): `make check` exit 0 (serv
 1. `OBSERVATION_RESTORED` không qua debounce khi LOST của cùng chuỗi đã phát (luôn đi cặp): `test_rules_observation.py::test_restored_not_debounced_when_its_lost_was_emitted` (kịch bản 0/10/55/60/70/75 s → cả hai RESTORED đều phát). Ghi ở event-engine.md mục 5.
 2. Nhánh `IntegrityError` của `ingest_event` (request khác lưu cùng `event_uid` giữa lúc kiểm tra và lúc insert) được kiểm chứng xác định: `test_ingest_event.py::test_integrity_error_branch_returns_existing` (`_existing` lần đầu trả None → rollback, trả bản đã có, `created = false`, không phát).
 
-Bằng chứng AC ở bảng trên (mục 5 đã tick). Sau sửa: MAKECHECK. Trạng thái: **Done**.
+Bằng chứng AC ở bảng trên (mục 5 đã tick). Sau sửa: `make check` exit 0 (server 1041 passed, web 87 passed, build OK). Trạng thái: **Done**.
 
 ## 11. Definition of Done
 
