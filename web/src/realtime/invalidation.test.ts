@@ -2,23 +2,46 @@ import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { OverviewOut } from '../api/types';
-import { applyMessage, invalidateAll } from './invalidation';
+import {
+  INVALIDATE_COALESCE_MS,
+  applyMessage,
+  flushInvalidations,
+  invalidateAll,
+} from './invalidation';
 
 function setup() {
   const qc = new QueryClient();
   const spy = vi.spyOn(qc, 'invalidateQueries');
   const overview = {
     beds: [
-      { bed_id: 1, state: null, camera: { id: 10, status: 'ONLINE' } },
-      { bed_id: 2, state: null, camera: { id: 20, status: 'ONLINE' } },
+      {
+        bed_id: 1,
+        state: null,
+        camera: { id: 10, status: 'ONLINE' },
+        pending_alert_count: 0,
+        max_open_priority: null,
+      },
+      {
+        bed_id: 2,
+        state: null,
+        camera: { id: 20, status: 'ONLINE' },
+        pending_alert_count: 1,
+        max_open_priority: 'HIGH',
+      },
     ],
   } as unknown as OverviewOut;
   qc.setQueryData(['overview'], overview);
-  const keys = () => spy.mock.calls.map((c) => (c[0] as { queryKey: unknown[] }).queryKey[0]);
+  // Invalidate từ WebSocket được gộp (F21): `keys()` xả hàng chờ trước khi đọc.
+  const keys = () => {
+    flushInvalidations(qc);
+    return spy.mock.calls.map((c) => (c[0] as { queryKey: unknown[] }).queryKey[0]);
+  };
   return { qc, keys };
 }
 
 const msg = (type: string, payload: unknown) => ({ type, payload, sent_at: '' });
+const T1 = '2026-10-12T07:38:00Z';
+const T2 = '2026-10-12T07:39:00Z';
 
 describe('applyMessage', () => {
   it('bed.state updates only that bed in the overview cache', () => {
@@ -63,6 +86,75 @@ describe('applyMessage', () => {
     const { qc, keys } = setup();
     applyMessage(qc, msg('family.state', {}));
     expect(keys()).toEqual([]);
+  });
+});
+
+describe('F21 realtime cache updates', () => {
+  const alertCreated = (bedId: number, priority: string, id = 1) =>
+    msg('alert.created', {
+      alert: { id, status: 'PENDING', bed: { id: bedId, code: 'A0' }, event: { priority } },
+      event: { id, bed_id: bedId, priority },
+    });
+
+  it('alert.created bumps the bed card immediately', () => {
+    const { qc } = setup();
+    applyMessage(qc, alertCreated(1, 'MEDIUM'));
+    const beds = qc.getQueryData<OverviewOut>(['overview'])!.beds;
+    expect(beds[0].pending_alert_count).toBe(1);
+    expect(beds[0].max_open_priority).toBe('MEDIUM');
+    // Ca âm: giường khác giữ nguyên; mức thấp hơn không hạ mức ưu tiên cao nhất.
+    expect(beds[1].pending_alert_count).toBe(1);
+    applyMessage(qc, alertCreated(2, 'INFO', 2));
+    const after = qc.getQueryData<OverviewOut>(['overview'])!.beds;
+    expect(after[1].pending_alert_count).toBe(2);
+    expect(after[1].max_open_priority).toBe('HIGH');
+  });
+
+  it('repeated alert.created for the same alert bumps the card once', () => {
+    const { qc } = setup();
+    applyMessage(qc, alertCreated(1, 'MEDIUM', 41));
+    applyMessage(qc, alertCreated(1, 'MEDIUM', 41)); // gửi lại (kết nối lại…)
+    expect(qc.getQueryData<OverviewOut>(['overview'])!.beds[0].pending_alert_count).toBe(1);
+    applyMessage(qc, alertCreated(1, 'HIGH', 42));
+    const b = qc.getQueryData<OverviewOut>(['overview'])!.beds[0];
+    expect(b.pending_alert_count).toBe(2);
+    expect(b.max_open_priority).toBe('HIGH');
+  });
+
+  it('bed.state older than the cached state is ignored', () => {
+    const { qc } = setup();
+    applyMessage(qc, msg('bed.state', { bed_id: 1, body_state: 'STANDING', updated_at: T2 }));
+    applyMessage(qc, msg('bed.state', { bed_id: 1, body_state: 'LYING', updated_at: T1 }));
+    expect(qc.getQueryData<OverviewOut>(['overview'])!.beds[0].state).toMatchObject({
+      body_state: 'STANDING',
+    });
+    // Cùng thời điểm hoặc mới hơn vẫn áp dụng.
+    applyMessage(qc, msg('bed.state', { bed_id: 1, body_state: 'SITTING', updated_at: T2 }));
+    expect(qc.getQueryData<OverviewOut>(['overview'])!.beds[0].state).toMatchObject({
+      body_state: 'SITTING',
+    });
+  });
+
+  it('bursts of messages coalesce into one invalidation per key', () => {
+    vi.useFakeTimers();
+    try {
+      const qc = new QueryClient();
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+      for (let i = 0; i < 20; i++) {
+        applyMessage(qc, msg('event.created', { id: i }));
+        applyMessage(qc, msg('alert.updated', { id: i }));
+      }
+      expect(spy).not.toHaveBeenCalled(); // chưa refetch ngay từng message
+      vi.advanceTimersByTime(INVALIDATE_COALESCE_MS);
+      const called = spy.mock.calls.map((c) => (c[0] as { queryKey: unknown[] }).queryKey[0]);
+      expect(called.filter((k) => k === 'events')).toHaveLength(1);
+      expect(called.filter((k) => k === 'overview')).toHaveLength(1);
+      expect(new Set(called).size).toBe(called.length);
+      // Vẫn trong mục tiêu cập nhật ≤ 1 s.
+      expect(INVALIDATE_COALESCE_MS).toBeLessThanOrEqual(500);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

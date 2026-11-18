@@ -7,14 +7,17 @@ import { MemoryRouter } from 'react-router';
 
 import type { UserOut } from '../api/types';
 import { AuthContext, type AuthState } from '../auth/AuthContext';
+import { RealtimeContext } from '../realtime/status';
+import type { WsStatus } from '../realtime/wsClient';
 
 export function renderWithProviders(
   ui: ReactElement,
   user: UserOut,
   route = '/',
   authOverrides: Partial<AuthState> = {},
+  opts: { ws?: WsStatus; qc?: QueryClient } = {},
 ) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const qc = opts.qc ?? new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const auth: AuthState = {
     user,
     token: 'test-token',
@@ -25,15 +28,25 @@ export function renderWithProviders(
     reloadUser: () => {},
     ...authOverrides,
   };
-  return render(
+  const result = render(
     <MantineProvider>
       <QueryClientProvider client={qc}>
         <MemoryRouter initialEntries={[route]}>
-          <AuthContext.Provider value={auth}>{ui}</AuthContext.Provider>
+          <AuthContext.Provider value={auth}>
+            <RealtimeContext.Provider value={opts.ws ?? 'connecting'}>
+              {ui}
+            </RealtimeContext.Provider>
+          </AuthContext.Provider>
         </MemoryRouter>
       </QueryClientProvider>
     </MantineProvider>,
   );
+  return { ...result, qc };
+}
+
+/** QueryClient cho test cần đẩy message WebSocket giả qua `applyMessage`. */
+export function testQueryClient(): QueryClient {
+  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
 
 /** Mock fetch theo đường dẫn API: `{ '/api/v1/overview': {...} }`. */

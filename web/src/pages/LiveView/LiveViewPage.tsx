@@ -1,5 +1,6 @@
 // "Theo dõi trực tiếp" (F07; PDF §9.1): ảnh camera thật qua MJPEG, Bed ROI vẽ đè, trạng thái
-// camera và phiên. Trạng thái làm mới bằng polling 2 s cho tới F21 (WebSocket).
+// camera và phiên. Trạng thái cập nhật realtime qua WebSocket (F21 AC5: `bed.state`,
+// `event.created`, `camera.status`); polling 2 s chỉ là đường dự phòng khi mất WebSocket.
 import {
   Badge,
   Card,
@@ -16,7 +17,7 @@ import {
 import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
-import { useCameraDetail, useEvents, useLiveOverview } from '../../api/hooks';
+import { useCameraDetail, useEvents, useOverview } from '../../api/hooks';
 import type { CameraStatus } from '../../api/types';
 import { useAuth } from '../../auth/useAuth';
 import { CameraStream } from '../../components/CameraStream';
@@ -24,7 +25,7 @@ import { PriorityBadge } from '../../components/Badges';
 import { fmt, vi } from '../../i18n/vi';
 import { formatTime } from '../../utils/time';
 
-const POLL_MS = 2000; // giả định F07 R5
+const POLL_MS = 2000; // giả định F07 R5; chỉ khi WebSocket không mở (F21)
 
 const STATUS_COLOR: Record<CameraStatus, string> = {
   ONLINE: 'green',
@@ -36,7 +37,7 @@ export function LiveViewPage() {
   const { bedId } = useParams();
   const navigate = useNavigate();
   const { token } = useAuth();
-  const overview = useLiveOverview(POLL_MS);
+  const overview = useOverview();
   const beds = overview.data?.beds ?? [];
   const selectedId = bedId ? Number(bedId) : beds[0]?.bed_id;
   const bed = beds.find((b) => b.bed_id === selectedId);

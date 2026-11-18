@@ -1,9 +1,29 @@
 import { act, screen, within } from '@testing-library/react';
+import type { QueryClient } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AlertOut, EventOut, OverviewOut, UserOut } from '../../api/types';
-import { mockFetch, renderWithProviders } from '../../test/render';
+import { vi as viText } from '../../i18n/vi';
+import { applyMessage, flushInvalidations } from '../../realtime/invalidation';
+import { RealtimeProvider } from '../../realtime/RealtimeProvider';
+import { mockFetch, renderWithProviders, testQueryClient } from '../../test/render';
 import { OverviewPage } from './OverviewPage';
+
+// RealtimeClient giả: giữ handler để test gọi onReconnected như khi WebSocket kết nối lại.
+type Handlers = {
+  onStatus: (s: 'connecting' | 'open' | 'reconnecting') => void;
+  onReconnected: () => void;
+};
+const wsHandlers = vi.hoisted(() => ({ current: null as Handlers | null }));
+vi.mock('../../realtime/wsClient', () => ({
+  RealtimeClient: class {
+    constructor(_token: string, handlers: Handlers) {
+      wsHandlers.current = handlers;
+    }
+    start() {}
+    stop() {}
+  },
+}));
 
 const nurse: UserOut = {
   id: 1,
@@ -164,30 +184,185 @@ describe('OverviewPage', () => {
     expect(screen.queryByRole('button', { name: /Giường/ })).not.toBeInTheDocument();
   });
 
-  describe('polling', () => {
+  describe('realtime (F21)', () => {
     afterEach(() => {
       vi.useRealTimers();
     });
 
-    it('OverviewPage refetches within 5 s', async () => {
+    const msg = (type: string, payload: unknown) => ({ type, payload, sent_at: T });
+    const routes = (extra: Record<string, unknown> = {}): Record<string, unknown> => ({
+      '/api/v1/overview': overview,
+      '/api/v1/alerts': { items: [], total: 0 },
+      '/api/v1/events': { items: [], total: 0 },
+      ...extra,
+    });
+    const calls = (fn: ReturnType<typeof mockFetch>, path: string) =>
+      fn.mock.calls.filter((c) => String(c[0]).split('?')[0] === path).length;
+    function push(qc: QueryClient, type: string, payload: unknown) {
+      act(() => {
+        applyMessage(qc, msg(type, payload));
+        flushInvalidations(qc);
+      });
+    }
+    function live(r = routes()) {
+      const fetchFn = mockFetch(r);
+      const qc = testQueryClient();
+      renderWithProviders(<OverviewPage />, nurse, '/', {}, { ws: 'open', qc });
+      return { fetchFn, qc };
+    }
+
+    it('renders body state and observation quality', async () => {
+      live();
+      const a01 = await screen.findByRole('button', { name: /Giường A01/ });
+      expect(within(a01).getByText('Nằm')).toBeInTheDocument();
+      expect(within(a01).getByText(/Quan sát tốt/)).toBeInTheDocument();
+    });
+
+    it('shows pending count and max priority', async () => {
+      live();
+      const a03 = await screen.findByRole('button', { name: /Giường A03/ });
+      expect(within(a03).getByText('2')).toBeInTheDocument();
+      expect(within(a03).getByText('Ưu tiên cao')).toBeInTheDocument();
+    });
+
+    it('card updates from bed.state without refetch', async () => {
+      const { fetchFn, qc } = live();
+      const a01 = await screen.findByRole('button', { name: /Giường A01/ });
+      const before = calls(fetchFn, '/api/v1/overview');
+      push(qc, 'bed.state', {
+        ...overview.beds[0].state,
+        body_state: 'SITTING',
+        observation_quality: 'LOW_CONFIDENCE',
+      });
+      expect(await within(a01).findByText('Ngồi')).toBeInTheDocument();
+      expect(within(a01).getByText(/Độ tin cậy thấp/)).toBeInTheDocument();
+      expect(calls(fetchFn, '/api/v1/overview')).toBe(before);
+    });
+
+    it('card turns to Cảnh báo mới immediately on alert.created', async () => {
+      const r = routes();
+      const { qc } = live(r);
+      const a01 = await screen.findByRole('button', { name: /Giường A01/ });
+      expect(within(a01).getByText('Đang theo dõi')).toBeInTheDocument();
+      // Server đã lưu cảnh báo trước khi phát (lưu trước, phát sau): refetch phải khớp.
+      const beds = overview.beds.map((b) =>
+        b.bed_id === 1 ? { ...b, pending_alert_count: 1, max_open_priority: 'HIGH' as const } : b,
+      );
+      mockFetch({ ...r, '/api/v1/overview': { ...overview, beds } });
+      push(qc, 'alert.created', {
+        alert: { ...pendingAlert, id: 11, bed: { id: 1, code: 'A01' } },
+        event: { ...event, bed_id: 1, priority: 'HIGH' },
+      });
+      expect(await within(a01).findByText('Cảnh báo mới')).toBeInTheDocument();
+    });
+
+    it('attention block updates on alert.created', async () => {
+      const r = routes();
+      const { qc } = live(r);
+      expect(await screen.findByText(viText.overview.noAttention)).toBeInTheDocument();
+      mockFetch({ ...r, '/api/v1/alerts': { items: [pendingAlert], total: 1 } });
+      push(qc, 'alert.created', { alert: pendingAlert, event: { ...event, code: 'BED_EXIT' } });
+      expect(await screen.findByText('Bệnh nhân rời khỏi vùng giường')).toBeInTheDocument();
+      expect(screen.getByText('14:38 - Giường A03')).toBeInTheDocument();
+      expect(screen.getByText('Chờ tiếp nhận')).toBeInTheDocument();
+    });
+
+    it('recent activity updates on event.created', async () => {
+      const r = routes();
+      const { qc } = live(r);
+      expect(await screen.findByText(viText.overview.noRecent)).toBeInTheDocument();
+      const logEvent: EventOut = { ...event, id: 20, code: 'POSTURE_CHANGE', priority: 'LOG' };
+      mockFetch({ ...r, '/api/v1/events': { items: [logEvent], total: 1 } });
+      push(qc, 'event.created', logEvent);
+      expect(await screen.findByText(/Bệnh nhân thay đổi tư thế/)).toBeInTheDocument();
+      // Ca âm: sự kiện mức LOG không tạo cảnh báo nên không vào "Sự kiện cần chú ý".
+      expect(screen.getByText(viText.overview.noAttention)).toBeInTheDocument();
+    });
+
+    it('does not render internal codes', async () => {
+      live(
+        routes({
+          '/api/v1/alerts': { items: [pendingAlert], total: 1 },
+          '/api/v1/events': { items: [event], total: 1 },
+        }),
+      );
+      expect(await screen.findByText('Bệnh nhân rời khỏi vùng giường')).toBeInTheDocument();
+      expect(document.body.textContent).not.toMatch(
+        /BED_EXIT|SIT_UP|PENDING|ACKNOWLEDGED|NO_OBSERVATION|HIGH|MEDIUM|LYING|GOOD/,
+      );
+    });
+
+    it('no refetch interval while WebSocket open', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
-      const routes: Record<string, unknown> = {
-        '/api/v1/overview': { ...overview, beds: [bed(1, 'A01')] },
-        '/api/v1/alerts': { items: [], total: 0 },
-        '/api/v1/events': { items: [], total: 0 },
-      };
-      mockFetch(routes);
-      renderWithProviders(<OverviewPage />, nurse);
+      const { fetchFn } = live();
       expect(await screen.findByRole('button', { name: /Giường A01/ })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /Giường A04/ })).not.toBeInTheDocument();
+      const before = fetchFn.mock.calls.length;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30000);
+      });
+      expect(fetchFn.mock.calls.length).toBe(before);
+    });
+
+    it('polls as fallback while WebSocket disconnected', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const r = routes({ '/api/v1/overview': { ...overview, beds: [bed(1, 'A01')] } });
+      mockFetch(r);
+      renderWithProviders(<OverviewPage />, nurse, '/', {}, { ws: 'reconnecting' });
+      expect(await screen.findByRole('button', { name: /Giường A01/ })).toBeInTheDocument();
       mockFetch({
-        ...routes,
+        ...r,
         '/api/v1/overview': { ...overview, beds: [bed(1, 'A01'), bed(4, 'A04')] },
       });
       await act(async () => {
         await vi.advanceTimersByTimeAsync(5000);
       });
       expect(await screen.findByRole('button', { name: /Giường A04/ })).toBeInTheDocument();
+    });
+
+    it('refetches after reconnect', async () => {
+      // Đi qua đường thật: RealtimeProvider → RealtimeClient.onReconnected → invalidateAll.
+      const r = routes({ '/api/v1/overview': { ...overview, beds: [bed(1, 'A01')] } });
+      mockFetch(r);
+      renderWithProviders(
+        <RealtimeProvider>
+          <OverviewPage />
+        </RealtimeProvider>,
+        nurse,
+      );
+      expect(await screen.findByRole('button', { name: /Giường A01/ })).toBeInTheDocument();
+      expect(wsHandlers.current).not.toBeNull();
+      act(() => wsHandlers.current!.onStatus('open'));
+      mockFetch({
+        ...r,
+        '/api/v1/overview': { ...overview, beds: [bed(1, 'A01'), bed(4, 'A04')] },
+      });
+      act(() => {
+        wsHandlers.current!.onStatus('open');
+        wsHandlers.current!.onReconnected();
+      });
+      expect(await screen.findByRole('button', { name: /Giường A04/ })).toBeInTheDocument();
+    });
+
+    it('refetch result older than a bed.state already applied is ignored', async () => {
+      const r = routes({ '/api/v1/overview': { ...overview, beds: [bed(1, 'A01')] } });
+      const { qc } = live(r);
+      const a01 = await screen.findByRole('button', { name: /Giường A01/ });
+      const newer = '2026-10-12T07:40:00Z';
+      push(qc, 'bed.state', {
+        ...overview.beds[0].state,
+        body_state: 'STANDING',
+        updated_at: newer,
+      });
+      expect(await within(a01).findByText('Đứng')).toBeInTheDocument();
+      // Server trả bản chụp cũ hơn (request bắt đầu trước khi bed.state tới): giữ trạng thái mới.
+      await act(async () => {
+        await qc.refetchQueries({ queryKey: ['overview'] });
+        await new Promise((resolve) => setTimeout(resolve, 20)); // cho React vẽ lại
+      });
+      const cached = qc.getQueryData<OverviewOut>(['overview'])!.beds[0].state;
+      expect(cached?.body_state).toBe('STANDING');
+      expect(within(a01).getByText('Đứng')).toBeInTheDocument();
+      expect(within(a01).queryByText('Nằm')).toBeNull();
     });
   });
 });

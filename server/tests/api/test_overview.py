@@ -119,3 +119,24 @@ def test_overview_camera_online_to_offline_sets_no_observation(
     assert a01["camera"]["status"] == "OFFLINE"
     # Mất camera: không đủ dữ liệu quan sát, không bao giờ là rời giường (AGENTS.md quy tắc 6).
     assert a01["state"]["body_state"] == "NO_OBSERVATION"
+
+
+def test_overview_resolved_alerts_not_counted(
+    client: TestClient, login: Login, open_session: dict[str, Any], post_event: Any
+) -> None:
+    """F21 AC2 ca âm: cảnh báo `RESOLVED` không được đếm, không góp vào mức ưu tiên cao nhất."""
+    nurse, charge = login("nurse"), login("charge")
+    post_event("BED_EXIT", "HIGH")
+    post_event("BED_EDGE", "MEDIUM")
+    high = client.get("/api/v1/alerts?priority=HIGH", headers=nurse).json()["items"][0]["id"]
+    assert client.post(f"/api/v1/alerts/{high}/acknowledge", headers=nurse).status_code == 200
+    r = client.post(
+        f"/api/v1/alerts/{high}/outcome", json={"outcome": "PATIENT_SAFE"}, headers=nurse
+    )
+    assert r.status_code == 200, r.text
+    assert client.post(f"/api/v1/alerts/{high}/resolve", json={}, headers=charge).status_code == 200
+
+    a01 = _beds(client, nurse)["A01"]
+    assert a01["pending_alert_count"] == 1
+    assert a01["acknowledged_alert_count"] == 0
+    assert a01["max_open_priority"] == "MEDIUM"
