@@ -2,6 +2,7 @@
 // camera và phiên. Trạng thái cập nhật realtime qua WebSocket (F21 AC5: `bed.state`,
 // `event.created`, `camera.status`); polling 2 s chỉ là đường dự phòng khi mất WebSocket.
 import {
+  Anchor,
   Badge,
   Card,
   Center,
@@ -15,7 +16,7 @@ import {
   Title,
 } from '@mantine/core';
 import type { ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 
 import { useCameraDetail, useEvents, useOverview } from '../../api/hooks';
 import type { CameraStatus } from '../../api/types';
@@ -97,6 +98,14 @@ export function LiveViewPage() {
                   {vi.live.noSession}
                 </Text>
               )}
+              {/* F22 R7: từ thẻ giường → trang này → Lịch sử theo dõi của giường/phiên. */}
+              <Anchor
+                size="sm"
+                component={Link}
+                to={`/timeline?bed=${bed.bed_id}${bed.session ? `&session=${bed.session.id}` : ''}`}
+              >
+                {vi.alerts.openTimeline}
+              </Anchor>
               {bed.camera && cameraStatus ? (
                 <>
                   <CameraStream
