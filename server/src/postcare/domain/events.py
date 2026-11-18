@@ -39,11 +39,14 @@ def _validate(db: Session, data: EventIn) -> Camera:
     camera = db.get(Camera, data.camera_id)
     if camera is None or camera.bed_id is None:
         raise validation_error("Camera không tồn tại hoặc chưa gắn giường")
-    try:
-        uuid.UUID(data.event_uid)
-    except ValueError as exc:
-        raise validation_error("event_uid phải là UUID") from exc
     return camera
+
+
+def _check_uid(event_uid: str) -> None:
+    try:
+        uuid.UUID(event_uid)
+    except ValueError as exc:
+        raise validation_error("event_uid phải là UUID", {"field": "event_uid"}) from exc
 
 
 def _existing(db: Session, event_uid: str) -> Event | None:
@@ -112,6 +115,7 @@ def publish_created(db: Session, publisher: Publisher, event: Event, alert: Aler
 
 def ingest_event(db: Session, data: EventIn, publisher: Publisher) -> tuple[EventIngestOut, bool]:
     """Trả `(kết quả, created)`. Gửi lại cùng `event_uid` không tạo gì mới (F17 R9)."""
+    _check_uid(data.event_uid)  # trước truy vấn: cột uuid, chuỗi lạ làm DB báo lỗi
     existing = _existing(db, data.event_uid)
     if existing is not None:
         return EventIngestOut(id=existing.id, created=False), False
