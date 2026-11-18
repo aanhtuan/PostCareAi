@@ -1,0 +1,15 @@
+# GMDCSA24 Subject 3 (Alam et al., MIT; datasets.md §3.2): camera cố định nhìn ngang giường.
+# Chỉ dùng cho dòng tập test gmd_s3_adl_03 (eval_codes có SIT_UP; datasets.md §3.5).
+# (giả định) ROI vẽ bằng mắt trên khung 0,2 s của Subject 3/ADL/03.mp4 (lưới 0,1), TRƯỚC khi chạy
+# eval tập test, không xem kết quả (F29): khung giường x ≈ 0,22–0,67, mặt nệm y ≈ 0,48–0,62;
+# ROI gồm cả phần thân người nằm phía trên nệm (như gmdcsa24-subject1.yaml).
+
+version: 1
+camera_id: 0
+roi_polygon:
+  - [0.22, 0.36]
+  - [0.68, 0.36]
+  - [0.68, 0.65]
+  - [0.22, 0.65]
+thresholds: {}
+notes: "ROI ước lượng (giả định) cho GMDCSA24 Subject 3, cảnh có giường (F29)."
