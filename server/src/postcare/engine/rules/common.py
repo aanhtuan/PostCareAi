@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 from pydantic import JsonValue
 
+from postcare.schemas.enums import Priority
 from postcare.schemas.events import EventCode
 from postcare.schemas.observation import KeypointName, PersonPose
 from postcare.schemas.state import ObservationQuality
@@ -21,7 +22,7 @@ Explanation = dict[str, JsonValue]
 
 @dataclass(frozen=True)
 class EventDraft:
-    """Sự kiện trước debounce. `RuleSet` gắn `priority` (catalog) và `config_hash`."""
+    """Sự kiện trước debounce. `RuleSet` gắn `config_hash` và `priority` (mặc định theo catalog)."""
 
     code: EventCode
     occurred_at_ms: int
@@ -29,6 +30,8 @@ class EventDraft:
     confidence: float
     observation_quality: ObservationQuality
     explanation: Explanation
+    priority: Priority | None = None
+    """None → mức mặc định của catalog; FACE_ATTENTION đặt MEDIUM/HIGH (F26 R5)."""
 
 
 class VisibilityBuffer:
