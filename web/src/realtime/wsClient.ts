@@ -5,6 +5,8 @@ export type WsStatus = 'connecting' | 'open' | 'reconnecting';
 const BACKOFF_MIN_MS = 1000;
 const BACKOFF_MAX_MS = 15000;
 const PING_MS = 20000;
+// Chỉ đặt lại backoff khi kết nối giữ được lâu: tránh vòng lặp mở-rồi-đóng với độ trễ 1 s.
+const STABLE_OPEN_MS = 30000;
 export const CLOSE_UNAUTHORIZED = 4401;
 // Không còn là nhân viên (đổi vai trò sang FAMILY…): không thử lại, định tuyến theo vai trò mới.
 export const CLOSE_FORBIDDEN = 4403;
@@ -29,6 +31,7 @@ export class RealtimeClient {
   private everOpened = false;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private ping: ReturnType<typeof setInterval> | null = null;
+  private stable: ReturnType<typeof setTimeout> | null = null;
   private readonly token: string;
   private readonly handlers: Handlers;
 
@@ -46,6 +49,7 @@ export class RealtimeClient {
     this.stopped = true;
     if (this.timer) clearTimeout(this.timer);
     if (this.ping) clearInterval(this.ping);
+    if (this.stable) clearTimeout(this.stable);
     this.ws?.close();
     this.ws = null;
   }
@@ -57,7 +61,9 @@ export class RealtimeClient {
     ws.onopen = () => {
       const wasReconnect = this.everOpened;
       this.everOpened = true;
-      this.retry = 0;
+      this.stable = setTimeout(() => {
+        this.retry = 0;
+      }, STABLE_OPEN_MS);
       this.handlers.onStatus('open');
       // Kết nối lại: refetch thay vì giả định không bỏ lỡ gì (api-conventions.md).
       if (wasReconnect) this.handlers.onReconnected();
@@ -72,6 +78,7 @@ export class RealtimeClient {
     };
     ws.onclose = (e: CloseEvent) => {
       if (this.ping) clearInterval(this.ping);
+      if (this.stable) clearTimeout(this.stable);
       if (this.stopped) return;
       if (e.code === CLOSE_UNAUTHORIZED) {
         this.handlers.onUnauthorized();
@@ -82,7 +89,9 @@ export class RealtimeClient {
         return;
       }
       this.handlers.onStatus('reconnecting');
-      const delay = Math.min(BACKOFF_MAX_MS, BACKOFF_MIN_MS * 2 ** this.retry);
+      // Equal jitter: [d/2, d] để nhiều tab không cùng kết nối lại một lúc.
+      const base = Math.min(BACKOFF_MAX_MS, BACKOFF_MIN_MS * 2 ** this.retry);
+      const delay = base / 2 + (Math.random() * base) / 2;
       this.retry += 1;
       this.timer = setTimeout(() => this.connect(), delay);
     };

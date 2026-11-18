@@ -98,7 +98,12 @@ class WsHub:
 
     def _close_matching(self, predicate: Callable[[Connection], bool], code: int) -> None:
         for conn in list(self._conns.values()):
-            if predicate(conn):
+            try:
+                matched = predicate(conn)
+            except Exception:
+                logger.exception("Điều kiện đóng kết nối WebSocket lỗi; bỏ qua kết nối này")
+                continue
+            if matched:
                 self._close(conn, code)
 
     def _close(self, conn: Connection, code: int) -> None:
