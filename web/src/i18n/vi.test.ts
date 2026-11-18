@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import openapi from '../api/openapi.json';
 import { fmt, vi } from './vi';
 
 // Danh sách từ cấm trên UI: docs/01-product/glossary.md#từ-cấm-trên-ui
@@ -55,6 +56,33 @@ describe('vi.ts', () => {
     expect(containsWord('Vùng đầu', 'đau')).toBe(false);
     expect(containsWord('Đang nghỉ', 'ngủ')).toBe(false);
     expect(containsWord('Phát hiện TÉ NGÃ', 'té ngã')).toBe(true);
+  });
+
+  // Test của test: bộ quét phải bắt chuỗi chứa từ cấm (F20 AC4, testing.md mục 4).
+  it.each([
+    ['Phát hiện bệnh nhân đau', true],
+    ['Bệnh nhân BẤT TỈNH', true],
+    ['Có dấu hiệu ngã khỏi giường', true],
+    ['Đã chẩn đoán', true],
+    ['Phát hiện bệnh nhân rời khỏi vùng giường', false],
+    ['Vùng đầu giường', false],
+  ])('forbidden-word scanner on "%s" → %s', (text, expected) => {
+    expect(FORBIDDEN.some((w) => containsWord(text, w))).toBe(expected);
+  });
+
+  // Mỗi giá trị enum trong OpenAPI (sinh từ server/src/postcare/schemas) phải có text tiếng Việt.
+  it.each([
+    ['EventCode', vi.event],
+    ['Priority', vi.priority],
+    ['AlertStatus', vi.alertStatus],
+    ['AlertOutcome', vi.outcome],
+  ] as const)('has text for every enum value: %s', (name, texts) => {
+    const schemas = openapi.components.schemas as Record<string, { enum?: string[] }>;
+    const values = schemas[name].enum ?? [];
+    expect(values.length).toBeGreaterThan(0);
+    const map = texts as Record<string, string>;
+    expect(values.filter((v) => !map[v]?.trim())).toEqual([]);
+    expect(Object.keys(map).sort()).toEqual([...values].sort());
   });
 
   it('fmt replaces placeholders', () => {
