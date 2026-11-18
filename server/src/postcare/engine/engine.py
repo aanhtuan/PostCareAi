@@ -9,6 +9,7 @@ from postcare.engine.face import FaceReading, FaceTracker
 from postcare.engine.features import FeatureExtractor
 from postcare.engine.pipeline import FrameAssessment
 from postcare.engine.quality import QualityGate, assess_quality
+from postcare.engine.rest import RestReading, RestTracker
 from postcare.engine.rules import RuleSet
 from postcare.engine.state_machine import BodyStateMachine as StateMachine
 from postcare.engine.state_machine import Explanation, StateRecord
@@ -41,6 +42,7 @@ class Engine:
         self._state_machine = StateMachine(config)
         self._activity = ActivityMeter(config)
         self._face = FaceTracker(config)
+        self._rest = RestTracker(config)
         self._rules = RuleSet(config, self.config_hash)
         self._last_ts_ms: int | None = None
         self._last_snapshot: BodyStateSnapshot | None = None
@@ -88,8 +90,10 @@ class Engine:
         self._body_state = body_state
         activity = self._update_activity(obs.ts_ms, assessment)
         face = self._update_face(obs, assessment)
+        # Bước 8b (F27): trạng thái hiển thị, không sinh sự kiện (R5).
+        rest = self._rest.update(obs.ts_ms, body_state, activity, face)
         snapshot = _snapshot(
-            body_state, assessment.quality, self._state_machine.explanation, activity, face
+            body_state, assessment.quality, self._state_machine.explanation, activity, face, rest
         )
         # Bước 6–9: sự kiện từ chuỗi trạng thái ổn định, vận động (F23), mặt (F26) + debounce (F15)
         events = self._rules.evaluate(
@@ -164,15 +168,17 @@ def _snapshot(
     explanation: Explanation | None = None,
     activity: ActivityReading | None = None,
     face: FaceReading | None = None,
+    rest: RestReading | None = None,
 ) -> BodyStateSnapshot:
-    # Nghỉ chưa suy ra (F27): luôn UNKNOWN. Mặt (F26): không có dữ liệu → NOT_VISIBLE, không tín
+    # Nghỉ (F27): UNKNOWN khi chưa có dữ liệu. Mặt (F26): không có dữ liệu → NOT_VISIBLE, không tín
     # hiệu; không bao giờ mặc định là "bình thường" (HS §9.1). Vận động (F23): UNKNOWN khi chưa đủ
     # dữ liệu hoặc mất quan sát.
     return BodyStateSnapshot(
         body_state=body_state,
         observation_quality=quality,
         activity_level=ActivityLevel.UNKNOWN if activity is None else activity.level,
-        rest_status=RestStatus.UNKNOWN,
+        rest_status=RestStatus.UNKNOWN if rest is None else rest.status,
+        rest_explanation=None if rest is None else rest.explanation,
         face_status=FaceStatus.NOT_VISIBLE if face is None else face.status,
         face_signals=FaceSignals() if face is None else face.signals,
         explanation=explanation,

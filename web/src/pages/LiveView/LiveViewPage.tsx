@@ -23,6 +23,7 @@ import type { CameraStatus } from '../../api/types';
 import { useAuth } from '../../auth/useAuth';
 import { CameraStream } from '../../components/CameraStream';
 import { PriorityBadge } from '../../components/Badges';
+import { RestStatusBadge } from '../../components/RestStatusBadge';
 import { fmt, vi } from '../../i18n/vi';
 import { formatTime } from '../../utils/time';
 import { FaceSignalsPanel } from './FaceSignalsPanel';
@@ -148,7 +149,7 @@ export function LiveViewPage() {
                   />
                   <Row
                     label={vi.live.rest}
-                    value={state ? vi.rest[state.rest_status] : vi.common.none}
+                    value={state ? <RestStatusBadge status={state.rest_status} /> : vi.common.none}
                   />
                   <Row label={vi.live.faceSignals} value={<FaceSignalsPanel state={state} />} />
                   <Row
