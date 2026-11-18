@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F19 |
-| Trạng thái | In progress |
+| Trạng thái | In review |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -72,7 +72,7 @@ Dữ liệu `outcome` còn dùng để tính tỷ lệ cảnh báo sai (PDF §11
   - `bed {id, code}`, `session {id, patient_code}`.
   
   Không trả câu tiếng Việt cho sự kiện; frontend tự ánh xạ *(api-conventions.md)*.
-- **R11.** Không tìm thấy alert → 404 `NOT_FOUND`. Body sai (`outcome` lạ) → 400 `VALIDATION_ERROR`.
+- **R11.** Không tìm thấy alert → 404 `NOT_FOUND`. Body sai (`outcome` lạ, thiếu `outcome`, trường thừa, `note` > 1000 ký tự) hoặc `limit > 200` → 422 `VALIDATION_ERROR` (lỗi schema, theo [api-conventions.md](../02-architecture/api-conventions.md)).
 
 ## 4. Thiết kế liên quan
 
@@ -88,11 +88,11 @@ Dữ liệu `outcome` còn dùng để tính tỷ lệ cảnh báo sai (PDF §11
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** `PENDING → ACKNOWLEDGED → RESOLVED`. Chỉ sau khi tiếp nhận mới ghi được outcome và ghi chú. Chuyển sai → 409 `INVALID_ALERT_TRANSITION` *(ADR-0007; QA#16)*. — *Kiểm chứng:* `server/tests/api/test_alerts_api.py` (`test_happy_path_ack_outcome_resolve`, `test_outcome_on_pending_409`, `test_resolve_on_pending_409`, `test_outcome_after_resolved_409`, `test_outcome_can_be_overwritten_before_resolve`).
-- [ ] **AC2.** Chỉ một người tiếp nhận. Người thứ hai nhận 409 `ALERT_ALREADY_ACKNOWLEDGED`, có tên người đã tiếp nhận trong `message` và `details` *(ADR-0007; api-conventions.md)*. — *Kiểm chứng:* `test_second_acknowledge_409_with_name`; `server/tests/domain/test_alert_lifecycle.py::test_conditional_update_only_one_winner` (hai session DB tiếp nhận cùng alert).
-- [ ] **AC3.** Mỗi thao tác lưu người thực hiện và thời điểm trong `alerts` **và** `audit_logs` (`alert.acknowledge`, `alert.outcome`, `alert.resolve`, có `before`/`after`). `alert.updated` chỉ phát sau commit *(HS §4.2; PDF §10.1 (tr.13))*. — *Kiểm chứng:* `test_each_action_writes_alert_fields_and_audit`, `test_publisher_called_after_commit_only_on_success`.
-- [ ] **AC4.** DOCTOR gọi API ghi của cảnh báo → 403; DOCTOR vẫn xem được danh sách và chi tiết *(QA#18; api-conventions.md)*. — *Kiểm chứng:* `test_doctor_cannot_ack_outcome_resolve_403`, `test_doctor_can_list_and_get`.
-- [ ] **AC5.** Bấm "Đã xử lý" khi chưa ghi kết quả → `status = RESOLVED`, `outcome = null` (UI hiển thị "Chưa ghi kết quả", kiểm ở F20) *(ADR-0007)*. — *Kiểm chứng:* `test_resolve_without_outcome_keeps_null`.
+- [x] **AC1.** `PENDING → ACKNOWLEDGED → RESOLVED`. Chỉ sau khi tiếp nhận mới ghi được outcome và ghi chú. Chuyển sai → 409 `INVALID_ALERT_TRANSITION` *(ADR-0007; QA#16)*. — *Kiểm chứng:* `server/tests/api/test_alerts_api.py::test_transition_matrix` (9 ca trạng thái × thao tác), `test_outcome_values_accepted`, `test_body_validation_422`; `server/tests/test_alerts.py::test_full_lifecycle` (ghi outcome hai lần), `test_invalid_transitions`; `server/tests/domain/test_alert_lifecycle.py::test_concurrent_resolve_only_one_winner`, `test_concurrent_outcome_and_resolve_never_outcome_after_resolved`.
+- [x] **AC2.** Chỉ một người tiếp nhận. Người thứ hai nhận 409 `ALERT_ALREADY_ACKNOWLEDGED`, có tên người đã tiếp nhận trong `message` và `details` *(ADR-0007; api-conventions.md)*. — *Kiểm chứng:* `server/tests/test_alerts.py::test_second_acknowledge_is_409_with_name`; `server/tests/domain/test_alert_lifecycle.py::test_conditional_update_only_one_winner` (hai session DB tiếp nhận cùng alert).
+- [x] **AC3.** Mỗi thao tác lưu người thực hiện và thời điểm trong `alerts` **và** `audit_logs` (`alert.acknowledge`, `alert.outcome`, `alert.resolve`, có `before`/`after`). `alert.updated` chỉ phát sau commit *(HS §4.2; PDF §10.1 (tr.13))*. — *Kiểm chứng:* `server/tests/api/test_alerts_api.py::test_each_action_writes_alert_fields_and_audit`, `test_publisher_called_after_commit_only_on_success` (kết nối DB khác đọc thấy thay đổi lúc publish), `test_transition_matrix` (409 không audit, không phát), `test_unknown_alert_404_no_publish`.
+- [x] **AC4.** DOCTOR gọi API ghi của cảnh báo → 403; DOCTOR vẫn xem được danh sách và chi tiết *(QA#18; api-conventions.md)*. — *Kiểm chứng:* `server/tests/api/test_alerts_api.py::test_doctor_cannot_ack_outcome_resolve_403`, `test_doctor_can_list_and_get`, `test_no_token_401`; FAMILY 403: `server/tests/api/test_family_role_default_deny.py`.
+- [x] **AC5.** Bấm "Đã xử lý" khi chưa ghi kết quả → `status = RESOLVED`, `outcome = null` (UI hiển thị "Chưa ghi kết quả", kiểm ở F20) *(ADR-0007)*. — *Kiểm chứng:* `server/tests/api/test_alerts_api.py::test_resolve_without_outcome_keeps_null`.
 
 ## 6. Kế hoạch test
 
@@ -103,7 +103,7 @@ Dữ liệu `outcome` còn dùng để tính tỷ lệ cảnh báo sai (PDF §11
 | AC3 | API | Đọc `alerts` và `audit_logs` sau mỗi bước; publisher giả ghi thứ tự | 403/404/409 không ghi audit, không gọi publisher |
 | AC4 | API | `auth_headers("DOCTOR")` cho 3 endpoint ghi và 2 endpoint đọc | Không token → 401 |
 | AC5 | API | Tiếp nhận rồi xử lý ngay | — |
-| R9 | API | Lọc theo `status`, `bed_id`, `priority`, `from/to`; kiểm thứ tự mặc định | `limit > 200` → 400 |
+| R9 | API | Lọc theo `status`, `bed_id`, `priority`, `from/to`; kiểm thứ tự mặc định | `limit > 200` → 422 |
 | R11 | API | Alert không tồn tại | 404 |
 
 ## 7. Giả định
@@ -147,6 +147,12 @@ Dữ liệu `outcome` còn dùng để tính tỷ lệ cảnh báo sai (PDF §11
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+**2026-11-18 (builder).**
+- Thay đổi code duy nhất: `domain/alerts.py` `_get(..., lock=True)` (`SELECT … FOR UPDATE OF alerts`) trong `set_outcome` và `resolve`. Trước đó hai `resolve` đồng thời đều thành công (hai audit `alert.resolve`) và `outcome` có thể ghi sau khi đã `RESOLVED`; test tranh chấp đỏ trước khi sửa, xanh sau khi sửa. `acknowledge` giữ `UPDATE` có điều kiện (R2). SQLite (ADR-0010) bỏ qua `FOR UPDATE`, không ảnh hưởng.
+- Test mới: `server/tests/api/test_alerts_api.py` (ma trận trạng thái × thao tác, 3 giá trị outcome, validation 422, audit before/after + người thực hiện, publish sau commit, DOCTOR 403/đọc được, 401, 404, lọc `bed_id`/`from`/`to`, `limit`), `server/tests/domain/test_alert_lifecycle.py` (tranh chấp `acknowledge`, `resolve`, `outcome`×`resolve` với hai session DB thật, mỗi ca chạy 3 lần).
+- Lệch spec: R11 ghi 400 cho body sai; code và api-conventions dùng 422 `VALIDATION_ERROR` cho lỗi schema. Đã sửa R11 theo api-conventions.
+- Không có migration, không đổi OpenAPI (không cần `make gen-api-types`).
 
 ## 11. Definition of Done
 
