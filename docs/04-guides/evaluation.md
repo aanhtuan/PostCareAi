@@ -116,16 +116,29 @@ uv run postcare eval --split dev --video-id stock_pexels_8090735 --limit 20   # 
 
 - Mặc định: manifest/truth ở `<data>/eval/` (`POSTCARE_DATA_DIR`), model ở `POSTCARE_MODELS_DIR` hoặc `models/`, `--max-fps 15`, kết quả replay ở `runs/eval-<split>/<video_id>/` (F12: `observations.jsonl`, `events.jsonl`, `frames.jsonl`, `run.json`).
 - Báo cáo: `reports/eval-<split>-<ngày>.local.md` và `.local.json` cùng tên (gitignore; đổi bằng `--report`, tên thiếu `.local` thì lệnh tự thêm và cảnh báo). `--reuse` chỉ dùng lại khi `run.json` cùng `config_hash`, model, `max_fps` (hoặc cùng file observation nguồn). Mã truth phải nằm trong `eval_codes` của video; `eval_codes=` rỗng là lỗi.
-- `--split test` bị chặn: tập test chỉ chạy một lần bằng F29 với `--frozen <hash>`.
+- `--split test` thiếu `--frozen` bị từ chối (exit 2): tập test chỉ chạy một lần với cấu hình đã chốt (F29, mục 6).
 - Video không mở được hoặc thiếu file: ghi ở mục "Video lỗi" của báo cáo, lệnh exit 1 sau khi ghi báo cáo.
 
 ## 6. Quy trình hiệu chỉnh và chốt (HS §8.2)
 
 1. Quay tập dev; gán ground truth.
 2. Lặp: `postcare replay` → `postcare eval --split dev` → chỉnh `config/engine.default.yaml` hoặc override camera → lặp lại.
-3. **Chốt**: ghi `config_hash` vào `reports/frozen-config.txt` và commit.
+3. **Chốt**: `postcare eval freeze` tính `config_hash` của cấu hình hợp nhất (mặc định + override camera) cho mọi video tập test, ghi vào `reports/frozen-config.txt`; commit file này. Nhiều hash (override ngưỡng khác nhau) → lệnh từ chối.
 4. Quay tập test (người/phiên khác). **Không** xem kết quả tập test trước khi chốt.
-5. `postcare eval --split test --frozen <hash>` → `reports/final-eval.md`.
+5. `postcare eval --split test --frozen <hash>` → `reports/final-eval.local.md` + `.local.json` (gitignore). Lệnh từ chối (exit 2) khi: hash cấu hình của bất kỳ video nào khác `<hash>`; `reports/frozen-config.txt` ghi hash khác; `runs/eval-test/<video>/` còn kết quả mang hash khác. File chốt chưa có thì lệnh ghi và nhắc commit. Bản tổng hợp commit nằm ở `docs/04-guides/final-evaluation-<ngày>.md`.
+
+### Lệnh F29: delivery latency và workflow
+
+```bash
+# Trên cùng máy với API (không lệch đồng hồ); luồng sự kiện từ worker hoặc `postcare simulate`.
+uv run postcare measure-delivery --duration 300 --out ../runs/d1/delivery.jsonl [--api http://127.0.0.1:8029]
+uv run postcare workflow-report --from 2026-11-18T09:00:00+07:00 --to 2026-11-18T10:00:00+07:00   --out ../runs/d1/workflow.json
+uv run postcare eval --split test --frozen <hash> --reuse   --delivery ../runs/d1/delivery.jsonl --workflow ../runs/d1/workflow.json --out ../reports/final-eval.local.md
+```
+
+- `measure-delivery` đăng nhập bằng tài khoản nhân viên (`--username`, mặc định `nurse`; mật khẩu `POSTCARE_MEASURE_PASSWORD` hoặc `SEED_PASSWORD`), nghe `/api/v1/ws` trong `--duration` giây, ghi mỗi `event.created` một dòng `{event_id, code, created_at, received_at, latency_ms}`. Không nhận được sự kiện nào → "0 mẫu", báo cáo không tính trung vị.
+- `workflow-report` đọc bảng `alerts` (DB của `DATABASE_URL`) trong `[from, to)` theo `alerts.created_at`: thời gian chờ tiếp nhận và xử lý (trung vị, p90, số mẫu), tỷ lệ cảnh báo đã xử lý có ghi kết quả, tỷ lệ `FALSE_ALARM` trên cảnh báo có ghi kết quả, số cảnh báo còn Chờ / Đã tiếp nhận tại thời điểm `to`. Thời điểm thiếu múi giờ coi là UTC.
+- Thiếu `--delivery` hoặc `--workflow` → báo cáo ghi "chưa đo", không bịa số.
 6. Báo cáo kèm:
    - TP/FP/FN;
    - thời lượng video;

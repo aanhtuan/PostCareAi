@@ -27,7 +27,7 @@ Phiên bản chính xác được **khóa ở F00** bằng `server/uv.lock` và 
 | HTTP client (worker) | httpx | 0.x | 0.28.1 | Sync + async, keep-alive | requests |
 | Cấu hình engine | PyYAML | 6.x | 6.0.3 (phụ thuộc chính từ F10: `postcare.schemas.engine_config` đọc `config/engine.default.yaml` và `config/cameras/*.yaml`; không thêm `types-PyYAML`, mypy bỏ qua stub thiếu cho `yaml`) | File ngưỡng dễ đọc | TOML |
 | Đo tài nguyên | psutil | 5.x+ | 7.2.2 (F11: `postcare probe --pose` đo CPU %, RAM MB) | CPU/RAM cho báo cáo (HS §8.2) | — |
-| Client WebSocket (đo delivery) | websockets | 12.x+ | — | Lệnh `measure-delivery` của F29 đo thời gian WS nhận sự kiện | httpx-ws |
+| Client WebSocket (đo delivery) | websockets | 12.x+ | 17.2 (F29: có sẵn qua `uvicorn[standard]`, không thêm phụ thuộc trực tiếp; import lười trong `postcare.eval.delivery`) | Lệnh `measure-delivery` của F29 đo thời gian WS nhận sự kiện | httpx-ws |
 | Chạy nhiều tiến trình dev | honcho | 2.x | 2.0.0 | Đọc `Procfile.dev`, chạy được trên Windows | 3 terminal riêng |
 | Lint + format | ruff | 0.x | 0.17.0 | Một công cụ cho cả lint và format | black + flake8 + isort |
 | Kiểm tra kiểu | mypy | 2.x | 2.4.1 | Strict cho `schemas` và `engine` (phần lõi) | pyright |
