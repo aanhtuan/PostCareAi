@@ -1,0 +1,11 @@
+# Cấu hình đã chốt cho tập test (F29 R1; evaluation.md §6). Không sửa tay.
+# Sinh bởi `postcare eval freeze`; commit file này trước khi chạy
+# `postcare eval --split test --frozen <config_hash>`.
+config_hash: 886768c0eef0c652ed49eef0519e31a8e4423581f6378a29efbbff3023b9f8d1
+date: 2026-11-18
+commit: 7a87d481c6e1aed311bd48eab2fad7214c8b56e8
+engine_config: config/engine.default.yaml
+camera_config: config/cameras/caucafall.yaml, config/cameras/example.yaml, config/cameras/gmdcsa24-room.yaml, config/cameras/gmdcsa24-s3-bed.yaml, config/cameras/mixkit-29966.yaml
+split: test
+videos: 190
+manifest: ..\data\eval\manifest.csv
