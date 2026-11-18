@@ -11,7 +11,7 @@ Cột trạng thái ở bảng dưới phải khớp với spec và với [03-fe
 |---|---|---|---|---|---|
 | **M0 Nền tảng** | 1–2 | Camera input, ROI, database, API, dashboard khung, phiên theo dõi, quản lý tài khoản / khu vực / ca trực | F00–F09, F35, F37 | Xem được camera thật trên web, vẽ được ROI, mở được phiên | Done |
 | **M1 Body AI** | 3–4 | Pose, nằm/ngồi/đứng, ngồi dậy, mép giường, rời/quay lại giường | F10–F16 | Replay video dev ra đúng chuỗi sự kiện cơ thể; có báo cáo eval dev đầu tiên | Done |
-| **M2 Event + workflow** | 5–6 | Temporal rule, mức ưu tiên, cảnh báo, tiếp nhận, timeline, audit | F17–F24 | **Mốc tối thiểu** (HS §7.3): chạy trọn kịch bản demo chính bằng camera thật | Todo |
+| **M2 Event + workflow** | 5–6 | Temporal rule, mức ưu tiên, cảnh báo, tiếp nhận, timeline, audit | F17–F24 | **Mốc tối thiểu** (HS §7.3): chạy trọn kịch bản demo chính bằng camera thật | Done |
 | **M3 Face + hoạt động** | 7–8 | Tín hiệu mắt/lông mày/nheo mắt, biểu hiện cần kiểm tra, mức hoạt động tham khảo | F25–F27 | Có tín hiệu mặt khi đủ rõ, FACE_ATTENTION, trạng thái nghỉ/hoạt động | Done |
 | **M4 Đánh giá + demo** | 9–10 | Bộ test, P/R/F1, FP/giờ, latency, privacy mode, người nhà, hai worker đồng thời, demo hoàn chỉnh | F28–F30, F31 (R1–R3), F36 | Báo cáo cuối với ngưỡng đã chốt; E2E xanh; demo chạy ổn 3 lần liên tiếp | Todo |
 | Sau MVP | — | Hướng mở rộng HS §9.2 | F31 (phần còn lại), F32–F34 | — | Todo |

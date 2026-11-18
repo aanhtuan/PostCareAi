@@ -24,7 +24,7 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F14](F14-body-state-machine.md) | State machine tư thế và vị trí | M1 | MVP | A | F13 | PDF §7; HS §5.4 | Done |
 | [F15](F15-body-events.md) | Sự kiện cơ thể và vị trí | M1 | MVP | A | F14 | PDF §7.1–7.2; HS §5.1–5.4 | Done |
 | [F16](F16-dev-evaluation-tool.md) | Công cụ đánh giá trên tập phát triển | M1 | MVP | A | F12, F15 | PDF §13; HS §8.1–8.2 | Done |
-| [F17](F17-event-persistence-alerts.md) | Lưu sự kiện và tạo cảnh báo | M2 | MVP | B | F06, F15 | PDF §5, §10; HS §4.2, §6.2 | Todo |
+| [F17](F17-event-persistence-alerts.md) | Lưu sự kiện và tạo cảnh báo | M2 | MVP | B | F06, F15 | PDF §5, §10; HS §4.2, §6.2 | Done |
 | [F18](F18-realtime-gateway.md) | Realtime gateway (WebSocket) | M2 | MVP | B+C | F17 | PDF §10; HS §6.1 | Todo |
 | [F19](F19-alert-lifecycle.md) | Vòng đời cảnh báo và audit | M2 | MVP | B | F17, F02 | PDF §5, §9.2; HS §4.2; QA#16 | Todo |
 | [F20](F20-alerts-screen.md) | Màn hình Cảnh báo | M2 | MVP | C | F18, F19 | PDF §9.1–9.2; HS §4.3 | Todo |
