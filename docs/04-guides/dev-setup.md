@@ -41,7 +41,7 @@ make setup                  # uv sync, npm ci, cài hook pre-commit và pre-push
 make db-upgrade             # alembic upgrade head trên DATABASE_URL
 make db-seed                # dữ liệu mẫu nền (postcare seed), chạy lại an toàn
 make seed                   # tùy chọn, prototype: XÓA hết, migrate lại, thêm dữ liệu demo
-make models                 # tải model pose MediaPipe (lite/full/heavy) vào models/, kiểm tra sha256
+make models                 # tải model MediaPipe (pose lite/full/heavy + face_landmarker) vào models/, kiểm tra sha256
 make check                  # phải xanh
 ```
 
@@ -146,6 +146,7 @@ uv run postcare replay --from-observations ../runs/pexels-8090735/observations.j
 
 - `--out` đã có dữ liệu → lỗi, thêm `--overwrite` để ghi đè.
 - `--max-fps` (mặc định 15, A03) chọn khung theo thời gian video; `0` = mọi khung. `--model lite|full|heavy` (mặc định theo `config/models.yaml`). `--models-dir` mặc định là `POSTCARE_MODELS_DIR` nếu đặt, không thì `models/` (tiện khi chạy trong git worktree).
+- Nhánh face (F25) chạy khi `face.enabled: true` (mặc định); tắt để so FPS bằng `thresholds: {face: {enabled: false}}` trong cấu hình camera. Thiếu `face_landmarker.task` thì replay vẫn chạy, `face.status = NOT_VISIBLE` và có cảnh báo. Kết quả face nằm ở trường `face` của `observations.jsonl` (`null` ở frame không chạy face); `run.json` có `face_enabled`, `face_errors`. `postcare eval` chỉ chạy pose + engine (sự kiện cơ thể không phụ thuộc face).
 - `--preview` ghi `preview.mp4` (skeleton mọi người, ROI, `body_state | observation_quality`, nhãn sự kiện 2 s). Đây là công cụ dev, nhãn dùng mã nội bộ; chỉ dùng với `--video`. Không đưa `preview.mp4` ra ngoài nhóm nếu video có người thật.
 - File `.expected.json` do lệnh sinh từ engine hiện tại: xem lại so với ground truth trước khi commit (testing.md §2).
 - Cấu hình camera: [evaluation.md §4](evaluation.md#4-định-dạng-file).

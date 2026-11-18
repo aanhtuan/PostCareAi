@@ -32,7 +32,7 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F22](F22-timeline.md) | Timeline / Lịch sử theo dõi | M2 | MVP | B+C | F19 | PDF §9.1, §9.3; HS §4.3, §6.2 | Todo |
 | [F23](F23-activity-abnormal-movement.md) | Mức vận động và chuyển động bất thường | M2 | MVP | A | F15 | PDF §7.3; HS §5.1–5.2 | Done |
 | [F24](F24-shift-handover.md) | Bàn giao ca | M2 | MVP | B+C | F19, F22 | PDF §9.1; HS §2.2 | Todo |
-| [F25](F25-face-adapter-quality.md) | Face adapter và cổng chất lượng khuôn mặt | M3 | MVP | A | F11, F13 | PDF §6.2, §17; HS §4.1, §5.3 | Todo |
+| [F25](F25-face-adapter-quality.md) | Face adapter và cổng chất lượng khuôn mặt | M3 | MVP | A | F11, F13 | PDF §6.2, §17; HS §4.1, §5.3 | Done |
 | [F26](F26-face-signals-attention.md) | Tín hiệu khuôn mặt và FACE_ATTENTION | M3 | MVP | A+C | F25, F23 | PDF §6.2, §7.4; HS §5.3 | Todo |
 | [F27](F27-rest-activity-status.md) | Trạng thái nghỉ/hoạt động (tham khảo) | M3 | MVP | A+C | F23, F26 | PDF §6.3; HS §5.3, §7.3 | Todo |
 | [F28](F28-privacy-display-modes.md) | Chế độ riêng tư khi hiển thị | M4 | MVP | A+C | F07, F11 | PDF §11, §16; HS §6.3 | Todo |

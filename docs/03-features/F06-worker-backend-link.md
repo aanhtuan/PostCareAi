@@ -172,7 +172,7 @@ Kiểm tra (2026-11-18): `make check` exit 0 (server 842 passed, web 77 passed, 
 - `pipeline.process_frame` nhận `Engine | FrameEngine` (Protocol) để test worker dùng engine giả; hành vi không đổi.
 - Khung gửi đi là RAW cho tới F28 (câu hỏi mở §8, mặc định chấp nhận; README đã ghi).
 - ROI camera chưa đặt → worker chỉ gửi heartbeat + khung, log cảnh báo (cần F08 để đặt ROI trên UI).
-- **Cho F17/F25:** worker chưa nối face adapter / FaceGate (F25); `process_frame` hiện chỉ chạy pose. Khi F25 merge, thêm face vào `pipeline.process_frame` (worker và replay dùng chung) và `adapter_factory` của `postcare worker`.
+- **Cho F17/F25:** ~~worker chưa nối face~~ Đã nối khi merge F25 (2026-11-18): `Worker(face_factory=...)`, `default_face_factory` trong `worker/loop.py`, `process_frame(..., face)`; `FrameEngine` có `peek_target`. Xem F25 §10.
 
 **2026-11-18 – review: Đạt**, kèm 5 điểm sửa (test trước, commit `test(F06): review fixes …` rồi `fix(F06): …`):
 

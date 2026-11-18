@@ -36,6 +36,7 @@ from postcare.schemas.observation import FrameObservation
 from postcare.settings import REPO_ROOT
 from postcare.vision.camera import Frame, FrameSource
 from postcare.vision.inference.base import PoseAdapter
+from postcare.vision.inference.face_gate import FaceGate
 from postcare.vision.render import draw_debug_overlay
 
 OUTPUT_FILES = ("observations.jsonl", "events.jsonl", "frames.jsonl", "run.json")
@@ -216,8 +217,13 @@ def replay_video(
     preview: bool = False,
     preview_fps: float | None = None,
     meta: dict[str, Any] | None = None,
+    face: FaceGate | None = None,
 ) -> ReplaySummary:
-    """Đọc hết `source`, mỗi khung chạy `process_frame` (pipeline dùng chung với worker)."""
+    """Đọc hết `source`, mỗi khung chạy `process_frame` (pipeline dùng chung với worker).
+
+    `face`: cổng + adapter khuôn mặt (F25) khi `face.enabled`; `None` → không chạy face. Số lỗi
+    nhánh face ghi vào `run.json` (`face_errors`).
+    """
     prepare_out_dir(out_dir, overwrite=overwrite)
     run = _base_run("video", camera, config, meta)
     engine = Engine(config, camera.context())
@@ -233,7 +239,7 @@ def replay_video(
                     if source.ended:
                         break
                     continue
-                obs, output = process_frame(frame, adapter, engine)
+                obs, output = process_frame(frame, adapter, engine, face)
                 outputs.write(obs, output)
                 if writer is not None:
                     writer.write(frame, obs, output)
@@ -251,6 +257,8 @@ def replay_video(
         events=outputs.events.count,
         image_size=[stats.width, stats.height],
         preview=PREVIEW_FILE if preview else None,
+        face_enabled=face is not None,
+        face_errors=None if face is None else face.error_count,
         **meter.finish(frames),
     )
     write_json(out_dir / "run.json", run)
