@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F18 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -108,6 +108,8 @@ Feature này đẩy thay đổi lên dashboard ngay khi có, để điều dư�
 - *(giả định)* Token hết hạn giữa chừng thì không ngắt kết nối (R8).
 - *(giả định)* Hằng số backoff đặt trong code UI (R9).
 - *(giả định)* Có chỉ báo mất kết nối realtime trên header (R13).
+- *(giả định)* Client bị loại vì gửi chậm được đóng với mã 1013 (Try Again Later) để tự kết nối lại và làm mới dữ liệu (R7).
+- *(giả định)* Web nhận mã 4403 thì không thử lại, tải lại thông tin người dùng để định tuyến theo vai trò mới (R12).
 - Delivery < 1 giây trong LAN (A07); không HTTPS (A09).
 
 ## 8. Câu hỏi mở
@@ -116,7 +118,41 @@ Feature này đẩy thay đổi lên dashboard ngay khi có, để điều dư�
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+> Lập ngày 2026-11-18 (nhánh `feat/F18-realtime`).
+
+**Khảo sát:** prototype, F17 và F35 đã làm phần lớn F18.
+
+| Yêu cầu | Đã có | Bằng chứng / chỗ thiếu |
+|---|---|---|
+| R1 (4401) | `api/realtime.py::websocket_endpoint` (`user_from_token`, kiểm `is_active`, `token_version`) | `tests/test_realtime_seed.py::test_ws_rejects_bad_token`, `tests/api/test_auth.py::test_ws_expired_token_closes_4401`. Thiếu: thiếu token, token đúng kết nối được, token sai không nhận message dù có sự kiện |
+| R2 | Mọi vai trò nhân viên (`STAFF_ROLES`) cùng luồng; `FAMILY` → 4403 (F35) | `test_family_role_default_deny.py::test_family_ws_closed_4403`. Thiếu: test cả 4 vai trò nhân viên |
+| R3 | `WsHub.publish` tạo `{type, payload, sent_at}` | `test_ws_receives_event_after_commit` (chỉ kiểm `type`). Thiếu: `sent_at` ISO UTC, payload đúng hình |
+| R4 | Domain gọi `safe_publish` sau commit (F17, F04, F06, F19) | `test_events.py::test_publish_happens_after_commit`, `test_ingest_event.py::test_db_error_publishes_nothing`. Thiếu ở mức WS: phiên DB khác đọc được alert khi client nhận; lỗi DB → client không nhận gì; trùng `event_uid` → không có message thứ hai |
+| R5 | Đủ nguồn: `events.py`, `alerts.py`, `cameras.py`, `sessions.py` | Đã nối hết; không cần việc mới |
+| R6 | `_receiver` bỏ qua mọi message | Thiếu test: ping và message lạ không làm đóng kết nối, không có trả lời |
+| R7 | Hàng đợi riêng, `QueueFull` → loại khỏi hub | **Thiếu:** client bị loại vẫn mở socket nhưng không nhận gì nữa (tưởng đang kết nối). Sửa: đóng với mã 1013 để client tự kết nối lại và làm mới *(giả định)*. Test client không đọc, client khác vẫn nhận |
+| R8 | Token chỉ kiểm lúc kết nối | Không đổi |
+| F36 (QA#31) | Hub lưu `queue → user_id` | Đổi sang bản ghi kết nối `_Connection(user_id, accept)`; `register(..., accept=)` là bộ lọc theo từng kết nối, `close_where(pred, code)`; F36 dùng để lọc `family.*` và đóng 4403. Test bộ lọc ở mức hub |
+| Log | `log_redaction.install_access_log_redaction()` gắn vào `uvicorn.access` (F07) | **Thiếu:** uvicorn ghi `"WebSocket /api/v1/ws?token=…" [accepted]` qua logger `uvicorn.error`, không qua access log. Sửa: gắn cùng filter vào `uvicorn.error`. Test |
+| R9 | `wsClient.ts` backoff 1 s → 15 s, ping 20 s | Thiếu test |
+| R10, R11 | `invalidation.ts::applyMessage`, `invalidateAll` khi mở lại | Thiếu test |
+| R12 | 4401 → `logout` | Thiếu test. **Thiếu:** 4403 (đổi vai trò sang `FAMILY` giữa chừng) đang thử lại mãi. Sửa: 4403 → không thử lại, tải lại `/auth/me` để định tuyến theo vai trò mới *(giả định)* |
+| R13 | `AppLayout.tsx::RealtimeStatus`, `vi.realtime.reconnecting` | Thiếu test component |
+| AC4 | — | Thiếu `test_alert_created_delivered_within_1s`. Lệnh `measure-delivery` thuộc F29 (R4), không làm ở F18; đo thủ công bằng script client WS |
+
+**Các bước:**
+
+1. **Test trước** (commit `test(F18): …`):
+   - `server/tests/api/test_realtime.py`: `test_ws_rejects_invalid_token`, `test_ws_rejects_missing_token`, `test_ws_rejects_expired_token`, `test_ws_accepts_valid_token` (4 vai trò nhân viên), `test_invalid_token_receives_nothing`, `test_message_envelope_has_type_payload_sent_at`, `test_ws_alert_created_after_commit` (`real_commit`), `test_no_broadcast_when_transaction_fails`, `test_duplicate_event_uid_no_second_message`, `test_ping_and_unknown_messages_ignored`, `test_slow_client_dropped_others_still_receive`, `test_slow_client_closed_1013`, `test_alert_created_delivered_within_1s`, `test_ws_token_redacted_in_server_log`; hub: `test_per_connection_filter`, `test_close_where`.
+   - `web/src/realtime/wsClient.test.ts`: `reconnects with backoff after close`, `backoff capped`, `invalidates queries after reconnect`, `does not retry after 4401`, `does not retry after 4403`, `sends ping`.
+   - `web/src/realtime/invalidation.test.ts`: `bed.state` cập nhật overview, `alert.created` invalidate, `invalidateAll`.
+   - `web/src/components/AppLayout.test.tsx`: chỉ báo mất kết nối hiện/ẩn theo trạng thái.
+2. **Backend:** `api/realtime.py` (`_Connection`, bộ lọc, `close_where`, client chậm → 1013), `api/main.py` + `log_redaction.py` (filter cho `uvicorn.error`).
+3. **Web:** `wsClient.ts` (4403 → `onForbidden`), `RealtimeProvider.tsx`, `auth/AuthContext.tsx` (`reloadUser`).
+4. **Docs:** `api-conventions.md` (mã 1013, 4403 phía web), spec §7, §10.
+5. `make check`; kiểm thử thủ công (DB `postcare_f18`, cổng 8028, đo độ trễ); trạng thái In review.
+
+Không có migration, endpoint mới hay thư viện mới; không cần `make gen-api-types`.
 
 ## 10. Ghi chú bàn giao
 
