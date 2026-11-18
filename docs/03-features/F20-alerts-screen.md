@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F20 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -110,7 +110,24 @@
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+Prototype đã có màn hình Cảnh báo. Việc của F20 là đối chiếu từng AC với code, viết test còn thiếu, chỉ sửa code ở chỗ test chỉ ra lỗ hổng.
+
+**Code hiện có (lệch nhẹ so với mục 4, giữ nguyên):**
+- `web/src/pages/Alerts/AlertsPage.tsx`: bộ lọc (trạng thái, mức ưu tiên, giường gồm cả giường đã xóa qua `useBeds(true)`, khoảng thời gian), gửi lên `GET /api/v1/alerts`; hiển thị đúng thứ tự API trả (chưa xử lý trước, F19 R9).
+- `web/src/components/AlertCard.tsx`, `AlertDetailModal.tsx`, `AlertActions.tsx`, `Badges.tsx` (đặt ở `components/` để F21, F22 dùng lại, thay cho `AlertFilters.tsx`/`AlertCard.tsx`/`AlertDetail.tsx` trong `pages/Alerts/`).
+- `web/src/api/hooks.ts`: `useAlerts`, `useAlertAction` (acknowledge/outcome/resolve; `onSettled` làm mới cache nên 409 cũng làm mới thẻ).
+- `web/src/realtime/RealtimeProvider.tsx` + `invalidation.ts`: `alert.created`/`alert.updated` làm mới query `alerts`; `alert.created` mức HIGH gọi `playAlertSound()` (`web/src/realtime/sound.ts`, Web Audio).
+- `web/src/i18n/vi.test.ts`: đã quét từ cấm theo từ nguyên vẹn + NFC, có ca kiểm tra hàm so khớp.
+
+**AC đã đạt một phần (bằng chứng hiện có):** AC4 phần từ cấm (`vi.test.ts::does not contain forbidden word`, `word matching is NFC-aware and whole-word only`); type `Record<EventCode|Priority|AlertStatus|AlertOutcome, string>` trong `vi.ts` buộc đủ text lúc typecheck. Bộ lọc giường gồm giường đã xóa: `web/src/pages/Timeline/deletedBeds.test.tsx`. Các AC còn lại có code nhưng **chưa có test**.
+
+**Lỗ hổng cần làm (test trước):**
+1. `web/src/components/AlertActions.test.tsx` (AC2, AC5): bộ nút theo `PENDING`/`ACKNOWLEDGED`/`RESOLVED`; nút kết quả đang chọn có `aria-pressed`; ô ghi chú có nhãn; bấm nút gửi đúng endpoint và body (gồm ghi chú); DOCTOR chỉ có "Xem chi tiết"; 409 hiện `message` có tên người tiếp nhận; 403 hiện thông báo không đủ quyền.
+2. `web/src/pages/Alerts/AlertsPage.test.tsx` (AC1, AC3, AC4): hiển thị giường/mức/trạng thái/giờ; tham số lọc gửi lên API; giữ thứ tự API (chưa xử lý trên đầu); danh sách rỗng; thẻ HIGH nổi bật; khung chi tiết; không có mã nội bộ trong DOM; `alert.created` qua `RealtimeProvider` (WS giả) làm danh sách tự cập nhật; HIGH phát âm thanh một lần, MEDIUM không phát.
+3. `web/src/i18n/vi.test.ts` (AC4): `has text for every enum value` so với enum trong `web/src/api/openapi.json`; bảng ca cho bộ quét từ cấm (chuỗi có từ cấm phải bị bắt).
+4. Sửa code nếu test đỏ vì lỗi thật. Không đổi API nên không cần `make gen-api-types`, không có migration.
+
+**Rủi ro:** test realtime phụ thuộc `RealtimeProvider`; mock `RealtimeClient` bằng `vi.mock('./wsClient')` để không mở WebSocket thật. Không đụng Overview/LiveView (F21) hay engine (F26).
 
 ## 10. Ghi chú bàn giao
 
