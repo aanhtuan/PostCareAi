@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F27 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP (theo HS, conflicts C02) |
 | Milestone | M3 |
 | Ước lượng | 1 phiên |
@@ -99,7 +99,7 @@ Code dùng lại: `ActivityReading` (`engine/activity.py`, F23), `FaceReading` (
 Rủi ro: `activity.low_threshold` và `face.signals.eyes_closed` chưa hiệu chỉnh trên người bệnh; mặt nằm nghiêng thường `NOT_VISIBLE` (F25) nên phần lớn thời gian sẽ là `UNKNOWN` khi ít vận động, đúng tinh thần "không biết thì nói không biết".
 
 Giả định thêm khi lập kế hoạch *(giả định)*:
-- Quy tắc từng frame (theo thứ tự): `body_state = NO_OBSERVATION` hoặc `activity_level = UNKNOWN` → `UNKNOWN` ngay; `LOW` + `face_status ≠ OK` → `UNKNOWN` ngay (kể cả đang `RESTING`); đủ điều kiện R1 → `RESTING`; ứng viên "hoạt động" (`activity ≠ LOW`, hoặc `LOW` + mặt `OK` + mắt mở): từ `UNKNOWN`/`ACTIVE` → `ACTIVE` ngay (mức vận động đã có cửa sổ riêng), từ `RESTING` phải giữ liên tục ≥ `rest.active_hold_s`; `LOW` + mặt `OK` + mắt đóng chưa đủ lâu → giữ trạng thái hiện tại.
+- Quy tắc từng frame (theo thứ tự): `body_state = NO_OBSERVATION` hoặc `activity_level = UNKNOWN` → `UNKNOWN` ngay; `LOW` + `face_status ≠ OK` → `UNKNOWN` ngay; đang `RESTING` mà `face_status ≠ OK` → `UNKNOWN` ngay bất kể mức vận động (review F27); đủ điều kiện R1 → `RESTING`; ứng viên "hoạt động" (`activity ≠ LOW`, hoặc `LOW` + mặt `OK` + mắt mở): từ `UNKNOWN`/`ACTIVE` → `ACTIVE` ngay (mức vận động đã có cửa sổ riêng), từ `RESTING` phải giữ liên tục ≥ `rest.active_hold_s`; `LOW` + mặt `OK` + mắt đóng chưa đủ lâu → giữ trạng thái hiện tại.
 - `activity_level = UNKNOWN` (cửa sổ chưa đủ, vừa đổi mục tiêu) → `rest_status = UNKNOWN`, kể cả khi mặt rõ, mắt mở.
 - "Mặt `OK` trong suốt khoảng đó" (R1) = mặt `OK` liên tục trong suốt đoạn mắt đóng (`eyes_closed` của F26 chỉ bật khi mặt `OK`); thời gian LOW đếm độc lập với mặt.
 - Entry LOG (R5) nằm ở trường mới `BodyStateSnapshot.rest_explanation` (`rule_id`, `from_status`, `to_status`, `activity_level`, `low_activity_ms`, `eyes_closed_ms`, `priority = LOG`) thay vì trộn vào `explanation`, để giữ nguyên hợp đồng F14 R10 (`explanation` = lần chuyển `body_state` gần nhất). Không gửi lên API (như `explanation`).
@@ -126,6 +126,11 @@ Chưa làm / cần biết:
 - Replay S12, S13, S16 chưa có video trong tập dev: chưa kiểm chứng trên video thật; `make test-vision` không chạy (feature không đổi adapter).
 - Timeline: theo mặc định câu hỏi mở, không hiện *(giả định)*.
 - `rest_explanation` là trường mới thay vì trộn vào `explanation` (lệch nhẹ so với chữ của R5, xem giả định mục 9).
+
+**2026-11-18, review: Cần sửa → đã sửa, trạng thái Done.**
+- Đang `RESTING` mà mặt không rõ (`face_status ≠ OK`) → `UNKNOWN` ngay, bất kể mức vận động (quyết định của điều phối viên, theo R4/AC2). Trước đó `HIGH` + mặt mất vẫn giữ "Đang nghỉ" trong `active_hold_s`. Test `test_resting_to_unknown_when_face_lost_even_with_activity` (viết trước, đã đỏ rồi xanh).
+- Thời gian giữ ứng viên hoạt động tính bằng `ts_ms - _active_since` khi có mốc (bỏ `or`, tránh lỗi khi mốc = 0).
+- Đã merge `main` vào nhánh; `make check` xanh sau khi sửa (server 1287 passed, web 245 passed, build OK).
 
 ## 11. Definition of Done
 

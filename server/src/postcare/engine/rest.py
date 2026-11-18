@@ -8,7 +8,8 @@ Quy tắc mỗi frame, theo thứ tự *(giả định F27 mục 9)*:
 
 1. `body_state = NO_OBSERVATION` hoặc `activity_level = UNKNOWN` → `UNKNOWN` ngay.
 2. `activity_level = LOW` mà `face_status ≠ OK` → `UNKNOWN` ngay, kể cả đang `RESTING`: mặt không
-   rõ thì không bao giờ kết luận "đang nghỉ" (R4).
+   rõ thì không bao giờ kết luận "đang nghỉ" (R4). Đang `RESTING` mà `face_status ≠ OK` →
+   `UNKNOWN` ngay, bất kể mức vận động (review F27).
 3. `LOW` liên tục ≥ `rest.low_activity_s` và `eyes_closed` (mặt `OK`) liên tục ≥
    `rest.eyes_closed_s` → `RESTING` (R1).
 4. Ứng viên hoạt động (`activity_level ≠ LOW`, hoặc `LOW` + mặt `OK` + mắt mở): từ `UNKNOWN` /
@@ -86,12 +87,13 @@ class RestTracker:
         else:
             self._active_since = None
 
-        if not observed or (low and not face_ok):
+        lost_face_while_resting = current == RestStatus.RESTING and not face_ok
+        if not observed or (low and not face_ok) or lost_face_while_resting:
             target = RestStatus.UNKNOWN
         elif low and low_ms >= self._low_ms and eyes_ms >= self._eyes_ms:
             target = RestStatus.RESTING
         elif active_candidate:
-            held = ts_ms - (self._active_since or ts_ms)
+            held = 0 if self._active_since is None else ts_ms - self._active_since
             if current != RestStatus.RESTING or held >= self._hold_ms:
                 target = RestStatus.ACTIVE
             else:

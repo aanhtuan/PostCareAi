@@ -11,11 +11,10 @@ import itertools
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from postcare.engine.rest import RestTracker
-
 from postcare.engine import Engine
 from postcare.engine.activity import ActivityReading
 from postcare.engine.face import FaceReading
+from postcare.engine.rest import RestTracker
 from postcare.schemas.events import EngineOutput
 from postcare.schemas.observation import FrameObservation
 from postcare.schemas.state import ActivityLevel as A
@@ -177,6 +176,13 @@ def test_resting_to_unknown_when_face_lost() -> None:
     # Mặt quay lại với mắt đóng: phải đếm lại `eyes_closed_s`, không quay về RESTING ngay.
     back = drive([resting(), Seg(frames=1, face=F.NOT_VISIBLE), Seg(seconds=1, eyes_closed=True)])
     assert back[-1][1] != R.RESTING
+
+
+def test_resting_to_unknown_when_face_lost_even_with_activity() -> None:
+    """Review F27: đang RESTING mà mặt không rõ → UNKNOWN ngay, bất kể mức vận động."""
+    for level in (A.HIGH, A.NORMAL):
+        trace = drive([resting(), Seg(frames=1, activity=level, face=F.NOT_VISIBLE)])
+        assert trace[-1][1] == R.UNKNOWN, level
 
 
 def test_eyes_closed_but_face_not_ok_relies_on_activity() -> None:

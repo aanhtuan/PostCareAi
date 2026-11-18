@@ -171,7 +171,7 @@ Các sự kiện mức LOG/INFO chỉ vào timeline. MEDIUM/HIGH tạo cảnh b�
 
 **Cách tính `rest_status` (F27, `engine/rest.py`, bước 8b sau bước mặt):** dữ liệu tham khảo, không phải phân loại giấc ngủ, không sinh `EngineEvent`. Mỗi frame, theo thứ tự *(giả định F27)*:
 1. `body_state = NO_OBSERVATION` hoặc `activity_level = UNKNOWN` → `UNKNOWN` ngay.
-2. `activity_level = LOW` mà `face_status ≠ OK` → `UNKNOWN` ngay, kể cả đang `RESTING` (mặt không rõ thì không bao giờ "Đang nghỉ").
+2. `activity_level = LOW` mà `face_status ≠ OK` → `UNKNOWN` ngay, kể cả đang `RESTING` (mặt không rõ thì không bao giờ "Đang nghỉ"). Đang `RESTING` mà `face_status ≠ OK` → `UNKNOWN` ngay, bất kể mức vận động (review F27).
 3. `LOW` liên tục ≥ `rest.low_activity_s` và `eyes_closed` (mặt `OK`) liên tục ≥ `rest.eyes_closed_s` → `RESTING`.
 4. Ứng viên hoạt động (`activity_level ≠ LOW`, hoặc `LOW` + mặt `OK` + mắt mở): từ `UNKNOWN`/`ACTIVE` → `ACTIVE` ngay; từ `RESTING` phải giữ liên tục ≥ `rest.active_hold_s`.
 5. Còn lại (`LOW`, mặt `OK`, mắt đóng chưa đủ lâu) → giữ trạng thái hiện tại.
