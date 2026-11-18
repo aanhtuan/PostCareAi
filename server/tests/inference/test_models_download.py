@@ -196,5 +196,5 @@ def test_repo_manifest_quotes_sha256() -> None:
     """sha256 phải là chuỗi có nháy: YAML có thể đọc hash toàn chữ số thành số nguyên."""
     text = (REPO_ROOT / "config" / "models.yaml").read_text(encoding="utf-8")
     hashes = re.findall(r"^\s*sha256:\s*(\S+)\s*$", text, re.M)
-    assert len(hashes) == 3
+    assert len(hashes) == 4  # 3 biến thể pose + face (F25)
     assert all(h.startswith('"') and h.endswith('"') for h in hashes), hashes

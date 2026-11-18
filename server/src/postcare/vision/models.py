@@ -73,6 +73,8 @@ class ModelManifest(BaseModel):
 
     version: int
     pose: PoseModels
+    face: ModelEntry | None = None
+    """Face Landmarker (F25). Không bắt buộc: manifest chỉ có pose vẫn hợp lệ."""
 
     def pose_entry(self, variant: str | None = None) -> ModelEntry:
         """Biến thể pose theo tên; `None` → biến thể mặc định của manifest."""

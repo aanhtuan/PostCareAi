@@ -187,7 +187,13 @@ def worker(
     from postcare.vision.models import ManifestError, load_manifest
     from postcare.worker.client import WorkerApiClient
     from postcare.worker.config import WorkerConfig
-    from postcare.worker.loop import Worker, WorkerOptions, WorkerStopError, default_engine_factory
+    from postcare.worker.loop import (
+        Worker,
+        WorkerOptions,
+        WorkerStopError,
+        default_engine_factory,
+        default_face_factory,
+    )
 
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
@@ -237,6 +243,7 @@ def worker(
         engine_factory=make_engine_,
         source_factory=source_factory,
         adapter_factory=adapter_factory,
+        face_factory=default_face_factory(engine_config, directory),
         options=options,
     )
     src = f"file {video}" if video else "nguồn trong cấu hình camera"
@@ -568,16 +575,53 @@ def _replay_video(
         max_fps=max_fps or None,
         video_duration_s=video_duration_s(video),
     )
-    source = FileSource(video, max_fps=max_fps or None)
-    typer.echo(f"Replay {video} (pose {entry.name}, max-fps {max_fps:g}) → {out}")
+    face = None
     try:
+        face = _face_gate(config, directory)
+        source = FileSource(video, max_fps=max_fps or None)
+        face_label = "bật" if face is not None else "tắt"
+        typer.echo(
+            f"Replay {video} (pose {entry.name}, face {face_label}, max-fps {max_fps:g}) → {out}"
+        )
         return replay_video(
-            source, adapter, camera, config, out, overwrite=overwrite, preview=preview, meta=meta
+            source,
+            adapter,
+            camera,
+            config,
+            out,
+            overwrite=overwrite,
+            preview=preview,
+            meta=meta,
+            face=face,
         )
     except SourceOpenError as exc:
         _fail(f"Không mở được video: {exc}")
     finally:
         adapter.close()
+        if face is not None:
+            face.close()
+
+
+def _face_gate(config: Any, models_dir: Path) -> Any:
+    """Cổng face (F25) khi `face.enabled`; thiếu model → cổng không adapter (NOT_VISIBLE, R8)."""
+    if not config.face.enabled:
+        return None
+    from postcare.vision.inference.face_gate import FaceGate
+    from postcare.vision.inference.face_landmarker import open_face_adapter
+    from postcare.vision.models import ManifestError, load_manifest
+
+    try:
+        face_entry = load_manifest(DEFAULT_MODELS_MANIFEST).face
+    except ManifestError as exc:
+        _fail(str(exc))
+    detector = None
+    if face_entry is None:
+        typer.echo("Manifest không có model face: nhánh face trả NOT_VISIBLE.", err=True)
+    else:
+        detector = open_face_adapter(models_dir / face_entry.filename, config)
+        if detector is None:
+            typer.echo(f"Thiếu model face {face_entry.filename}: chạy `make models`.", err=True)
+    return FaceGate.from_config(config, detector)
 
 
 def _replay_observations(
@@ -864,7 +908,7 @@ def models(
     manifest: Annotated[Path, typer.Option(help="File manifest model")] = DEFAULT_MODELS_MANIFEST,
     dest: Annotated[Path, typer.Option(help="Thư mục lưu model")] = DEFAULT_MODELS_DIR,
 ) -> None:
-    """Tải model pose MediaPipe `.task` vào models/ và kiểm tra sha256 (F11; ADR-0003)."""
+    """Tải model MediaPipe `.task` (pose, face) vào models/ và kiểm tra sha256 (F11, F25)."""
     from postcare.vision.models import (
         ChecksumMismatchError,
         DownloadError,
@@ -876,6 +920,8 @@ def models(
     try:
         loaded = load_manifest(manifest)
         entries = [loaded.pose_entry(v) for v in variant] if variant else list(loaded.pose.variants)
+        if not variant and loaded.face is not None:
+            entries.append(loaded.face)  # F25: Face Landmarker
     except ManifestError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from exc
