@@ -42,6 +42,8 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 
 ## Đã xong gần đây
 
+- [x] 2026-11-19: Viết [báo cáo nghiệm thu webcam A01](../../reports/REALTIME-WEBCAM-VERIFICATION-2026-11-19.md): ROI, phiên demo, mép giường → cảnh báo → ADMIN tiếp nhận/xác nhận → timeline. Rời giường còn BLOCKED do góc webcam; code live view hai khung chưa nằm trong lần xuất bản tài liệu này.
+
 - [x] 2026-11-17: **F00 Done.** Mypy, import-linter (8 contract), pre-commit/pre-push, CI GitHub Actions (Ubuntu + Windows, run 44107632897 xanh), `config/engine.default.yaml`, msw, `postcare version`/`openapi --check`. Chi tiết: spec F00 mục 10.
 - [x] 2026-11-17: Hợp nhất đề xuất nhóm vào tài liệu (QA#31–QA#37, F35–F37, pitch, DEMO-PLAN, datasets); dữ liệu ngoài 2,5 GB trong `data/external/`.
 

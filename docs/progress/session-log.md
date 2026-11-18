@@ -2,6 +2,24 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-19 – Codex – Chuẩn bị xuất bản báo cáo webcam
+
+- **Phạm vi:** Theo yêu cầu người dùng chỉ đưa báo cáo và tiến độ liên quan lên GitHub; tách khỏi các commit code live view hai khung.
+- **Đã làm:** Tạo nhánh `codex/webcam-session-report` từ `origin/main`; bổ sung báo cáo nghiệm thu, entry webcam và task tài liệu. Code trong `feat/F07-dual-live-view` được giữ local.
+- **Kiểm tra:** Rà soát diff chỉ chứa Markdown; hook pre-push bắt buộc chạy `make check`. Các lượt test trước có deadlock do chạy đồng thời trên một DB test; chạy duy nhất một lượt khi xuất bản.
+- **Bước tiếp theo:** Push nhánh báo cáo và hợp nhất vào `main` theo yêu cầu người dùng; xác nhận hash remote. Vẫn cần chỉnh góc webcam và nghiệm thu `BED_EXIT`.
+- **Blocker:** Chưa đủ góc quay để nghiệm thu rời giường; báo cáo ghi rõ BLOCKED.
+
+## 2026-11-19 01:35 – Codex – Nghiệm thu realtime webcam A01
+
+- **Mục tiêu phiên:** Cấu hình webcam thật, mở phiên theo dõi và kiểm tra chuỗi sự kiện → cảnh báo → điều dưỡng xử lý → timeline trong clone mới.
+- **Đã làm:** Đăng nhập ADMIN trên `http://127.0.0.1:5175`, vẽ và lưu Bed ROI 5 điểm cho Camera A01; tạo bệnh nhân thử nghiệm `BN-DEMO-A01`; mở phiên theo dõi A01 lúc 01:29:53. Giữ chế độ riêng tư làm mờ khuôn mặt ở khung trái và skeleton + ROI ở khung phải.
+- **Kết quả kiểm tra:** Webcam online, pose thật cập nhật realtime. Engine phát sự kiện `Bệnh nhân đang ở mép giường` lúc 01:30:33 với chất lượng quan sát tốt; người dùng `Phạm Thu Hà` (tài khoản ADMIN) tiếp nhận cảnh báo, ghi `Xác nhận đúng`, thêm ghi chú kiểm tra và đánh dấu đã xử lý. Timeline hiển thị sự kiện, trạng thái đã xử lý và kết quả xác nhận. Trạng thái `BED_EXIT` chưa đạt: góc webcam chưa bắt đủ toàn thân/chân, sau khi người ra ngoài chỉ chuyển sang `Không đủ dữ liệu quan sát`, không phát cảnh báo rời giường.
+- **Đang dở:** Cần lùi hoặc hạ webcam để thấy trọn giường và toàn thân; sau đó vẽ lại ROI và lặp lại kịch bản nằm → ngồi → mép → đứng → rời vùng giường. Không đánh dấu nghiệm thu BED_EXIT.
+- **Bước tiếp theo:** Chỉnh vị trí webcam, mở lại `/cameras/1/config`, vẽ ROI theo khung mới; chạy lại và kiểm tra cảnh báo ưu tiên cao, rồi cập nhật timeline/runbook.
+- **Blocker / câu hỏi cho người dùng:** Thiếu góc quay đủ rộng để xác nhận an toàn chuỗi rời giường; cần người dùng chỉnh vật lý webcam.
+- **Giả định mới:** Không có.
+
 ## 2026-11-18 – Claude Code (Opus) – Đợt 2–4: M1 xong, M0/M2 phần lớn
 
 - **Mục tiêu phiên:** Làm tiếp roadmap theo vòng đời subagent, chạy được pipeline thật từ video/camera tới dashboard.
