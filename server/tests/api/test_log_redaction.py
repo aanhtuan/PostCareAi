@@ -7,7 +7,6 @@ from postcare.api.log_redaction import (
     install_access_log_redaction,
     redact,
 )
-
 from postcare.api.main import create_app
 from postcare.settings import Settings
 
