@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F19 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -98,7 +98,7 @@ Dữ liệu `outcome` còn dùng để tính tỷ lệ cảnh báo sai (PDF §11
 
 | AC | Loại test | Tên / mô tả | Ca âm tính |
 |---|---|---|---|
-| AC1 | API | Đi đủ vòng đời; ghi outcome hai lần | Mọi cặp chuyển sai trả 409; `outcome` lạ → 400 |
+| AC1 | API | Đi đủ vòng đời; ghi outcome hai lần | Mọi cặp chuyển sai trả 409; `outcome` lạ → 422 `VALIDATION_ERROR` |
 | AC2 | API + domain | Hai NURSE lần lượt tiếp nhận; hai session DB tranh chấp | Chính người đã tiếp nhận bấm lại → 409 |
 | AC3 | API | Đọc `alerts` và `audit_logs` sau mỗi bước; publisher giả ghi thứ tự | 403/404/409 không ghi audit, không gọi publisher |
 | AC4 | API | `auth_headers("DOCTOR")` cho 3 endpoint ghi và 2 endpoint đọc | Không token → 401 |
@@ -153,7 +153,9 @@ Dữ liệu `outcome` còn dùng để tính tỷ lệ cảnh báo sai (PDF §11
 - Test mới: `server/tests/api/test_alerts_api.py` (ma trận trạng thái × thao tác, 3 giá trị outcome, validation 422, audit before/after + người thực hiện, publish sau commit, DOCTOR 403/đọc được, 401, 404, lọc `bed_id`/`from`/`to`, `limit`), `server/tests/domain/test_alert_lifecycle.py` (tranh chấp `acknowledge`, `resolve`, `outcome`×`resolve` với hai session DB thật, mỗi ca chạy 3 lần).
 - Lệch spec: R11 ghi 400 cho body sai; code và api-conventions dùng 422 `VALIDATION_ERROR` cho lỗi schema. Đã sửa R11 theo api-conventions.
 - Không có migration, không đổi OpenAPI (không cần `make gen-api-types`).
-- `make check` xanh (2026-11-18): backend 1109 passed, web 121 passed, build OK. Chưa review.
+- `make check` xanh (2026-11-18): backend 1109 passed, web 121 passed, build OK.
+
+**Review (2026-11-18): Đạt.** Sửa theo review: §6 `outcome` lạ → 422; `_get(lock=True)` thêm `execution_options(populate_existing=True)` (như `sessions._locked_session`) để đọc khóa dòng luôn nạp lại trạng thái từ DB, không dùng bản `Alert` cũ trong identity map; test `server/tests/domain/test_alert_lifecycle.py::test_locked_read_refreshes_stale_identity_map` (đỏ trước khi sửa). Đã merge `main` (F18) trước khi chạy lại `make check`.
 
 ## 11. Definition of Done
 

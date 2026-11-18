@@ -42,7 +42,8 @@ def _get(db: Session, alert_id: int, *, lock: bool = False) -> Alert:
     """`lock=True`: `SELECT … FOR UPDATE` để kiểm tra trạng thái rồi ghi không bị tranh chấp."""
     q = select(Alert).where(Alert.id == alert_id).options(*_load_options())
     if lock:
-        q = q.with_for_update(of=Alert)
+        # populate_existing: nạp lại từ DB, không dùng bản cũ trong identity map.
+        q = q.with_for_update(of=Alert).execution_options(populate_existing=True)
     alert = db.scalar(q)
     if alert is None:
         raise not_found("Không tìm thấy cảnh báo")

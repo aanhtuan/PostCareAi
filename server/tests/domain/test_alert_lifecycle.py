@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from postcare.db.models import Alert, AuditLog, User
@@ -158,3 +158,30 @@ def test_concurrent_outcome_and_resolve_never_outcome_after_resolved(
             assert row.outcome_at is not None and row.resolved_at is not None
             assert row.outcome_at <= row.resolved_at
             assert _audit_actions(app, aid)[-2:] == ["alert.outcome", "alert.resolve"]
+
+
+def test_locked_read_refreshes_stale_identity_map(
+    client: TestClient,
+    login: Login,
+    open_session: dict[str, Any],
+    post_event: Callable[..., Any],
+    db: Session,
+) -> None:
+    """Đọc khóa dòng phải nạp lại trạng thái từ DB, không dùng bản Alert cũ trong session."""
+    aid = _alert(client, login, post_event)
+    ack = client.post(f"/api/v1/alerts/{aid}/acknowledge", headers=login("nurse"))
+    assert ack.status_code == 200
+    stale = db.get(Alert, aid)
+    assert stale is not None and stale.status == AlertStatus.ACKNOWLEDGED
+    # Thay đổi ngoài ORM: identity map vẫn giữ ACKNOWLEDGED.
+    db.execute(text("UPDATE alerts SET status = 'RESOLVED' WHERE id = :id"), {"id": aid})
+    assert stale.status == AlertStatus.ACKNOWLEDGED
+    user = db.scalars(select(User).where(User.username == "charge")).one()
+    pub = InMemoryPublisher()
+    with pytest.raises(DomainError) as exc:
+        svc.resolve(db, aid, None, user, pub)
+    assert exc.value.code == "INVALID_ALERT_TRANSITION"
+    with pytest.raises(DomainError) as exc:
+        svc.set_outcome(db, aid, AlertOutcome.CONFIRMED, None, user, pub)
+    assert exc.value.code == "INVALID_ALERT_TRANSITION"
+    assert pub.messages == []
