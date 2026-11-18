@@ -1,6 +1,7 @@
 // Hook TanStack Query. Dữ liệu server chỉ lấy qua đây; WebSocket chỉ làm mới cache.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { fallbackInterval, useRealtimeStatus } from '../realtime/status';
 import { api, type QueryValue } from './client';
 import type {
   AlertOut,
@@ -31,14 +32,18 @@ export const qk = {
   handover: (p: object) => ['handover', p] as const,
 };
 
-/** F09 R6: làm mới Tổng quan ≤5 giây, kể cả khi mất WebSocket (F21 thêm realtime). */
+/**
+ * F21 R8: Tổng quan cập nhật qua WebSocket (F18). Polling ≤5 giây (F09 R6) chỉ còn là đường dự
+ * phòng khi WebSocket không mở *(giả định F21)*; kết nối lại thì refetch (`invalidateAll`).
+ */
 export const OVERVIEW_POLL_MS = 5000;
 
 export function useOverview() {
+  const ws = useRealtimeStatus();
   return useQuery({
     queryKey: qk.overview,
     queryFn: () => api<OverviewOut>('/overview'),
-    refetchInterval: OVERVIEW_POLL_MS,
+    refetchInterval: fallbackInterval(ws, OVERVIEW_POLL_MS),
   });
 }
 
@@ -272,21 +277,16 @@ export function useCatalogLifecycle() {
   });
 }
 
-/** Chi tiết camera (trạng thái, Bed ROI) cho "Theo dõi trực tiếp"; polling tới khi có F21. */
+/**
+ * Chi tiết camera (trạng thái, Bed ROI) cho "Theo dõi trực tiếp". `camera.status` qua WebSocket
+ * làm mới query này (F21); `pollMs` chỉ áp dụng khi WebSocket không mở.
+ */
 export function useCameraDetail(cameraId: number | undefined, pollMs?: number) {
+  const ws = useRealtimeStatus();
   return useQuery({
     queryKey: ['cameras', 'detail', cameraId] as const,
     queryFn: () => api<CameraDetailOut>(`/cameras/${cameraId}`),
     enabled: cameraId !== undefined,
-    refetchInterval: pollMs,
-  });
-}
-
-/** Tổng quan có polling cho "Theo dõi trực tiếp" (F07 R5; F21 thay bằng WebSocket). */
-export function useLiveOverview(pollMs: number) {
-  return useQuery({
-    queryKey: qk.overview,
-    queryFn: () => api<OverviewOut>('/overview'),
-    refetchInterval: pollMs,
+    refetchInterval: pollMs === undefined ? false : fallbackInterval(ws, pollMs),
   });
 }
