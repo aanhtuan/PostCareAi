@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F20 |
-| Trạng thái | In progress |
+| Trạng thái | In review |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -66,13 +66,13 @@
 
 ## 4. Thiết kế liên quan
 
-- **Module / file dự kiến:**
-  - `web/src/pages/Alerts/AlertsPage.tsx`, `AlertFilters.tsx`, `AlertCard.tsx`, `AlertDetail.tsx`.
-  - `web/src/components/AlertActions.tsx`: nhóm nút thao tác, dùng chung với F21, F22 *(giả định: đặt ở `components/` để tái sử dụng)*.
-  - `web/src/api/alerts.ts`: hook TanStack Query (`useAlerts`, `useAlert`, `useAcknowledgeAlert`, `useAlertOutcome`, `useResolveAlert`).
-  - `web/src/utils/alertSound.ts`; `web/src/utils/time.ts` (đã có hoặc tạo: định dạng `HH:mm:ss`, Asia/Ho_Chi_Minh).
+- **Module / file (theo code thực tế):**
+  - `web/src/pages/Alerts/AlertsPage.tsx` (gồm bộ lọc).
+  - `web/src/components/AlertCard.tsx`, `AlertDetailModal.tsx`, `AlertActions.tsx`, `Badges.tsx`: dùng chung với F21, F22 *(giả định: đặt ở `components/` để tái sử dụng)*.
+  - `web/src/api/hooks.ts`: `useAlerts`, `useAlertAction` (acknowledge/outcome/resolve).
+  - `web/src/realtime/sound.ts` (Web Audio), `web/src/realtime/RealtimeProvider.tsx` (thông báo + âm thanh khi `alert.created` HIGH); `web/src/utils/time.ts` (`HH:mm:ss`, Asia/Ho_Chi_Minh).
   - `web/src/i18n/vi.ts`, `web/src/i18n/vi.test.ts`.
-  - Test: `web/src/pages/Alerts/AlertsPage.test.tsx`, `web/src/components/AlertActions.test.tsx`.
+  - Test: `web/src/pages/Alerts/AlertsPage.test.tsx`, `web/src/components/AlertActions.test.tsx`; dữ liệu giả `web/src/test/alertFixtures.ts`.
 - **Dữ liệu:** không có.
 - **API:** `GET /api/v1/alerts`, `GET /api/v1/alerts/{id}`, `POST /api/v1/alerts/{id}/acknowledge|outcome|resolve` (F19); WS `alert.created`, `alert.updated` (F18). Type sinh bằng `make gen-api-types`.
 - **UI:** màn hình "Cảnh báo". Text cần thêm vào `vi.ts`: tiêu đề màn hình, nhãn bộ lọc, nhãn nút, nhãn trạng thái/kết quả/mức ưu tiên, mẫu câu "{mô tả} lúc {giờ}.", "Giường {mã} - Cảnh báo {mức}", "Chưa ghi kết quả", thông báo lỗi chung.
@@ -80,11 +80,11 @@
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** Danh sách hiển thị thời gian, giường, mức ưu tiên, trạng thái; lọc được theo trạng thái, giường, mức ưu tiên, khoảng thời gian; cảnh báo chưa xử lý nằm đầu *(PDF §9.1 (tr.11))*. — *Kiểm chứng:* `web/src/pages/Alerts/AlertsPage.test.tsx` (`renders alerts with bed, priority, status`, `sends filter params to API`, `keeps unresolved alerts on top`).
-- [ ] **AC2.** Nút đúng PDF §9.2: [Đã tiếp nhận] [Xem chi tiết] khi chờ; sau khi tiếp nhận có [Xác nhận đúng] [Cảnh báo sai] [Bệnh nhân an toàn] [Đã xử lý] và ô ghi chú; đã xử lý mà chưa có kết quả thì hiển thị "Chưa ghi kết quả" *(PDF §9.2 (tr.11); ADR-0007)*. — *Kiểm chứng:* `AlertActions.test.tsx` (`pending shows acknowledge and detail`, `acknowledged shows three outcomes, resolve and note`, `resolved without outcome shows Chưa ghi kết quả`, `buttons call correct endpoints`).
-- [ ] **AC3.** Cảnh báo mới tự hiện, không cần tải lại trang. Mức Ưu tiên cao có màu nổi bật và âm thanh *(HS §4.2; QA#17, giả định)*. — *Kiểm chứng:* `AlertsPage.test.tsx` (`new alert appears after alert.created message`, `high priority plays sound once`, `medium priority does not play sound`); kiểm thủ công với worker thật, ghi ở mục 10.
-- [ ] **AC4.** Mọi text nằm trong `web/src/i18n/vi.ts`; có test quét từ cấm và test đủ text cho `EventCode`, `Priority`, `AlertStatus`, `AlertOutcome`; UI không hiện mã nội bộ *(PDF §9.2 (tr.11), §9.3 (tr.12); glossary.md)*. — *Kiểm chứng:* `web/src/i18n/vi.test.ts` (`contains no forbidden words`, `has text for every enum value`); `AlertsPage.test.tsx::does not render internal codes`.
-- [ ] **AC5.** DOCTOR không thấy nút thao tác. Lỗi 409 khi người khác đã tiếp nhận hiển thị `message` có tên người đó *(QA#18; ADR-0007)*. — *Kiểm chứng:* `AlertActions.test.tsx` (`doctor sees only detail button`, `shows 409 message with acknowledger name`).
+- [x] **AC1.** Danh sách hiển thị thời gian, giường, mức ưu tiên, trạng thái; lọc được theo trạng thái, giường, mức ưu tiên, khoảng thời gian; cảnh báo chưa xử lý nằm đầu *(PDF §9.1 (tr.11))*. — *Kiểm chứng:* `web/src/pages/Alerts/AlertsPage.test.tsx` (`renders alerts with bed, priority, status`, `sends filter params to API`, `keeps unresolved alerts on top`, `shows empty text when no alert matches`); giường đã xóa trong bộ lọc: `web/src/pages/Timeline/deletedBeds.test.tsx`.
+- [x] **AC2.** Nút đúng PDF §9.2: [Đã tiếp nhận] [Xem chi tiết] khi chờ; sau khi tiếp nhận có [Xác nhận đúng] [Cảnh báo sai] [Bệnh nhân an toàn] [Đã xử lý] và ô ghi chú; đã xử lý mà chưa có kết quả thì hiển thị "Chưa ghi kết quả" *(PDF §9.2 (tr.11); ADR-0007)*. — *Kiểm chứng:* `AlertActions.test.tsx` (`pending shows acknowledge and detail`, `acknowledged shows three outcomes, resolve and note`, `resolved shows only detail`, `buttons call correct endpoints`, `outcome and resolve send the note`); `AlertsPage.test.tsx::resolved without outcome shows Chưa ghi kết quả`, `detail dialog shows people, outcome and links without technical values`.
+- [x] **AC3.** Cảnh báo mới tự hiện, không cần tải lại trang. Mức Ưu tiên cao có màu nổi bật và âm thanh *(HS §4.2; QA#17, giả định)*. — *Kiểm chứng:* `AlertsPage.test.tsx` (`new alert appears after alert.created message`, `alert.updated refreshes card status without reload`, `high priority card is highlighted`, `high priority plays sound once`, `medium priority does not play sound`). Kiểm thủ công với worker thật: chưa làm, xem mục 10.
+- [x] **AC4.** Mọi text nằm trong `web/src/i18n/vi.ts`; có test quét từ cấm và test đủ text cho `EventCode`, `Priority`, `AlertStatus`, `AlertOutcome`; UI không hiện mã nội bộ *(PDF §9.2 (tr.11), §9.3 (tr.12); glossary.md)*. — *Kiểm chứng:* `web/src/i18n/vi.test.ts` (`does not contain forbidden word`, `forbidden-word scanner on …` (bảng ca), `has text for every enum value: EventCode|Priority|AlertStatus|AlertOutcome` (so với `openapi.json`), `does not contain internal codes such as BED_EXIT`); `AlertsPage.test.tsx::does not render internal codes`.
+- [x] **AC5.** DOCTOR không thấy nút thao tác. Lỗi 409 khi người khác đã tiếp nhận hiển thị `message` có tên người đó *(QA#18; ADR-0007)*. — *Kiểm chứng:* `AlertActions.test.tsx` (`doctor sees only detail button`, `shows 409 message with acknowledger name`, `shows forbidden message on 403`); `AlertsPage.test.tsx::409 shows message and refreshes the card`.
 
 ## 6. Kế hoạch test
 
@@ -132,6 +132,17 @@ Prototype đã có màn hình Cảnh báo. Việc của F20 là đối chiếu t
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+**Triển khai (2026-11-18), nhánh `feat/F20-alerts-screen`:**
+- Màn hình đã có sẵn từ prototype. F20 thêm test cho mọi AC và một thay đổi nhỏ: `AlertCard` có `data-priority` để kiểm việc làm nổi bật mức Ưu tiên cao.
+- Test mới: `web/src/components/AlertActions.test.tsx` (8 ca), `web/src/pages/Alerts/AlertsPage.test.tsx` (13 ca, WebSocket giả qua `vi.mock('../../realtime/wsClient')`, âm thanh giả qua `vi.mock('../../realtime/sound')`), `web/src/i18n/vi.test.ts` (thêm bảng ca cho bộ quét từ cấm và đối chiếu enum với `web/src/api/openapi.json`). Dữ liệu giả dùng chung: `web/src/test/alertFixtures.ts`.
+- Đỏ trước khi sửa: chỉ `high priority card is highlighted` (thiếu `data-priority`). Các ca khác xanh ngay với code có sẵn, sau khi sửa hai kỳ vọng sai của chính test (bộ lọc giờ gửi `…+07:00`; "Chưa ghi kết quả" nằm chung dòng với nhãn "Kết quả kiểm tra").
+- Không đổi API, không cần `make gen-api-types`, không có migration.
+- Thứ tự danh sách: trang giữ đúng thứ tự API trả (F19 R9: chưa xử lý trước, rồi mới nhất trước). API **không** sắp HIGH lên trước trong cùng trạng thái; spec F20 không yêu cầu nên không làm.
+
+**`make check` (2026-11-18):** format-check, lint, typecheck, lint-imports, check-api-types xanh; pytest `1134 passed, 6 deselected`. Bước vitest trong `make check` bị Node hết bộ nhớ trên máy dev (không phải lỗi test); chạy lại riêng `npx vitest run --maxWorkers=2` trong `web/`: `24 files, 175 tests passed`; `npm run build` xanh.
+
+**Chưa làm:** kiểm thủ công AC3 với worker thật (cảnh báo mới tự hiện, âm thanh HIGH trên trình duyệt sau khi đã thao tác). Người review hoặc phiên sau chạy `make dev` + `make worker CAMERA=<id>` rồi ghi kết quả vào đây.
 
 ## 11. Definition of Done
 
