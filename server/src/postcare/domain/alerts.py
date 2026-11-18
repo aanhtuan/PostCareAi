@@ -38,8 +38,12 @@ def _load_options() -> list[Any]:
     ]
 
 
-def _get(db: Session, alert_id: int) -> Alert:
-    alert = db.scalar(select(Alert).where(Alert.id == alert_id).options(*_load_options()))
+def _get(db: Session, alert_id: int, *, lock: bool = False) -> Alert:
+    """`lock=True`: `SELECT … FOR UPDATE` để kiểm tra trạng thái rồi ghi không bị tranh chấp."""
+    q = select(Alert).where(Alert.id == alert_id).options(*_load_options())
+    if lock:
+        q = q.with_for_update(of=Alert)
+    alert = db.scalar(q)
     if alert is None:
         raise not_found("Không tìm thấy cảnh báo")
     return alert
@@ -121,7 +125,7 @@ def set_outcome(
     user: User,
     publisher: Publisher,
 ) -> AlertOut:
-    alert = _get(db, alert_id)
+    alert = _get(db, alert_id, lock=True)
     if alert.status != AlertStatus.ACKNOWLEDGED:
         raise _invalid("Chỉ ghi kết quả sau khi đã tiếp nhận và trước khi xử lý xong")
     before = _snapshot(alert)
@@ -145,7 +149,7 @@ def set_outcome(
 def resolve(
     db: Session, alert_id: int, note: str | None, user: User, publisher: Publisher
 ) -> AlertOut:
-    alert = _get(db, alert_id)
+    alert = _get(db, alert_id, lock=True)
     if alert.status != AlertStatus.ACKNOWLEDGED:
         raise _invalid("Chỉ xử lý xong cảnh báo đã được tiếp nhận")
     before = _snapshot(alert)
