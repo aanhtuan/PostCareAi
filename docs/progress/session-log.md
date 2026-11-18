@@ -6,8 +6,8 @@ Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](..
 
 - **Mục tiêu phiên:** Đưa kiểu demo video cạnh skeleton vào sản phẩm; người dùng xác nhận giữ chế độ riêng tư đã chọn ở trái và thêm skeleton ở phải.
 - **Đã làm:** Nhánh `feat/F07-dual-live-view`. Worker vẫn render `display_mode` hiện tại, đồng thời render JPEG skeleton nền trơn + ROI từ cùng observation; API lưu hai view trong RAM (`display`, `skeleton`) và phát MJPEG theo `view`, cùng auth/stale/revalidation. Khi chưa có ROI, worker vẫn chạy pose cho khung skeleton nhưng không tạo engine/state/event. Live View responsive hai khung, nhãn tiếng Việt và hướng dẫn riêng tư; không thêm thư viện, không migration, không đổi DB.
-- **Kết quả kiểm tra:** Test mục tiêu backend worker/API đạt; 18 test UI LiveView/CameraStream đạt. Ruff, mypy, import-linter, Prettier, ESLint, TypeScript đạt. Chưa chạy full `make check`, chưa restart dịch vụ và chưa kiểm chứng browser với hai stream.
-- **Đang dở:** Chạy `make check`; restart API/worker trong clone mới; mở `/live` và xác nhận hai ảnh thật với webcam. Không đổi webcam sang RAW.
+- **Kết quả kiểm tra:** Test mục tiêu backend worker/API đạt; 18 test UI LiveView/CameraStream đạt. `make check` PASS lần chạy thứ hai: 1364 pytest passed, 254 Vitest passed, build web đạt; lần chạy đầu có một lỗi stale-frame đơn lẻ nhưng test chạy riêng đạt.
+- **Đang dở:** Không còn phần code; dịch vụ API/worker/web đã restart trong clone mới và browser đã xác nhận hai ảnh thật. Không đổi webcam sang RAW.
 - **Bước tiếp theo:** `make check`; sau đó restart `uv ... --port 8002`, Vite 5175 và worker camera 1; mở `http://127.0.0.1:5175/live`.
 - **Blocker / câu hỏi cho người dùng:** Không có. ROI thật của webcam chưa cấu hình nên skeleton có thể chỉ là nền + pose, và engine vẫn báo chưa đủ dữ liệu.
 - **Giả định mới:** Mở rộng này là yêu cầu người dùng, ghi tại F07 §12; hai luồng không cam kết đồng bộ pixel từng thời điểm trên trình duyệt.

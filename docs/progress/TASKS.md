@@ -42,7 +42,7 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 
 ## Đã xong gần đây
 
-- [x] 2026-11-19: Mở rộng Theo dõi trực tiếp theo yêu cầu người dùng: khung trái giữ chế độ riêng tư hiện tại, khung phải skeleton + vùng giường từ cùng observation; tách bộ đệm/luồng MJPEG, giữ quyền và stale policy, hỗ trợ pose preview khi chưa có ROI nhưng không phát state/event. Đã thêm test worker/API/UI mục tiêu; đang chờ `make check` và kiểm chứng browser sau restart dịch vụ.
+- [x] 2026-11-19: Mở rộng Theo dõi trực tiếp theo yêu cầu người dùng: khung trái giữ chế độ riêng tư hiện tại, khung phải skeleton + vùng giường từ cùng observation; tách bộ đệm/luồng MJPEG, giữ quyền và stale policy, hỗ trợ pose preview khi chưa có ROI nhưng không phát state/event. Test worker/API/UI, `make check` (1364 pytest, 254 Vitest, build) và browser hai stream đều đạt.
 
 - [x] 2026-11-19 00:31: Minh họa clip stock Pexels 8090735 → MediaPipe → skeleton/ROI và engine thật; 115 khung, 1 sự kiện ở mép giường, chưa có rời giường. Mở http://127.0.0.1:5180/ để xem video gốc cạnh skeleton. `make test-vision`: 5 passed, 1 skipped; không thay webcam A01 hoặc source ứng dụng. Chi tiết trong session-log.
 
