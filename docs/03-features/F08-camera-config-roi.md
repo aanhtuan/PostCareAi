@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F08 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 3 phiên |
@@ -112,9 +112,19 @@ Cho quản trị viên vẽ vùng giường (Bed ROI) dạng polygon bằng các
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+Khảo sát: `validate_roi_polygon` đã có (F12, `schemas/roi.py`); `EngineConfig.load(default, overrides)` đã có (F10) nên override được kiểm tra bằng `EngineConfig` (giải quyết câu hỏi mở mục 8); worker đã tải lại cấu hình khi `config_version` đổi và tạo engine mới theo `engine_key` (F06); `CameraStream`, `RoiOverlay`, `useCameraDetail` có từ F07; pattern ghi ADMIN + `_audit` + `_locked` ở `domain/catalog.py` (F03).
 
-1. …
+1. **Hình học** (`schemas/roi.py`): thêm `RoiPolygonError(ValueError)` có `reason` (mã máy: `TOO_FEW_POINTS`, `TOO_MANY_POINTS`, `INVALID_POINT`, `OUT_OF_RANGE`, `DUPLICATE_POINT`, `SELF_INTERSECTION`, `ZERO_AREA`), giới hạn 20 điểm, từ chối giá trị không phải số (kể cả bool). Không đổi hành vi với F12 (vẫn là `ValueError`, thông điệp cũ). Test: `server/tests/schemas/test_roi.py`.
+2. **Domain** `server/src/postcare/domain/camera_config.py`: `update_roi`, `get_thresholds`, `update_thresholds`. Khóa hàng camera, so sánh trước/sau; có thay đổi → `config_version += 1` + `record_audit` (`camera.update_roi`, `camera.update_thresholds`, `before`/`after`) trong cùng transaction; không đổi gì → 200, không tăng version, không audit *(giả định, như F03 R16)*. Ngưỡng: hợp nhất `config/engine.default.yaml` + override rồi `EngineConfig.from_mapping`; lỗi → 400 `VALIDATION_ERROR`, `details.errors[{path, msg}]` với `path` dạng `thresholds.posture.lying_enter_deg`.
+3. **API** `api/v1/cameras.py`: `PUT /cameras/{id}/roi` → `{camera_id, roi_polygon, config_version}`; `GET/PUT /cameras/{id}/thresholds` → `{defaults, overrides, effective, config_version}`. Cả ba chỉ ADMIN (`require_admin`; GET cũng chỉ ADMIN vì chỉ màn hình cấu hình dùng). DTO trong `domain/dto.py`. `make gen-api-types`.
+4. **Test API** `server/tests/api/test_camera_roi.py`, `test_camera_thresholds.py`: lưu ROI chuẩn hóa; 403 cho NURSE, CHARGE_NURSE, DOCTOR, FAMILY; 400 `INVALID_ROI_POLYGON` + `details.reason` cho tự cắt, <3, ngoài [0,1], thẳng hàng, >20 điểm, không phải số; 404 camera lạ; override, reset `{}`, khóa lạ / sai kiểu / số âm → 400 kèm đường dẫn khóa; lưu lỗi không tăng `config_version`; audit before/after.
+5. **Tích hợp** `server/tests/integration/test_worker_receives_roi.py`: worker thật (F06) ↔ API thật qua `TestClient`, đồng hồ giả; ADMIN lưu ROI → worker có ROI mới và engine mới ≤5 s; không lưu → giữ cấu hình.
+6. **Web**: `client.ts` thêm `PUT`; `utils/polygon.ts` (cùng bộ kiểm tra, cùng mã lý do); `pages/CameraConfig/{CameraConfigPage,RoiEditor,ThresholdsForm,ImageQualityIndicator,thresholdKeys}.tsx/ts`; route `/cameras/:id/config` bọc `RequireRole ADMIN`; nút "Cấu hình" ở bảng camera màn hình Quản lý (chỉ ADMIN); hook `useCameraThresholds`, `useSaveRoi`, `useSaveThresholds`. RoiEditor: nền là MJPEG (URL như `CameraStream`), lớp phủ nhận click/kéo, toạ độ = vị trí / kích thước khung đang hiển thị; offline → nền trống + "Mất kết nối camera", vẫn sửa được. Text trong `vi.ts`.
+7. **Test web**: `polygon.test.ts`, `RoiEditor.test.tsx`, `ThresholdsForm.test.tsx`, `ImageQualityIndicator.test.tsx`, `CameraConfigPage.test.tsx` (vai trò khác bị chuyển về Tổng quan).
+8. **Doc**: api-conventions.md (endpoint, body, lỗi, quyền), data-model.md (`roi_polygon` ≤20 điểm, audit action), spec mục 10.
+9. **Kiểm chứng**: `make check` một lần; thủ công DB `postcare_f08`, API cổng 8018, worker trên clip Pexels, lưu ROI qua API/UI, xem log worker tải lại và trạng thái giường đổi.
+
+Rủi ro: jsdom không có kích thước layout → test RoiEditor giả `getBoundingClientRect`. ROI sửa khi phiên đang mở là được phép (khác với đổi nguồn/giường, F03 R14) *(giả định: hiệu chỉnh ROI là việc khi lắp camera, không làm mất dữ liệu phiên)*.
 
 ## 10. Ghi chú bàn giao
 
