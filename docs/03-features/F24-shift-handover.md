@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F24 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -112,6 +112,27 @@ Cảnh báo tồn đọng nằm đầu trang. Số liệu tính bằng **SQL agg
 ## 9. Kế hoạch triển khai
 
 > Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+
+**Khảo sát (2026-11-18).** Prototype đã có:
+- `server/src/postcare/domain/handover.py`: `resolve_window` (ca + ngày theo Asia/Ho_Chi_Minh → UTC, ca qua đêm, `from ≥ to` → 400, ca lạ → 404, ca đã xóa vẫn dùng được qua `db.get`, F37 R9), `build_handover` (SQL `COUNT … GROUP BY bed_id, code`; `SUM(CASE …)` đã/chưa xử lý; đếm 6 code `STATE_CHANGE_CODES`; tồn đọng sắp `PRIORITY_RANK_SQL DESC, occurred_at ASC`; `cutoff = min(to, now)`).
+- Route `GET /api/v1/handover` trong `api/v1/monitoring.py` (router `require_staff`: mọi vai trò nhân viên, FAMILY 403); `GET /api/v1/shifts` trong `api/v1/catalog.py` (F37, mặc định chỉ ca đang dùng).
+- Test: `tests/test_timeline_handover.py` (`test_handover_counts`, `test_handover_by_shift`, `test_current_shift`, `test_shift_window_crosses_midnight`); `tests/api/test_shifts_admin.py::test_handover_works_for_deleted_shift`, `test_current_shift_ignores_deleted`; `tests/api/test_family_role_default_deny.py` (FAMILY 403 `/handover`).
+- `web/src/pages/Handover/HandoverPage.tsx` (một file: chọn ca/ngày mặc định ca hiện tại qua `utils/shift.ts`, khoảng tùy chọn, tồn đọng trước bảng theo giường, nút In, text `vi.handover`), print CSS trong `web/src/styles.css` (`.no-print`, ẩn header/navbar, nền trắng, `tr` không cắt). Chưa có component test.
+
+**AC đã đạt một phần (code có, thiếu test theo tên AC):** AC1 (API), AC3 (cửa sổ ca qua đêm), AC4 (print CSS, nút In). AC2 chưa có test domain cho cảnh báo tạo trước `from` / xử lý sau `to`.
+
+**Thiếu (sẽ làm):**
+1. *Test server* `server/tests/api/test_handover_api.py`: `test_handover_by_shift_and_date`, `test_handover_by_custom_range` (offset `+07:00` → UTC), `test_beds_without_events_show_zero`, `test_invalid_range_400` (`from > to`, `from = to`, thiếu tham số, thiếu `date`), `test_unknown_shift_404`, `test_doctor_can_read_handover`, `test_family_forbidden_handover`. `server/tests/domain/test_handover.py`: `test_outstanding_includes_older_unresolved_excludes_resolved_before_end`, `test_outstanding_order_high_first_then_oldest`, `test_counts_match_seed_data`, `test_night_shift_crosses_midnight`, `test_event_at_boundary_counted_once`, `test_local_time_to_utc_conversion`, `test_state_change_count_only_posture_codes` (ca âm: `ACTIVITY_*`, `CAMERA_*`, `OBSERVATION_LOST`), `test_outcome_counts`, `test_transferred_patient_events_stay_on_old_bed` (F04: sự kiện tính theo `events.bed_id` lúc xảy ra), `test_deleted_bed_with_events_listed`.
+2. *Sửa:* tồn đọng lọc theo `alerts.created_at < to`; với khoảng trong quá khứ mà sự kiện gửi trễ (hoặc dữ liệu seed lịch sử) thì cảnh báo được đếm "chưa xử lý" ở bảng giường nhưng không vào danh sách tồn đọng. Đổi sang `events.occurred_at < to` cho thống nhất với bảng theo giường *(giả định)*. Thêm `alerts.id` làm khóa phụ khi sắp để thứ tự ổn định.
+3. *Giường đã xóa:* hiện mọi giường đang dùng **và** giường đã xóa có sự kiện trong khoảng (để bàn giao không sót), thêm `is_active` vào `HandoverBedOut`; UI ghi "(đã xóa)" *(giả định; F03 xóa mềm)*.
+4. *Tóm tắt kết quả kiểm tra:* thêm `outcome_counts` theo giường (cảnh báo có sự kiện trong khoảng, đã ghi kết quả trước cuối khoảng, theo `CONFIRMED|FALSE_ALARM|PATIENT_SAFE`) *(giả định; HS §3: "kết quả xác nhận và lịch sử để phục vụ tra cứu và bàn giao ca")*; cột "Kết quả kiểm tra" trên UI dùng `vi.outcome`. `event_counts` sắp theo `code` để in ổn định.
+5. `make gen-api-types` sau khi đổi DTO.
+6. *Component test* `web/src/pages/Handover/HandoverPage.test.tsx`: `renders per-bed summary`, `outstanding alerts rendered first`, `print button calls window.print`, `does not render internal codes`, `title shows shift period in Asia/Ho_Chi_Minh`, `defaults to current shift`, `sends custom range as ISO with +07:00`, `shows deleted bed label`.
+7. Docs: `api-conventions.md` (định nghĩa tồn đọng, giường đã xóa, `outcome_counts`), `data-model.md` nếu cần, spec §7, §10.
+
+**Lệch so với §4:** UI giữ một file `HandoverPage.tsx` (không tách `HandoverFilters`/`OutstandingAlerts`/`BedSummaryTable`), print CSS nằm trong `web/src/styles.css` dùng chung, route nằm trong `api/v1/monitoring.py`/`catalog.py` thay vì `handover.py`/`shifts.py` *(không đổi hành vi)*.
+
+**Câu hỏi mở:** không có điểm chặn.
 
 ## 10. Ghi chú bàn giao
 
