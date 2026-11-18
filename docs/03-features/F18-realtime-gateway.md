@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F18 |
-| Trạng thái | In progress |
+| Trạng thái | In review |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -83,10 +83,10 @@ Feature này đẩy thay đổi lên dashboard ngay khi có, để điều dư�
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** `/api/v1/ws?token=` từ chối token sai, hết hạn hoặc thiếu (đóng kết nối, không gửi message nào); token đúng thì kết nối được *(api-conventions.md; PDF §10.1 (tr.12–13): phân quyền người dùng)*. — *Kiểm chứng:* `server/tests/api/test_realtime.py` (`test_ws_rejects_invalid_token`, `test_ws_rejects_expired_token`, `test_ws_accepts_valid_token`).
-- [ ] **AC2.** Chỉ phát `event.created`, `alert.created`, `alert.updated`, `camera.status`, `bed.state` (và `session.updated`) **sau khi commit DB** *(HS §4.2; ADR-0002)*. — *Kiểm chứng:* `test_ws_alert_created_after_commit` (khi client nhận `alert.created`, một session DB khác đọc được alert đó); `test_no_broadcast_when_transaction_fails`.
-- [ ] **AC3.** Client tự kết nối lại theo backoff và làm mới dữ liệu sau khi kết nối lại *(api-conventions.md)*. — *Kiểm chứng:* `web/src/realtime/wsClient.test.ts` (`reconnects with backoff after close`, `invalidates queries after reconnect`, `does not retry after 4401`).
-- [ ] **AC4.** Client nhận `alert.created` trong ≤ 1 giây sau khi `POST /internal/v1/events` một sự kiện HIGH (chạy local) *(A07)*. — *Kiểm chứng:* `test_realtime.py::test_alert_created_delivered_within_1s`.
+- [x] **AC1.** `/api/v1/ws?token=` từ chối token sai, hết hạn hoặc thiếu (đóng kết nối, không gửi message nào); token đúng thì kết nối được *(api-conventions.md; PDF §10.1 (tr.12–13): phân quyền người dùng)*. — *Kiểm chứng:* `server/tests/api/test_realtime.py` (`test_ws_rejects_invalid_token`, `test_ws_rejects_expired_token`, `test_ws_accepts_valid_token`).
+- [x] **AC2.** Chỉ phát `event.created`, `alert.created`, `alert.updated`, `camera.status`, `bed.state` (và `session.updated`) **sau khi commit DB** *(HS §4.2; ADR-0002)*. — *Kiểm chứng:* `test_ws_alert_created_after_commit` (khi client nhận `alert.created`, một session DB khác đọc được alert đó); `test_no_broadcast_when_transaction_fails`.
+- [x] **AC3.** Client tự kết nối lại theo backoff và làm mới dữ liệu sau khi kết nối lại *(api-conventions.md)*. — *Kiểm chứng:* `web/src/realtime/wsClient.test.ts` (`reconnects with backoff after close`, `invalidates queries after reconnect`, `does not retry after 4401`).
+- [x] **AC4.** Client nhận `alert.created` trong ≤ 1 giây sau khi `POST /internal/v1/events` một sự kiện HIGH (chạy local) *(A07)*. — *Kiểm chứng:* `test_realtime.py::test_alert_created_delivered_within_1s`.
 
 ## 6. Kế hoạch test
 
@@ -157,6 +157,34 @@ Không có migration, endpoint mới hay thư viện mới; không cần `make g
 ## 10. Ghi chú bàn giao
 
 > Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+
+**Triển khai (2026-11-18, nhánh `feat/F18-realtime`):**
+
+- `api/realtime.py`: mỗi kết nối là `Connection(queue, user_id, role, accept)`; `register(user_id, role=, accept=)`, `close_where(pred, code)`, `disconnect_user` dựa trên `close_where`. Bộ lọc lỗi chỉ bỏ message cho kết nối đó. Hàng đợi đầy → đóng mã 1013 (trước đây client bị loại khỏi hub nhưng socket vẫn mở, im lặng).
+- `api/log_redaction.py`: filter `token=***` gắn vào cả `uvicorn.access` và `uvicorn.error` (uvicorn ghi dòng `"WebSocket …?token=…" [accepted]` qua `uvicorn.error`).
+- Web: `wsClient.ts` 4403 → `onForbidden` (không thử lại) → `AuthContext.reloadUser` đọc lại `/auth/me` để định tuyến (`FAMILY` → `/family`); badge "Đang kết nối cập nhật trực tiếp…" lần kết nối đầu (không hiện "Mất kết nối" khi chưa từng mất).
+- Doc: `api-conventions.md` (ping không trả lời, 1013, 4403 phía web, che token, bộ lọc hub cho F36).
+
+**Bằng chứng AC:**
+
+- AC1: `tests/api/test_realtime.py::test_ws_rejects_invalid_token` (sai, rỗng, JWT hỏng), `test_ws_rejects_missing_token`, `test_ws_rejects_expired_token`, `test_ws_accepts_valid_token` (4 vai trò nhân viên, R2), `test_invalid_token_receives_nothing`; `test_family_role_default_deny.py::test_family_ws_closed_4403`.
+- AC2: `test_ws_alert_created_after_commit` (`real_commit`, kết nối DB khác đọc được event và alert khi client nhận), `test_no_broadcast_when_transaction_fails`, `test_duplicate_event_uid_no_second_message`; R3 `test_message_envelope_has_type_payload_sent_at`; R6 `test_ping_and_unknown_messages_ignored`; R7 `test_slow_client_dropped_others_still_receive`, `test_slow_client_closed_so_it_reconnects`; F36 `test_per_connection_filter`, `test_filter_error_does_not_block_others`, `test_close_where_closes_matching_connections`; F35 khóa/đổi vai trò: `test_ws_closed_when_user_locked` (4401), `test_ws_closed_when_role_changed_to_family` (4403); log `test_ws_token_redacted_in_server_log`.
+- AC3: `web/src/realtime/wsClient.test.ts` (`reconnects with backoff after close`, `caps backoff and resets it after a successful open`, `invalidates queries after reconnect`, `does not retry after 4401`, `does not retry after 4403`, `reconnects after the server drops a slow client (1013)`, `sends ping periodically while open`); `invalidation.test.ts` (R10, R11); `AppLayout.test.tsx` `RealtimeStatus (F18 R13)`.
+- AC4: `test_alert_created_delivered_within_1s`; đo thủ công bên dưới.
+
+**Kiểm chứng thủ công (2026-11-18):** DB `postcare_f18` (`alembic upgrade head`, `postcare seed`, thêm BN-001 và mở phiên A01), `uvicorn postcare.api.main:app --port 8028`. Client `websockets` 17.2 đăng nhập `nurse`, gửi `ping`, rồi 30 lần `POST /internal/v1/events` (`BED_EXIT`, HIGH) trên cùng máy:
+
+| Đo | Trung vị | p90 | Max |
+|---|---|---|---|
+| POST → nhận `event.created` | 27,9 ms | 36,7 ms | 40,2 ms |
+| POST → nhận `alert.created` | 27,9 ms | 36,7 ms | 40,3 ms |
+| `events.created_at` → nhận WS | 20,2 ms | 26,9 ms | 31,6 ms |
+
+Đạt A07 (< 1 s). Token sai → đóng 4401. Log uvicorn chỉ có `"WebSocket /api/v1/ws?token=***" [accepted]`, không có token thật. Lệnh `measure-delivery` chính thức vẫn là của F29.
+
+`make check` xanh (pytest 1093 passed; vitest 142 passed). Chưa chạy `scripts\dev.ps1 check` (giới hạn bộ nhớ; CI chạy Windows).
+
+**Cho người sau:** F36 đăng ký kết nối `FAMILY` bằng `hub.register(user_id, role="FAMILY", accept=<lọc theo grant>)` thay cho nhánh đóng 4403 trong `websocket_endpoint`, và dùng `close_where` để đóng 4403 khi hết grant.
 
 ## 11. Definition of Done
 
