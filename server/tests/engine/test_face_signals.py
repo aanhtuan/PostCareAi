@@ -6,6 +6,7 @@ mượt và thời lượng lấy từ `engine.default.yaml`; không viết cứ
 
 from postcare.schemas.enums import FaceStatus
 from postcare.schemas.events import EngineOutput
+from postcare.schemas.observation import FrameObservation
 from tests.engine.builders import PoseSequence, default_config, run_engine
 from tests.engine.face_builders import OFF, ON, all_keys, face, with_face
 
@@ -17,7 +18,7 @@ LEAD_S = 6.0
 """Đoạn đầu mặt trung tính: đủ để cổng chất lượng mở và `LYING` ổn định."""
 
 
-def lying(seconds: float) -> list:
+def lying(seconds: float) -> list[FrameObservation]:
     return PoseSequence(fps=FPS).lying(seconds=seconds).build()
 
 

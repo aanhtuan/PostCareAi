@@ -92,9 +92,9 @@ def with_face(
         bounds.append((end, seg))
     for obs in frames:
         rel = obs.ts_ms - t0
-        seg = next((s for b, s in bounds if rel < b), None)
-        if seg is None or obs.frame_index % every_n != 0:
+        current = next((s for b, s in bounds if rel < b), None)
+        if current is None or obs.frame_index % every_n != 0:
             out.append(obs)
             continue
-        out.append(obs.model_copy(update={"face": face_obs(seg, cfg)}))
+        out.append(obs.model_copy(update={"face": face_obs(current, cfg)}))
     return out

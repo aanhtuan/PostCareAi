@@ -9,6 +9,7 @@ from typing import Any
 from postcare.schemas.engine_config import EngineConfig
 from postcare.schemas.enums import FaceStatus, Priority
 from postcare.schemas.events import EngineEvent, EventCode
+from postcare.schemas.observation import FrameObservation
 from tests.engine.builders import ROOT, PoseSequence, default_config, events, run_engine
 from tests.engine.face_builders import ON, face, with_face
 
@@ -26,16 +27,18 @@ def cfg(overrides: dict[str, Any]) -> EngineConfig:
     return EngineConfig.load(ROOT / "config" / "engine.default.yaml", overrides)
 
 
-def face_events(frames: list, config: EngineConfig | None = None) -> list[EngineEvent]:
+def face_events(
+    frames: list[FrameObservation], config: EngineConfig | None = None
+) -> list[EngineEvent]:
     outs = run_engine(frames, config)
     return [e for e in events(outs) if e.code == EventCode.FACE_ATTENTION]
 
 
-def body_codes(frames: list) -> list[str]:
+def body_codes(frames: list[FrameObservation]) -> list[str]:
     return [e.code.value for e in events(run_engine(frames)) if e.code != EventCode.FACE_ATTENTION]
 
 
-def lying(seconds: float) -> list:
+def lying(seconds: float) -> list[FrameObservation]:
     return PoseSequence(fps=FPS).lying(seconds=seconds).build()
 
 
@@ -63,7 +66,13 @@ def test_short_brow_down_while_lying_no_event() -> None:
     """Hạ lông mày + nheo ngắn hơn `attention_hold_s` khi nằm yên → không sự kiện (PDF §7.4)."""
     frames = with_face(
         lying(LEAD_S + 3 * HOLD),
-        [face(seconds=LEAD_S), face(TWO, HOLD * 0.5), face(seconds=HOLD), face(TWO, HOLD * 0.5)],
+        [
+            face(seconds=LEAD_S),
+            face(TWO, HOLD * 0.5),
+            face(seconds=HOLD),
+            face(TWO, HOLD * 0.5),
+            face(seconds=HOLD),
+        ],
     )
     assert face_events(frames) == []
 
@@ -158,7 +167,7 @@ def test_face_attention_escalates_with_high_activity() -> None:
     seq = (
         PoseSequence(fps=FPS)
         .lying(seconds=LEAD_S)
-        .limb_motion(seconds=fill + HOLD + 3, speed_torso_per_s=VIGOROUS)
+        .limb_motion(seconds=fill + HOLD + 3, speed_torso_per_s=VIGOROUS, whole_body=True)
         .build()
     )
     frames = with_face(seq, [face(seconds=pre), face(TWO, HOLD + 3)])
