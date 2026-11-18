@@ -15,10 +15,12 @@ keypoint bắt buộc trong đoạn (như các rule khác, giả định F15 R9)
 
 from collections import deque
 
+from pydantic import JsonValue
+
 from postcare.engine.activity import ActivityReading
 from postcare.engine.face import FaceReading
 from postcare.engine.pipeline import FrameAssessment
-from postcare.engine.rules.common import MS_PER_S, EventDraft, VisibilityBuffer
+from postcare.engine.rules.common import MS_PER_S, EventDraft, Explanation, VisibilityBuffer
 from postcare.schemas.engine_config import EngineConfig
 from postcare.schemas.enums import Priority
 from postcare.schemas.events import EventCode
@@ -70,17 +72,17 @@ class FaceRules:
             return []
         self._emitted = True
         escalated_by = self._escalation()
-        explanation: dict[str, object] = {
+        explanation: Explanation = {
             "rule_id": RULE_ID,
-            "signals": list(face.active),
-            "signal_values": dict(face.values),
+            "signals": list[JsonValue](face.active),
+            "signal_values": dict[str, JsonValue](face.values),
             "held_ms": held_ms,
             "min_signals": self._min_signals,
             "activity_level": activity.level.value,
             "body_state": body_state.value,
         }
         if escalated_by:
-            explanation["escalated_by"] = escalated_by
+            explanation["escalated_by"] = list[JsonValue](escalated_by)
         return [
             EventDraft(
                 code=EventCode.FACE_ATTENTION,
@@ -88,7 +90,7 @@ class FaceRules:
                 detected_at_ms=ts_ms,
                 confidence=self._visibility.confidence(self._start_ms, ts_ms),
                 observation_quality=assessment.quality,
-                explanation=explanation,  # type: ignore[arg-type]
+                explanation=explanation,
                 priority=Priority.HIGH if escalated_by else Priority.MEDIUM,
             )
         ]

@@ -6,9 +6,9 @@
   hiển thị; khi đếm cho FACE_ATTENTION nhóm mắt tính một tín hiệu.
 - `face = None` (frame không chạy face): giữ giá trị gần nhất trong tối đa
   `face.run_every_n_frames` frame liên tiếp, quá số đó coi là `NOT_VISIBLE` (mục 2 event-engine.md,
-  giả định). `status ≠ OK`, mất quan sát cơ thể
-  hoặc đổi người mục tiêu: xóa mọi tín hiệu và bộ đếm (R3). Thiếu dữ liệu mặt **không** bao giờ được
-  coi là bình thường (HS §9.1).
+  giả định). `status ≠ OK` hoặc đổi người mục tiêu: xóa mọi tín hiệu và bộ đếm (R3). Mất quan sát
+  cơ thể (`NO_OBSERVATION`) **không** xóa tín hiệu; chỉ FACE_ATTENTION đòi có quan sát cơ thể (R4).
+  Thiếu dữ liệu mặt **không** bao giờ được coi là bình thường (HS §9.1).
 
 Không gán nhãn đau, ngủ hay mất ý thức: đây chỉ là tín hiệu quan sát (PDF §6.2).
 """

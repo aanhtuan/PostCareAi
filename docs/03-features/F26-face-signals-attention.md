@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F26 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP |
 | Milestone | M3 |
 | Ước lượng | 3 phiên |
@@ -165,6 +165,8 @@ Người sau cần biết:
 - F27 dùng `FaceReading` / `Engine` snapshot `face_signals.eyes_closed` (thời gian nhắm mắt có `eyes_closed_prolonged`).
 - `frames.jsonl` của replay chưa ghi `face_signals` (chỉ `face_status`); thống kê trên tính lại bằng `Engine` từ `observations.jsonl`.
 - LiveView vẫn polling (F21 sẽ chuyển WS); khối mặt đọc `state.face_status`, `state.face_signals` nên không đổi khi chuyển.
+
+**2026-11-18, review: Đạt.** Sửa theo review (cùng nhánh, sau khi merge `main`): (1) docstring `engine/face.py` ghi đúng: `NO_OBSERVATION` không xóa tín hiệu mặt; (2) `rules/face.py`: `explanation` có kiểu `Explanation` (`rules/common.py`), bỏ `type: ignore`; (3) bỏ khóa `vi.live.face` không còn dùng. Trạng thái Done.
 
 ## 11. Definition of Done
 

@@ -271,7 +271,6 @@ export const vi = {
     noEvent: 'Chưa có sự kiện',
     activity: 'Mức vận động',
     rest: 'Nghỉ / hoạt động',
-    face: 'Khuôn mặt',
     faceSignals: 'Tín hiệu khuôn mặt',
     faceNoData: 'Không đủ dữ liệu khuôn mặt',
     faceNoSignal: 'Không có tín hiệu nào đang bật',
