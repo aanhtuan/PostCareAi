@@ -160,3 +160,19 @@ def test_start_failure_of_one_camera_keeps_others() -> None:
         assert launcher.poll() == {2: -1}
     finally:
         launcher.stop(timeout_s=5)
+
+
+def test_run_stops_started_children_when_start_fails_midway() -> None:
+    calls: list[str] = []
+
+    def log(message: str) -> None:
+        calls.append(message)
+        raise RuntimeError("console lỗi")  # vd. stdout không in được tiếng Việt
+
+    launcher = WorkerLauncher(
+        [WorkerSpec(1), WorkerSpec(2)], command=lambda spec: _py(SLEEP), log=log
+    )
+    with pytest.raises(RuntimeError):
+        launcher.run(poll_s=0.05)
+    assert launcher.pids()  # đã khởi động ít nhất một worker trước khi lỗi
+    assert launcher.alive() == []

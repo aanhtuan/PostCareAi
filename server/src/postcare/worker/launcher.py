@@ -146,10 +146,10 @@ class WorkerLauncher:
 
         Trả mã thoát lớn nhất của worker tự thoát (0 nếu người dùng dừng trước).
         """
-        self.start()
         worst = 0
         interrupted = False
         try:
+            self.start()  # trong try: lỗi giữa chừng vẫn dừng các worker đã khởi động
             while True:
                 for code in self.poll().values():
                     worst = max(worst, abs(code))
