@@ -140,7 +140,7 @@ make worker CAMERA=1 VIDEO=D:/clip.mp4      # phát file video như camera, theo
 uv --directory server run postcare worker --camera-id 1 --model lite -v
 ```
 
-Worker lấy cấu hình qua API nội bộ, gửi heartbeat mỗi 2 giây, trạng thái giường khi đổi, sự kiện của engine (chỉ khi giường có phiên mở) và khung JPEG ~5 fps (API chỉ giữ khung mới nhất trong RAM). API tạm sập thì worker thử lại, không thoát; Ctrl+C để dừng. Khung gửi đi là ảnh RAW (chưa làm mờ) cho tới F28: chỉ dùng với người tham gia mô phỏng đã đồng ý (F06 §8).
+Worker lấy cấu hình qua API nội bộ, gửi heartbeat mỗi 2 giây, trạng thái giường khi đổi, sự kiện của engine (chỉ khi giường có phiên mở) và khung JPEG ~5 fps (API chỉ giữ khung mới nhất trong RAM). API tạm sập thì worker thử lại, không thoát; Ctrl+C để dừng. Khung gửi đi được render trong worker theo chế độ hiển thị của camera (F28): "Làm mờ khuôn mặt" (mặc định), "Chỉ skeleton + ROI" (không có pixel ảnh gốc) hoặc "Video gốc" (chỉ dùng thử nghiệm). ADMIN và phụ trách ca đổi chế độ trên "Theo dõi trực tiếp".
 
 Tham số giả lập:
 
