@@ -1748,6 +1748,64 @@
         }
       }
     },
+    "/api/v1/cameras/{camera_id}/display-mode": {
+      "put": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Update Display Mode",
+        "description": "Đổi chế độ hiển thị `RAW` / `BLUR` / `SKELETON`; đổi → tăng `config_version` + audit.",
+        "operationId": "update_display_mode_api_v1_cameras__camera_id__display_mode_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "camera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Camera Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CameraDisplayModeIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CameraOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sessions": {
       "get": {
         "tags": [
@@ -4592,6 +4650,20 @@
         ],
         "title": "CameraDetailOut",
         "description": "`GET /cameras/{id}`: thêm `runtime` (null khi chưa có heartbeat từ lúc API khởi động)."
+      },
+      "CameraDisplayModeIn": {
+        "properties": {
+          "display_mode": {
+            "$ref": "#/components/schemas/DisplayMode"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "display_mode"
+        ],
+        "title": "CameraDisplayModeIn",
+        "description": "`PUT /cameras/{id}/display-mode` (F28 R2). Giá trị ngoài `RAW`/`BLUR`/`SKELETON` → 422."
       },
       "CameraOut": {
         "properties": {
