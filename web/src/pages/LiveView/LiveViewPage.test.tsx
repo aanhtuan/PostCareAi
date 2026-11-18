@@ -24,7 +24,7 @@ function bed(extra: Partial<Bed> = {}): Bed {
     bed_id: 1,
     code: 'A01',
     area: 'Khu hậu phẫu',
-    session: { id: 5, patient_code: 'BN-001', started_at: T },
+    session: { id: 5, patient_code: 'BN-001', started_at: T, paused_at: null },
     camera: { id: 1, name: 'Camera A01', status: 'ONLINE' },
     pending_alert_count: 0,
     acknowledged_alert_count: 0,
