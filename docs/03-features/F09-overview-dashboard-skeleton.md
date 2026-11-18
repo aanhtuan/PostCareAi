@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F09 |
-| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | Done <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -42,7 +42,7 @@ Dựng màn hình "Tổng quan" (PDF §9.1) dạng nhiều thẻ giường, đ�
 - **R4.** Thẻ giường hiện *(PDF §9.1)*:
   - mã giường (ví dụ "Giường A01");
   - phiên: "Đang theo dõi" kèm mã bệnh nhân, hoặc "Không theo dõi";
-  - trạng thái camera: "Camera hoạt động" / "Mất kết nối camera" / "Chưa rõ trạng thái" / "Chưa gắn camera".
+  - trạng thái camera: "Camera hoạt động" / "Mất kết nối camera" / "Chưa rõ trạng thái camera" / "Chưa gắn camera".
 - **R5.** Bấm thẻ → mở `/beds/:bedId/live` (F07) *(PDF §9.1 (tr.11))*. Thẻ dùng được bằng bàn phím (Enter) *(giả định)*.
 - **R6.** Làm mới bằng polling `GET /api/v1/overview` mỗi 5 giây (TanStack Query `refetchInterval`) *(F21 thay bằng realtime)*.
 - **R7.** Layout dùng được ở màn hình ≥768px: lưới thẻ tự xuống dòng; ở 768px hiện ít nhất 2 thẻ mỗi hàng *(QA#26; giả định số cột)*.
@@ -146,14 +146,21 @@ Rủi ro: fake timers + TanStack Query dễ treo → dùng `vi.useFakeTimers({ s
 **Thay đổi so với code có sẵn**
 - API: `OverviewSessionOut.paused_at` (bắt buộc, có thể null); đã `make gen-api-types`.
 - Web: `useOverview` polling 5 giây; trạng thái thẻ `PAUSED` ("Đang tạm dừng thu hình", sau "Cảnh báo mới"), ẩn trạng thái cơ thể/chất lượng khi tạm dừng; thông báo "Chưa có giường nào đang dùng".
-- Nhãn camera `UNKNOWN` là "Chưa rõ trạng thái camera" (spec R4 ghi "Chưa rõ trạng thái"): giữ nhãn đã có, rõ nghĩa hơn.
+- Nhãn camera `UNKNOWN` là "Chưa rõ trạng thái camera" (R4 đã sửa theo nhãn này sau review).
 - Tiêu đề màn hình là "Tổng quan theo dõi" (theo HS Hình 3), mục điều hướng vẫn là "Tổng quan".
 - Ba trạng thái A12 đã có từ F21 (`bedCardStatus.ts`); F09 chỉ thêm test hiển thị.
 
+**Review (18/11/2026): Đạt**, kèm sửa nhỏ đã làm:
+1. Thẻ coi camera `OFFLINE` là "Cần kiểm tra" ngay ở web (`bedCardStatus` nhận `cameraOffline`), phòng khi trạng thái trong RAM chưa kịp chuyển sang `NO_OBSERVATION`; "Cảnh báo mới" và "Đang tạm dừng thu hình" vẫn ưu tiên hơn. Test: `camera offline gives Cần kiểm tra even with a stale state`, `pending alert still wins over camera offline` (bedCardStatus.test.ts), `camera offline shows Cần kiểm tra, never Đang theo dõi` (BedCard.test.tsx).
+2. Test server `test_overview_camera_online_to_offline_sets_no_observation`: heartbeat `ONLINE` rồi `mark_offline_cameras` → `/overview` có `camera.status = OFFLINE` và `state.body_state = NO_OBSERVATION` (ghim hành vi F06, không đổi code server).
+3. R4 ghi đúng nhãn "Chưa rõ trạng thái camera".
+
+Đã merge `main` (F06, F25) vào nhánh, không xung đột. `make check` xanh sau merge.
+
 ## 11. Definition of Done
 
-- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
-- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
-- [ ] Doc liên quan đã cập nhật cùng PR.
-- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [x] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [x] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [x] Doc liên quan đã cập nhật cùng PR.
+- [x] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).
