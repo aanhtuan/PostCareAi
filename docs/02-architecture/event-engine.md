@@ -55,7 +55,7 @@ Quy ước của code (F10, file trong `postcare/schemas/`: `observation.py`, `s
 - Mọi schema là Pydantic frozen và JSON round-trip được (định dạng `observations.jsonl`).
 - `EngineEvent` kiểm tra `explanation.rule_id` không rỗng, `priority` thuộc các mức cho phép của mã trong catalog, `occurred_at_ms ≤ detected_at_ms` *(giả định)*.
 - `Engine.process(obs)`: `obs.ts_ms` phải tăng ngặt so với frame trước, `obs.camera_id` phải bằng `context.camera_id`; sai → `ValueError` *(giả định)*. `state_changed` là `true` ở output đầu tiên và khi `BodyStateSnapshot` khác lần trước.
-- Chưa có nghỉ, khuôn mặt (trước F26, F27): `rest_status = UNKNOWN`, `face_status = NOT_VISIBLE`. `activity_level` do F23 điền (mục 5); `UNKNOWN` khi chưa đủ dữ liệu hoặc mất quan sát. `Engine.activity_index` trả chỉ số vận động hiện tại (None khi `UNKNOWN`).
+- Chưa có nghỉ (trước F27): `rest_status = UNKNOWN`. `face_status`, `face_signals` do F26 điền (mục 8); chưa có dữ liệu mặt → `NOT_VISIBLE`, không tín hiệu. `activity_level` do F23 điền (mục 5); `UNKNOWN` khi chưa đủ dữ liệu hoặc mất quan sát. `Engine.activity_index` trả chỉ số vận động hiện tại (None khi `UNKNOWN`).
 
 ## 3. Pipeline (mỗi bước là một module, có test riêng)
 
@@ -171,6 +171,12 @@ Các sự kiện mức LOG/INFO chỉ vào timeline. MEDIUM/HIGH tạo cảnh b�
 
 **Nâng ưu tiên FACE_ATTENTION:** từ MEDIUM lên HIGH khi, trong cửa sổ `face.attention_hold_s`, có `activity_level = HIGH` **hoặc** có chuyển trạng thái cơ thể (không tính vào/ra NO_OBSERVATION). Đây là diễn giải gộp của HS §5.3 và PDF §7.4.
 
+**Cách tính FACE_ATTENTION (F26, `engine/rules/face.py`):**
+- Đoạn giữ: số tín hiệu mặt đang bật ≥ `face.attention_min_signals` (nhóm mắt `eyes_closed` / `eyes_closed_prolonged` chỉ tính một), `face_status = OK` và `body_state ≠ NO_OBSERVATION`, liên tục. Một điều kiện sai → đoạn kết thúc.
+- Đoạn giữ ≥ `face.attention_hold_s` → phát **một lần cho mỗi đoạn** *(giả định F26)*, rồi qua `Debouncer` chung. Mức ưu tiên chốt lúc phát; không phát lại chỉ để nâng ưu tiên (F26 R7).
+- "Đổi trạng thái cơ thể" = trong `face.attention_hold_s` trước lúc phát có ≥ 2 giá trị `body_state` khác nhau, không tính `NO_OBSERVATION` *(giả định F26)*.
+- `occurred_at_ms` = đầu đoạn giữ; `confidence` = visibility trung bình keypoint bắt buộc trong đoạn. `explanation`: `rule_id = face_attention`, `signals` (tín hiệu đang bật, gồm cả `eyes_closed_prolonged`), `signal_values` (giá trị đã làm mượt), `held_ms`, `min_signals`, `activity_level`, `body_state`, `escalated_by` (`activity_high` / `state_change`, chỉ khi nâng HIGH).
+
 ## 6. Cấu hình và ngưỡng mặc định
 
 File `config/engine.default.yaml`. Mọi giá trị dưới đây là ***giả định khởi điểm***: hiệu chỉnh trên tập dev (F16), **chốt** bằng `config_hash` trước khi chạy tập test (F29; HS §8.2). Lần hiệu chỉnh dev 18/11/2026 chỉ đổi `abnormal_movement.window_s`, `hold_after_s`, `final_low_position_ratio`; các ngưỡng tư thế/vị trí/thời gian giữ vẫn là giá trị khởi điểm vì chưa có video rời giường quay theo camera-setup.md ([calibration-2026-11-18.md](../04-guides/calibration-2026-11-18.md)). Thời gian tính bằng giây, khoảng cách chuẩn hóa theo chiều dài thân (`torso_length`) trừ khi ghi khác.
@@ -273,6 +279,13 @@ Engine tính `config_hash` (sha256 của cấu hình đã hợp nhất, dạng J
 - Ánh xạ tên blendshape chỉ khai báo ở `config/engine.default.yaml`. Adapter lọc đúng các khóa này (F25).
 - **Không** gán nhãn "đau", "ngủ", "mất ý thức" (PDF §6.2; HS §5.3).
 - `face_status != OK` thì không tạo tín hiệu hay sự kiện mặt, và **không** coi là bình thường (HS §9.1).
+
+Cách tính tín hiệu (F26, `engine/face.py`):
+- Giá trị một tín hiệu = **max** các khóa blendshape của nó (trái/phải, các khóa `mouth*`), làm mượt EMA với `smoothing.ema_alpha` (mỗi lần có quan sát mặt `OK`); bật khi ≥ `threshold` *(giả định F26 R1)*. Khóa vắng mặt ở frame `OK` → tín hiệu đó tắt và bỏ giá trị cũ *(giả định)*.
+- `eyes_closed_prolonged`: `eyes_closed` bật liên tục ≥ `face.eyes_closed_prolonged_s` (thời gian theo `ts_ms`, kể cả frame không chạy face).
+- `face = None`: giữ giá trị gần nhất tối đa `face.run_every_n_frames` frame liên tiếp (mục 2), quá số đó → `NOT_VISIBLE`.
+- `face.status ≠ OK`, `body_state = NO_OBSERVATION` hoặc đổi người mục tiêu → xóa mọi tín hiệu và bộ đếm; `face_status` báo đúng lớp (`NOT_VISIBLE` khi `NO_OBSERVATION`). UI hiện "Không đủ dữ liệu khuôn mặt".
+- Snapshot `face_signals` gồm 6 cờ (`eyes_closed`, `eyes_closed_prolonged`, `brow_down`, `eye_squint`, `nose_sneer`, `mouth_change`); worker gửi cùng `POST /internal/v1/cameras/{id}/state`.
 
 ## 9. Kiểm thử engine
 
