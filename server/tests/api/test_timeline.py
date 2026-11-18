@@ -348,9 +348,12 @@ def test_pause_resume_and_transfer_entries(
         ("event", edge),
     ]
     # Theo giường: mục chuyển giường hiện ở cả giường cũ lẫn giường mới.
-    frm = (t0 - timedelta(minutes=1)).isoformat()
+    rng = {
+        "from": (t0 - timedelta(minutes=1)).isoformat(),
+        "to": (t0 + timedelta(minutes=1)).isoformat(),
+    }
     for bed_id in (1, 2):
-        r = client.get("/api/v1/timeline", params={"bed_id": bed_id, "from": frm}, headers=nurse)
+        r = client.get("/api/v1/timeline", params={"bed_id": bed_id, **rng}, headers=nurse)
         assert "session.transfer" in [i["action"] for i in r.json()["items"]], bed_id
     # Lọc mức ưu tiên vẫn giữ mục thao tác phiên (không có mức ưu tiên).
     hi = _session_tl(client, nurse, old["id"], priority="HIGH")["items"]

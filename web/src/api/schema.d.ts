@@ -1790,34 +1790,48 @@ export interface components {
             outcome: components["schemas"]["AlertOutcome"] | null;
             acknowledged_by: components["schemas"]["UserRef"] | null;
         };
-        /** TimelineItemOut */
+        /**
+         * TimelineItemOut
+         * @description Một mục timeline (F22 R2). `kind`:
+         *
+         *     - `event`: `event_id`, `code`, `priority`, `observation_quality`, `alert`;
+         *     - `alert_action`: `action` (`alert.*`), `actor`, `outcome`, `note`, `alert_id`, `event_code`
+         *       (`event_id`/`code`/`priority` là của sự kiện gốc);
+         *     - `session_action`: `action` (`session.*`), `actor`, `note` (lý do), `from_bed_code` khi
+         *       chuyển giường; không có sự kiện nên `event_id`/`code`/`priority` = null.
+         */
         TimelineItemOut: {
             /**
              * Kind
              * @enum {string}
              */
-            kind: "event" | "alert_action";
+            kind: "event" | "alert_action" | "session_action";
             /**
              * Time
              * Format: date-time
              */
             time: string;
+            /** Session Id */
+            session_id: number | null;
             /** Bed Code */
             bed_code: string | null;
             /** Event Id */
-            event_id: number;
-            code: components["schemas"]["EventCode"];
-            priority: components["schemas"]["Priority"];
+            event_id: number | null;
+            code: components["schemas"]["EventCode"] | null;
+            priority: components["schemas"]["Priority"] | null;
             observation_quality?: components["schemas"]["ObservationQuality"] | null;
             alert?: components["schemas"]["TimelineAlertRef"] | null;
             /** Action */
-            action?: ("alert.acknowledge" | "alert.outcome" | "alert.resolve") | null;
+            action?: ("alert.acknowledge" | "alert.outcome" | "alert.resolve" | "session.transfer" | "session.pause" | "session.resume") | null;
             actor?: components["schemas"]["UserRef"] | null;
             outcome?: components["schemas"]["AlertOutcome"] | null;
             /** Note */
             note?: string | null;
             /** Alert Id */
             alert_id?: number | null;
+            event_code?: components["schemas"]["EventCode"] | null;
+            /** From Bed Code */
+            from_bed_code?: string | null;
         };
         /** UserCreate */
         UserCreate: {
@@ -3268,6 +3282,8 @@ export interface operations {
         parameters: {
             query?: {
                 priority?: components["schemas"]["Priority"][] | null;
+                /** @description Gộp cả chuỗi phiên chuyển giường (F04 R16) */
+                chain?: boolean;
                 limit?: number;
                 offset?: number;
             };

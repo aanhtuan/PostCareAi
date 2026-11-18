@@ -263,6 +263,7 @@ def test_transfer_keeps_old_events_on_old_session(
     assert ev is not None
     assert (ev.session_id, ev.bed_id) == (old["id"], 1)
     old_tl = client.get(f"{SESSIONS}/{old['id']}/timeline", headers=nurse).json()
-    assert [i["event_id"] for i in old_tl["items"]] == [event_id]
+    assert [i["event_id"] for i in old_tl["items"] if i["kind"] == "event"] == [event_id]
     new_tl = client.get(f"{SESSIONS}/{new['id']}/timeline", headers=nurse).json()
-    assert new_tl["items"] == []
+    # Phiên mới chỉ có mục "chuyển giường" (F22), không có sự kiện của phiên cũ.
+    assert [i["kind"] for i in new_tl["items"]] == ["session_action"]

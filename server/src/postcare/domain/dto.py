@@ -718,20 +718,42 @@ class TimelineAlertRef(BaseModel):
     acknowledged_by: UserRef | None
 
 
+TimelineAction = Literal[
+    "alert.acknowledge",
+    "alert.outcome",
+    "alert.resolve",
+    "session.transfer",
+    "session.pause",
+    "session.resume",
+]
+
+
 class TimelineItemOut(BaseModel):
-    kind: Literal["event", "alert_action"]
+    """Một mục timeline (F22 R2). `kind`:
+
+    - `event`: `event_id`, `code`, `priority`, `observation_quality`, `alert`;
+    - `alert_action`: `action` (`alert.*`), `actor`, `outcome`, `note`, `alert_id`, `event_code`
+      (`event_id`/`code`/`priority` là của sự kiện gốc);
+    - `session_action`: `action` (`session.*`), `actor`, `note` (lý do), `from_bed_code` khi
+      chuyển giường; không có sự kiện nên `event_id`/`code`/`priority` = null.
+    """
+
+    kind: Literal["event", "alert_action", "session_action"]
     time: datetime
+    session_id: int | None
     bed_code: str | None
-    event_id: int
-    code: EventCode
-    priority: Priority
+    event_id: int | None
+    code: EventCode | None
+    priority: Priority | None
     observation_quality: ObservationQuality | None = None
     alert: TimelineAlertRef | None = None
-    action: Literal["alert.acknowledge", "alert.outcome", "alert.resolve"] | None = None
+    action: TimelineAction | None = None
     actor: UserRef | None = None
     outcome: AlertOutcome | None = None
     note: str | None = None
     alert_id: int | None = None
+    event_code: EventCode | None = None
+    from_bed_code: str | None = None
 
 
 # ---------- Bàn giao ca ----------
