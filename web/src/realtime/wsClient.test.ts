@@ -47,11 +47,13 @@ beforeEach(() => {
   FakeWebSocket.instances = [];
   vi.useFakeTimers();
   vi.stubGlobal('WebSocket', FakeWebSocket);
+  vi.spyOn(Math, 'random').mockReturnValue(1); // jitter tối đa: độ trễ = mức backoff đầy đủ
 });
 
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe('RealtimeClient', () => {
@@ -76,7 +78,7 @@ describe('RealtimeClient', () => {
     expect(FakeWebSocket.instances).toHaveLength(3);
   });
 
-  it('caps backoff and resets it after a successful open', () => {
+  it('caps backoff and resets it after the connection stayed open', () => {
     makeClient();
     for (let i = 0; i < 10; i += 1) {
       last().serverClose(1006);
@@ -85,9 +87,36 @@ describe('RealtimeClient', () => {
     const n = FakeWebSocket.instances.length;
     expect(n).toBe(11); // mỗi lần chờ tối đa 15 s
     last().open();
+    vi.advanceTimersByTime(30000); // giữ mở đủ lâu mới coi là ổn định
     last().serverClose(1006);
     vi.advanceTimersByTime(1000);
     expect(FakeWebSocket.instances).toHaveLength(n + 1);
+  });
+
+  it('does not reset backoff when the connection drops right after opening', () => {
+    makeClient();
+    last().serverClose(1006);
+    vi.advanceTimersByTime(1000); // lần 1: 1 s
+    last().serverClose(1006);
+    vi.advanceTimersByTime(2000); // lần 2: 2 s
+    expect(FakeWebSocket.instances).toHaveLength(3);
+    last().open();
+    vi.advanceTimersByTime(5000); // mở rồi rớt trước 30 s (server chấp nhận rồi đóng ngay)
+    last().serverClose(1006);
+    vi.advanceTimersByTime(3999);
+    expect(FakeWebSocket.instances).toHaveLength(3); // vẫn 4 s, không quay về 1 s
+    vi.advanceTimersByTime(1);
+    expect(FakeWebSocket.instances).toHaveLength(4);
+  });
+
+  it('adds jitter to the backoff delay', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    makeClient();
+    last().serverClose(1006);
+    vi.advanceTimersByTime(499);
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    vi.advanceTimersByTime(1); // jitter tối thiểu: một nửa mức backoff
+    expect(FakeWebSocket.instances).toHaveLength(2);
   });
 
   it('invalidates queries after reconnect', () => {

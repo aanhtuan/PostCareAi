@@ -326,6 +326,46 @@ def test_close_where_closes_matching_connections() -> None:
     assert count == 1
 
 
+def test_close_where_predicate_error_does_not_stop_others() -> None:
+    async def scenario() -> tuple[list[Any], list[Any], int]:
+        h = WsHub()
+        h.bind_loop(asyncio.get_running_loop())
+        bad = h.register(1)
+        good = h.register(2)
+
+        def pred(c: realtime.Connection) -> bool:
+            if c.user_id == 1:
+                raise RuntimeError("điều kiện lỗi")
+            return True
+
+        h.close_where(pred, realtime.CLOSE_FORBIDDEN)
+        return _drain(bad), _drain(good), h.client_count
+
+    bad, good, count = _run(scenario())
+    assert bad == []  # điều kiện lỗi: giữ nguyên kết nối đó
+    assert good == [{"type": realtime.CLOSE_MESSAGE, "code": 4403}]
+    assert count == 1
+
+
+def test_ws_slow_client_closed_1013(
+    client: TestClient, hub: WsHub, login: Login, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R7 qua WebSocket thật: hàng đợi đầy trong một nhịp event loop → client nhận mã đóng 1013."""
+    monkeypatch.setattr(realtime, "QUEUE_SIZE", 2)
+
+    async def burst() -> None:  # chạy trong loop: sender chưa kịp lấy message nào
+        for i in range(5):
+            hub.publish("bed.state", {"bed_id": 1, "i": i})
+
+    with client.websocket_connect(f"/api/v1/ws?token={_token(login)}") as ws:
+        _wait_for_clients(hub)
+        client.portal.call(burst)  # type: ignore[union-attr]
+        with pytest.raises(WebSocketDisconnect) as exc:
+            ws.receive_json()
+    assert exc.value.code == realtime.CLOSE_TRY_AGAIN
+    assert hub.client_count == 0
+
+
 def _drain(q: asyncio.Queue[Any]) -> list[Any]:
     items = []
     while not q.empty():
