@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from postcare.db.models import Camera
+from postcare.db.models import Bed, Camera
 from postcare.db.types import utcnow
 from postcare.domain.dto import (
     BedStateIn,
@@ -30,6 +30,18 @@ from postcare.schemas.enums import (
     RestStatus,
 )
 from postcare.schemas.events import EventCode
+
+
+def worker_camera_ids(db: Session) -> list[int]:
+    """F31 R4: camera cần worker = camera đang dùng, gắn với giường đang dùng (theo id)."""
+    return list(
+        db.scalars(
+            select(Camera.id)
+            .join(Bed, Camera.bed_id == Bed.id)
+            .where(Camera.is_active.is_(True), Bed.is_active.is_(True))
+            .order_by(Camera.id)
+        )
+    )
 
 
 def _camera(db: Session, camera_id: int) -> Camera:

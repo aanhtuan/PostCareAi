@@ -69,7 +69,7 @@ Xem [docs/04-guides/dev-setup.md](../04-guides/dev-setup.md).
 
 ## Kết quả đo hiệu năng
 
-F11, F25 và F29 điền bảng này (HS §8.2: chứng minh chạy ổn định trên phần cứng được công bố).
+F11, F25, F29 và F31 (mục con bên dưới) điền bảng này (HS §8.2: chứng minh chạy ổn định trên phần cứng được công bố).
 
 | Ngày | Máy (CPU / RAM / GPU) | Nguồn | Độ phân giải | Model | Face bật? | FPS xử lý | CPU % | RAM MB | Ghi chú |
 |---|---|---|---|---|---|---|---|---|---|
@@ -107,3 +107,27 @@ Cách đo (F11, AC4): `uv run postcare probe --source <clip> --pose --model <lit
 - Lúc đo, một builder khác cũng đang chạy test trên máy, nên số FPS có thể thấp hơn khi máy rảnh.
 
 **Kết luận (QA#35, A07):** biến thể mặc định là **`full`** (`pose.default` trong `config/models.yaml`). `heavy` chính xác nhất về lý thuyết nhưng không đạt ổn định ≥ 10 FPS ở 720p (9.1 FPS trên `pexels-6130032`, trung bình khoảng 11.7 FPS trên 5 clip 720p). Chưa tính engine, face (F25) và chạy hai worker cùng lúc (QA#32), nên heavy không còn dư địa. `full` đạt 16–28 FPS trên mọi clip 720p. `full` thấy người nhiều hơn hoặc bằng `lite` ở 4/5 clip 720p, `lite` chỉ là phương án giảm tải. Trên các clip đã đo, heavy không tốt hơn đồng đều: hơn rõ ở `pexels-8090730` (người ra khỏi khung một phần), kém về độ đủ keypoint thân ở `pexels-6130032`. Cả ba biến thể đều đạt ≥ 10 FPS trên CPU ở hầu hết clip, nên chưa cần GPU qua WSL2 hay RTMPose.
+
+### Nhiều worker đồng thời (F31, R3)
+
+Đo 2026-11-18 trên i5-10300H (4 nhân / 8 luồng) / 16 GB, không GPU, model pose `full`, `WORKER_MAX_FPS` = 15 (A03), API dev cổng 8031 + PostgreSQL Docker trên cùng máy. Webcam = camera tích hợp 640×480; clip = `pexels-3753707` (rời giường, 1280×720), `pexels-6944081`, `pexels-8860232` (1366×720), phát bằng `--video` theo nhịp thời gian thực.
+
+| Số worker | Nguồn (camera → nguồn) | Face | FPS xử lý mỗi worker (trung vị) | CPU % mỗi worker | CPU tổng máy % | RAM MB mỗi worker | Độ trễ ghi sự kiện ms, trung vị / max (mỗi worker) |
+|---|---|---|---|---|---|---|---|
+| 1 | A02 → clip 720p | tắt | 14.9 | 96 | 36 | 302 | 47 / 53 |
+| 1 | A02 → clip 720p | bật | 14.9 | 105 | 37 | 329 | 44 / 46 |
+| 1 | A01 → webcam | tắt | 15.0 | 38 | 29 | 263 | 47 / 47 |
+| 1 | A01 → webcam | bật | 15.0 | 32 | 29 | 288 | 24 / 24 |
+| 2 | A01 → webcam, A02 → clip 720p | tắt | 15.0 / 14.9 | 37 / 110 | 43 | 263 / 301 | 21 / 21; 47 / 52 |
+| 2 | A01 → webcam, A02 → clip 720p | bật | 14.8 / 15.1 | 37 / 117 | 46 | 289 / 330 | 87 / 87; 52 / 55 |
+| 2 | A01 → clip 720p, A02 → clip 720p | bật | 14.8 / 14.9 | 112 / 120 | 56 | 331 / 329 | 95 / 95; 103 / 135 |
+| 3 | webcam + 2 clip 720p | bật | 15.1 / 14.9 / 14.8 | 50 / 123 / 107 | 68 | 288 / 329 / 331 | 42 / 42; 81 / 103; không có sự kiện |
+
+Cách đo: script ngoài repo khởi động mỗi worker bằng `python -m postcare worker --camera-id N [--video …]` (cùng lệnh `postcare workers` dùng), chờ 6 s cho model và nguồn, rồi lấy mẫu mỗi giây trong 14 s:
+- **Face bật/tắt:** trước mỗi lượt, script ghi `cameras.thresholds` của các camera được đo thành `{"face": {"enabled": false}}` (tắt) hoặc `{}` (bật, theo `face.enabled: true` của `config/engine.default.yaml`) và tăng `config_version`; worker khởi động sau đó nên đọc cấu hình mới ngay.
+- **FPS xử lý** = `fps` trong heartbeat (`GET /api/v1/cameras/{id}` → `runtime.fps`): số khung worker đọc và xử lý (pose + engine + face) mỗi giây, bị chặn trên bởi `WORKER_MAX_FPS` = 15. Mọi cấu hình đều giữ được trần 15 FPS, nên dư địa đọc ở cột CPU.
+- **CPU %** của worker gồm cả tiến trình con (trên Windows `python.exe` của venv là trampoline chạy tiến trình Python thật), 100 % = một luồng. **CPU tổng máy** = psutil toàn máy (8 luồng), gồm cả API, PostgreSQL và tác vụ khác đang chạy trên máy. **RAM** = RSS lớn nhất.
+- **Độ trễ ghi sự kiện** = `events.created_at − detected_at` của sự kiện engine trong lượt đo (`detected_at` là thời điểm của khung đã quy đổi UTC): gồm cả trễ xử lý so với thời gian thật, gửi HTTP và commit DB. Ô ghi "trung vị / max" cho từng worker theo thứ tự cột nguồn, cách nhau bằng dấu chấm phẩy; worker chỉ có một sự kiện thì trung vị = max. Mỗi lượt chỉ 1–2 sự kiện mỗi camera, nên đây là số chỉ dẫn, không phải phân bố.
+- Webcam lúc đo không có người trong ROI giường (sự kiện duy nhất là `OBSERVATION_LOST`), nên pose/face trên webcam nhẹ hơn khi có bệnh nhân thật. Khi có người, nên ước lượng như một clip 720p (~110–120 % CPU).
+
+**Kết luận (QA#32):** một camera trực tiếp + một clip 720p chạy đồng thời ổn định: cả hai worker giữ 15 FPS (trần A03), máy dùng khoảng 45 % CPU, mỗi worker ~0.3 GB RAM, sự kiện ghi vào DB trong vòng ~0.1 s. Hai clip 720p có face (tải gần với hai camera có người) vẫn giữ 15 FPS ở ~56 % CPU, và ba worker ~68 %, nên **về tài nguyên** hai camera trực tiếp có vẻ vừa máy này. Tuy vậy **chưa thử hai camera thật** (máy chỉ có một webcam; chưa đo USB bandwidth, hai camera cùng driver, nhiệt độ khi chạy lâu), nên chung kết chỉ tuyên bố "một camera trực tiếp + một clip". Mỗi lượt đo ngắn (14 s); chưa đo chạy liên tục nhiều giờ.

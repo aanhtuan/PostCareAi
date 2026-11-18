@@ -10,7 +10,7 @@ VIDEO ?=
 API_HOST ?= 0.0.0.0
 API_PORT ?= 8000
 
-.PHONY: help setup dev dev-api dev-web worker seed simulate
+.PHONY: help setup dev dev-api dev-web worker workers seed simulate
 .PHONY: format format-check lint typecheck lint-imports check-api-types test test-vision
 .PHONY: build-web build check db-upgrade db-seed models gen-api-types
 
@@ -21,6 +21,8 @@ help:
 	@echo dev-api: run API on $(API_HOST):$(API_PORT) with reload
 	@echo dev-web: run Vite dev server on port 5173
 	@echo worker: run worker for one camera: make worker CAMERA=1 [VIDEO=path] - F06
+	@echo workers: one worker per active camera: make workers [CAMERAS="1 2"] [VIDEOS="2=abs/path.mp4"] - F31
+	@echo "         clip paths in VIDEOS must not contain spaces - else run: postcare workers --video \"2=path\""
 	@echo seed: prototype demo - DROP all data, migrate, load base and demo data
 	@echo simulate: simulate AI worker: make simulate BED=A01 SCENARIO=bed-exit SPEED=1
 	@echo format: auto-format server and web
@@ -54,6 +56,9 @@ dev-web:
 
 worker:
 	uv --directory server run postcare worker --camera-id $(CAMERA) $(if $(VIDEO),--video $(VIDEO),)
+
+workers:
+	uv --directory server run postcare workers $(foreach c,$(CAMERAS),--camera-id $(c)) $(foreach v,$(VIDEOS),--video $(v))
 
 seed:
 	uv --directory server run postcare seed --reset

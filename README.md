@@ -138,6 +138,7 @@ Cần model pose (`make models`) và camera có **ROI giường** (F08 chưa có
 make worker CAMERA=1                        # nguồn trong cấu hình camera (webcam/URL/file)
 make worker CAMERA=1 VIDEO=D:/clip.mp4      # phát file video như camera, theo nhịp thời gian thật
 uv --directory server run postcare worker --camera-id 1 --model lite -v
+make workers CAMERAS="1 2" VIDEOS="2=D:/clip.mp4"   # F31: nhiều worker, mỗi camera một tiến trình
 ```
 
 Worker lấy cấu hình qua API nội bộ, gửi heartbeat mỗi 2 giây, trạng thái giường khi đổi, sự kiện của engine (chỉ khi giường có phiên mở) và khung JPEG ~5 fps (API chỉ giữ khung mới nhất trong RAM). API tạm sập thì worker thử lại, không thoát; Ctrl+C để dừng. Khung gửi đi được render trong worker theo chế độ hiển thị của camera (F28): "Làm mờ khuôn mặt" (mặc định), "Chỉ skeleton + ROI" (không có pixel ảnh gốc) hoặc "Video gốc" (chỉ dùng thử nghiệm). ADMIN và phụ trách ca đổi chế độ trên "Theo dõi trực tiếp".

@@ -70,6 +70,24 @@ Ghi rõ trên màn hình và khi nói giường nào trực tiếp, giường n�
 - Đổi góc hoặc khoảng cách thì kiểm tra lại vùng giường.
 - Chi tiết: [camera-setup.md](../04-guides/camera-setup.md).
 
+## Chạy hai worker cho chung kết (F31)
+
+A01 = camera trực tiếp (nguồn trong cấu hình camera, ví dụ webcam `0`), A02 = clip phát lại theo nhịp thời gian thực. Mỗi giường một tiến trình worker; một worker dừng không kéo theo worker kia. Chạy từ thư mục gốc repo, mỗi lệnh một terminal:
+
+```bash
+make dev-api                       # hoặc make dev (API + web)
+make workers CAMERAS="1 2" VIDEOS="2=D:/PostCareAi/data/demo/a02.mp4"
+# tương đương: cd server && uv run postcare workers --camera-id 1 --camera-id 2 --video 2=<file>
+# xem trước lệnh, không chạy: thêm --dry-run
+```
+
+- Với demo 2 worker, **luôn truyền `CAMERAS="1 2"`** (hoặc id camera của A01, A02). Không truyền thì launcher chạy mọi camera đang dùng có gắn giường, sau `make seed` là cả A03.
+- Id camera xem ở "Quản lý camera" hoặc `GET /api/v1/cameras` (sau `make seed`: A01 = 1, A02 = 2, A03 = 3). Bỏ `CAMERAS` thì chạy mọi camera đang dùng có gắn giường.
+- Đường dẫn clip nên là đường dẫn tuyệt đối (lệnh chạy trong `server/`) và **không có dấu cách** khi dùng `make workers` (make tách theo dấu cách); có dấu cách thì gọi thẳng `uv run postcare workers --video "2=<file>"`. Clip hết thì A02 chuyển "Mất kết nối"; chạy lại lệnh để phát lại.
+- Ctrl+C dừng cả hai worker. Nếu muốn tách riêng (ví dụ khởi động lại một giường): `make worker CAMERA=1` và `make worker CAMERA=2 VIDEO=<file>` ở hai terminal.
+- Trước giờ demo: kiểm tra "Tổng quan" thấy A01 và A02 cùng "Đang theo dõi", rút camera A01 thử → chỉ A01 "Mất kết nối", A02 vẫn nhận sự kiện.
+- Tài nguyên đo trên i5-10300H: xem `tech-stack.md` mục "Kết quả đo hiệu năng" (F31). Chỉ nói "một camera trực tiếp + một clip"; chưa thử hai camera thật.
+
 ## Checklist thiết bị
 
 - [ ] Laptop demo (đúng máy đã đo FPS/CPU/RAM), sạc
