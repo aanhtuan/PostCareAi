@@ -87,7 +87,7 @@ class Engine:
             body_state = self._state_machine.update(assessment, obs.ts_ms)
         self._body_state = body_state
         activity = self._update_activity(obs.ts_ms, assessment)
-        face = self._update_face(obs, assessment, body_state)
+        face = self._update_face(obs, assessment)
         snapshot = _snapshot(
             body_state, assessment.quality, self._state_machine.explanation, activity, face
         )
@@ -112,14 +112,14 @@ class Engine:
             return self._activity.hold()
         return self._activity.update(ts_ms, assessment.target, assessment.features)
 
-    def _update_face(
-        self, obs: FrameObservation, assessment: FrameAssessment, body_state: BodyState
-    ) -> FaceReading:
-        """Bước 8a (F26 R3): mất quan sát hoặc đổi mục tiêu → xóa tín hiệu (giả định F26)."""
-        if body_state == BodyState.NO_OBSERVATION or assessment.target_is_new:
+    def _update_face(self, obs: FrameObservation, assessment: FrameAssessment) -> FaceReading:
+        """Bước 8a (F26 R3). Đổi người mục tiêu → xóa tín hiệu (giả định F26).
+
+        Tín hiệu không phụ thuộc `body_state`: cận cảnh (hông ngoài khung → `NO_OBSERVATION`) vẫn
+        hiển thị được tín hiệu mặt; chỉ FACE_ATTENTION đòi `body_state ≠ NO_OBSERVATION` (R4).
+        """
+        if assessment.target_is_new:
             self._face.reset()
-            if body_state == BodyState.NO_OBSERVATION:
-                return self._face.reading
         return self._face.update(obs.ts_ms, obs.face)
 
     def _assess(self, obs: FrameObservation) -> FrameAssessment:

@@ -114,7 +114,7 @@ Rủi ro: ngưỡng mặc định chưa hiệu chỉnh trên người bệnh th�
 
 Giả định thêm khi lập kế hoạch *(giả định)*:
 - Khóa của tín hiệu không có trong `blendshapes` ở frame `OK` → tín hiệu đó tắt và bỏ giá trị làm mượt cũ.
-- Mất quan sát cơ thể (`NO_OBSERVATION`) hoặc đổi người mục tiêu → reset tín hiệu mặt như `face_status ≠ OK`.
+- Đổi người mục tiêu → reset tín hiệu mặt như `face_status ≠ OK`. Mất quan sát cơ thể (`NO_OBSERVATION`) **không** reset tín hiệu (clip cận mặt thật: hông ngoài khung nhưng mặt `OK`); chỉ chặn FACE_ATTENTION (R4). *(Đổi sau bước kiểm chứng thật; bản kế hoạch đầu reset cả khi `NO_OBSERVATION`.)*
 - Mỗi đoạn giữ liên tục chỉ phát FACE_ATTENTION tối đa một lần (giống `ACTIVITY_*`, F23); đoạn mới cần tín hiệu tụt dưới `attention_min_signals` rồi bật lại.
 - `confidence` của FACE_ATTENTION = visibility trung bình keypoint bắt buộc trong đoạn (như các rule khác).
 - "Đổi `body_state`" = trong cửa sổ có ≥ 2 trạng thái ổn định khác nhau, không tính `NO_OBSERVATION`.

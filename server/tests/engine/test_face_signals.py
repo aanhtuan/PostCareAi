@@ -170,6 +170,17 @@ def test_no_face_data_is_not_visible() -> None:
     assert all(not any(o.state.face_signals.model_dump().values()) for o in outs)
 
 
+def test_face_signals_shown_without_body_observation() -> None:
+    """Cận cảnh: cơ thể `NO_OBSERVATION` nhưng mặt `OK` → vẫn có tín hiệu (chỉ FACE_ATTENTION
+    đòi có quan sát cơ thể, R4)."""
+    frames = PoseSequence(fps=FPS).drop_landmarks(4, mode="low_visibility").build()
+    outs = run_engine(with_face(frames, [face(signals={"brow_down": ON}, seconds=4)]))
+    last = outs[-1].state
+    assert last.body_state.value == "NO_OBSERVATION"
+    assert last.face_status == FaceStatus.OK
+    assert last.face_signals.brow_down
+
+
 def test_face_missing_longer_than_cycle_is_not_visible() -> None:
     """Quá `face.run_every_n_frames` frame liên tiếp không có face → `NOT_VISIBLE`, xóa tín hiệu."""
     frames = with_face(

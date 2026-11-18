@@ -284,7 +284,7 @@ Cách tính tín hiệu (F26, `engine/face.py`):
 - Giá trị một tín hiệu = **max** các khóa blendshape của nó (trái/phải, các khóa `mouth*`), làm mượt EMA với `smoothing.ema_alpha` (mỗi lần có quan sát mặt `OK`); bật khi ≥ `threshold` *(giả định F26 R1)*. Khóa vắng mặt ở frame `OK` → tín hiệu đó tắt và bỏ giá trị cũ *(giả định)*.
 - `eyes_closed_prolonged`: `eyes_closed` bật liên tục ≥ `face.eyes_closed_prolonged_s` (thời gian theo `ts_ms`, kể cả frame không chạy face).
 - `face = None`: giữ giá trị gần nhất tối đa `face.run_every_n_frames` frame liên tiếp (mục 2), quá số đó → `NOT_VISIBLE`.
-- `face.status ≠ OK`, `body_state = NO_OBSERVATION` hoặc đổi người mục tiêu → xóa mọi tín hiệu và bộ đếm; `face_status` báo đúng lớp (`NOT_VISIBLE` khi `NO_OBSERVATION`). UI hiện "Không đủ dữ liệu khuôn mặt".
+- `face.status ≠ OK` hoặc đổi người mục tiêu → xóa mọi tín hiệu và bộ đếm; `face_status` báo đúng lớp. UI hiện "Không đủ dữ liệu khuôn mặt". Tín hiệu **không** phụ thuộc `body_state` (cận cảnh hông ngoài khung vẫn `NO_OBSERVATION` nhưng mặt `OK`); chỉ FACE_ATTENTION đòi `body_state ≠ NO_OBSERVATION` *(giả định F26, sau đo clip thật)*.
 - Snapshot `face_signals` gồm 6 cờ (`eyes_closed`, `eyes_closed_prolonged`, `brow_down`, `eye_squint`, `nose_sneer`, `mouth_change`); worker gửi cùng `POST /internal/v1/cameras/{id}/state`.
 
 ## 9. Kiểm thử engine
