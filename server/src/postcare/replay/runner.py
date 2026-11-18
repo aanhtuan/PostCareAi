@@ -5,7 +5,8 @@
 - `events.jsonl`: mỗi dòng một `EventRecord` (`EngineEvent` + `config_hash`);
 - `frames.jsonl`: mỗi khung một `FrameRecord`;
 - `run.json`: thông tin lần chạy, gồm số liệu phụ thuộc máy (FPS xử lý, CPU %, RAM MB);
-- `preview.mp4` khi `preview=True` (chỉ chế độ video).
+- `preview.mp4` khi `preview=True` (chỉ chế độ video), render theo `display_mode` (F28 R9) rồi
+  vẽ lớp debug.
 
 Không gọi API, không cần DB (R9). Module này không import mediapipe: adapter do nơi gọi tạo.
 """
@@ -31,13 +32,14 @@ from postcare.pipeline import process_frame
 from postcare.replay.camera_config import CameraConfig
 from postcare.replay.writers import EventRecord, FrameRecord, JsonlWriter, write_json
 from postcare.schemas.engine_config import EngineConfig
+from postcare.schemas.enums import DisplayMode
 from postcare.schemas.events import EngineEvent, EngineOutput
 from postcare.schemas.observation import FrameObservation
 from postcare.settings import REPO_ROOT
 from postcare.vision.camera import Frame, FrameSource
 from postcare.vision.inference.base import PoseAdapter
 from postcare.vision.inference.face_gate import FaceGate
-from postcare.vision.render import draw_debug_overlay
+from postcare.vision.render import DEFAULT_DISPLAY_MODE, PrivacyRenderer, draw_debug_overlay
 
 OUTPUT_FILES = ("observations.jsonl", "events.jsonl", "frames.jsonl", "run.json")
 PREVIEW_FILE = "preview.mp4"
@@ -137,10 +139,19 @@ class _Outputs:
 class _Preview:
     """Ghi `preview.mp4` (mp4v). Mở khi có khung đầu tiên (biết kích thước)."""
 
-    def __init__(self, path: Path, fps: float, camera: CameraConfig) -> None:
+    def __init__(
+        self,
+        path: Path,
+        fps: float,
+        camera: CameraConfig,
+        renderer: PrivacyRenderer,
+        display_mode: DisplayMode,
+    ) -> None:
         self.path = path
         self.fps = fps
         self.roi = camera.roi_polygon
+        self.renderer = renderer
+        self.display_mode = display_mode
         self._writer: cv2.VideoWriter | None = None
         self._recent: list[EngineEvent] = []
 
@@ -157,7 +168,10 @@ class _Preview:
             for e in [*self._recent, *output.events]
             if obs.ts_ms - e.detected_at_ms <= PREVIEW_EVENT_HOLD_MS
         ]
-        image = draw_debug_overlay(frame.image, obs, self.roi, output.state, self._recent)
+        image = self.renderer.render(
+            frame.image, obs.persons, ts_ms=frame.ts_ms, mode=self.display_mode, roi=self.roi
+        )
+        image = draw_debug_overlay(image, obs, self.roi, output.state, self._recent)
         self._writer.write(image)
 
     def close(self) -> None:
@@ -218,18 +232,26 @@ def replay_video(
     preview_fps: float | None = None,
     meta: dict[str, Any] | None = None,
     face: FaceGate | None = None,
+    display_mode: DisplayMode = DEFAULT_DISPLAY_MODE,
 ) -> ReplaySummary:
     """Đọc hết `source`, mỗi khung chạy `process_frame` (pipeline dùng chung với worker).
 
     `face`: cổng + adapter khuôn mặt (F25) khi `face.enabled`; `None` → không chạy face. Số lỗi
-    nhánh face ghi vào `run.json` (`face_errors`).
+    nhánh face ghi vào `run.json` (`face_errors`). `display_mode` chỉ đổi `preview.mp4` (F28 R9),
+    không đổi observation/sự kiện (R8).
     """
     prepare_out_dir(out_dir, overwrite=overwrite)
     run = _base_run("video", camera, config, meta)
     engine = Engine(config, camera.context())
     outputs = _Outputs(out_dir, run["config_hash"])
     fps = preview_fps or getattr(source, "max_fps", None) or PREVIEW_DEFAULT_FPS
-    writer = _Preview(out_dir / PREVIEW_FILE, fps, camera) if preview else None
+    writer = (
+        _Preview(
+            out_dir / PREVIEW_FILE, fps, camera, PrivacyRenderer.from_config(config), display_mode
+        )
+        if preview
+        else None
+    )
     meter = _Meter()
     try:
         with source:
@@ -257,6 +279,7 @@ def replay_video(
         events=outputs.events.count,
         image_size=[stats.width, stats.height],
         preview=PREVIEW_FILE if preview else None,
+        display_mode=display_mode.value,
         face_enabled=face is not None,
         face_errors=None if face is None else face.error_count,
         **meter.finish(frames),

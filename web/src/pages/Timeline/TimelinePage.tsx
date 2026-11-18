@@ -1,5 +1,6 @@
 import {
   Alert,
+  Button,
   Card,
   Divider,
   Group,
@@ -31,20 +32,34 @@ import {
 const RANGE = 'range';
 
 function itemText(item: TimelineItemOut): string {
-  if (item.kind === 'event') return vi.event[item.code];
   const name = item.actor?.full_name ?? vi.timeline.system;
-  if (item.action === 'alert.acknowledge') return fmt(vi.timeline.acknowledge, { name });
-  if (item.action === 'alert.outcome') {
-    return fmt(vi.timeline.outcome, {
-      outcome: item.outcome ? vi.outcome[item.outcome] : vi.alerts.noOutcome,
-      name,
-    });
+  switch (item.action) {
+    case 'alert.acknowledge':
+      return fmt(vi.timeline.acknowledge, { name });
+    case 'alert.outcome':
+      return fmt(vi.timeline.outcome, {
+        outcome: item.outcome ? vi.outcome[item.outcome] : vi.alerts.noOutcome,
+        name,
+      });
+    case 'alert.resolve':
+      return fmt(vi.timeline.resolve, { name });
+    case 'session.transfer':
+      return fmt(vi.timeline.transfer, {
+        from: item.from_bed_code ?? vi.common.none,
+        to: item.bed_code ?? vi.common.none,
+        name,
+      });
+    case 'session.pause':
+      return fmt(vi.timeline.pause, { name });
+    case 'session.resume':
+      return fmt(vi.timeline.resume, { name });
+    default:
+      return item.code ? vi.event[item.code] : vi.common.none;
   }
-  return fmt(vi.timeline.resolve, { name });
 }
 
 function TimelineRow({ item }: { item: TimelineItemOut }) {
-  const isAction = item.kind === 'alert_action';
+  const isAction = item.kind !== 'event';
   return (
     <Group
       align="flex-start"
@@ -58,10 +73,10 @@ function TimelineRow({ item }: { item: TimelineItemOut }) {
           <Text ff="monospace" fw={isAction ? 400 : 600} c={isAction ? 'dimmed' : undefined}>
             {fmt(vi.timeline.line, { time: formatTime(item.time), text: itemText(item) })}
           </Text>
-          {!isAction && <PriorityBadge priority={item.priority} />}
+          {!isAction && item.priority && <PriorityBadge priority={item.priority} />}
           {isAction && item.note && (
             <Text size="sm" c="dimmed">
-              · {vi.alerts.note}: {item.note}
+              · {item.kind === 'session_action' ? vi.timeline.reason : vi.alerts.note}: {item.note}
             </Text>
           )}
         </Group>
@@ -126,7 +141,7 @@ export function TimelinePage() {
   }, [effectiveBed, effectiveMode, from, to, priority]);
 
   const timeline = useTimeline(filter);
-  const items = timeline.data?.items ?? [];
+  const items = useMemo(() => timeline.data?.pages.flatMap((p) => p.items) ?? [], [timeline.data]);
   const multiDay = new Set(items.map((i) => formatDate(i.time))).size > 1;
 
   return (
@@ -205,12 +220,23 @@ export function TimelinePage() {
               const day = formatDate(item.time);
               const showDay = multiDay && (idx === 0 || formatDate(items[idx - 1].time) !== day);
               return (
-                <div key={`${item.kind}-${item.event_id}-${idx}`}>
+                <div key={`${item.kind}-${item.event_id ?? ''}-${idx}`}>
                   {showDay && <Divider my="sm" label={day} labelPosition="left" />}
                   <TimelineRow item={item} />
                 </div>
               );
             })}
+            {timeline.hasNextPage && (
+              <Group justify="center" mt="sm" className="no-print">
+                <Button
+                  variant="default"
+                  loading={timeline.isFetchingNextPage}
+                  onClick={() => void timeline.fetchNextPage()}
+                >
+                  {vi.timeline.loadMore}
+                </Button>
+              </Group>
+            )}
           </Stack>
         )}
       </Card>

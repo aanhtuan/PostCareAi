@@ -29,13 +29,13 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F19](F19-alert-lifecycle.md) | Vòng đời cảnh báo và audit | M2 | MVP | B | F17, F02 | PDF §5, §9.2; HS §4.2; QA#16 | Done |
 | [F20](F20-alerts-screen.md) | Màn hình Cảnh báo | M2 | MVP | C | F18, F19 | PDF §9.1–9.2; HS §4.3 | Done |
 | [F21](F21-overview-realtime.md) | Dashboard Tổng quan realtime | M2 | MVP | B+C | F09, F18 | PDF §9.1; HS §4.3 Hình 3 | Done |
-| [F22](F22-timeline.md) | Timeline / Lịch sử theo dõi | M2 | MVP | B+C | F19 | PDF §9.1, §9.3; HS §4.3, §6.2 | Todo |
+| [F22](F22-timeline.md) | Timeline / Lịch sử theo dõi | M2 | MVP | B+C | F19 | PDF §9.1, §9.3; HS §4.3, §6.2 | Done |
 | [F23](F23-activity-abnormal-movement.md) | Mức vận động và chuyển động bất thường | M2 | MVP | A | F15 | PDF §7.3; HS §5.1–5.2 | Done |
 | [F24](F24-shift-handover.md) | Bàn giao ca | M2 | MVP | B+C | F19, F22 | PDF §9.1; HS §2.2 | Todo |
 | [F25](F25-face-adapter-quality.md) | Face adapter và cổng chất lượng khuôn mặt | M3 | MVP | A | F11, F13 | PDF §6.2, §17; HS §4.1, §5.3 | Done |
 | [F26](F26-face-signals-attention.md) | Tín hiệu khuôn mặt và FACE_ATTENTION | M3 | MVP | A+C | F25, F23 | PDF §6.2, §7.4; HS §5.3 | Done |
-| [F27](F27-rest-activity-status.md) | Trạng thái nghỉ/hoạt động (tham khảo) | M3 | MVP | A+C | F23, F26 | PDF §6.3; HS §5.3, §7.3 | Todo |
-| [F28](F28-privacy-display-modes.md) | Chế độ riêng tư khi hiển thị | M4 | MVP | A+C | F07, F11 | PDF §11, §16; HS §6.3 | Todo |
+| [F27](F27-rest-activity-status.md) | Trạng thái nghỉ/hoạt động (tham khảo) | M3 | MVP | A+C | F23, F26 | PDF §6.3; HS §5.3, §7.3 | Done |
+| [F28](F28-privacy-display-modes.md) | Chế độ riêng tư khi hiển thị | M4 | MVP | A+C | F07, F11 | PDF §11, §16; HS §6.3 | Done |
 | [F29](F29-final-evaluation.md) | Đánh giá chính thức và chỉ số realtime/workflow | M4 | MVP | A+B | F16, F18, F19, F26 | PDF §11, §13; HS §8.2 | Todo |
 | [F30](F30-demo-readiness.md) | Sẵn sàng demo | M4 | MVP | C | F20–F28, F31 (R1–R3), F36 | PDF §16; HS §8.3; QA#32 | Todo |
 | [F31](F31-multi-camera.md) | Nhiều camera/giường chạy đồng thời (R1–R3 cho demo chung kết) | M4 (R1–R3) / Sau MVP | MVP (R1–R3) | A+B | F06, F17 | HS §9.2; PDF §18; QA#32 | Todo |

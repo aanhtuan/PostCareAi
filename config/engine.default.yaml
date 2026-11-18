@@ -73,6 +73,6 @@ rest:
   eyes_closed_s: 30.0
   active_hold_s: 2.0               # giữ trước khi RESTING → ACTIVE (F27)
 privacy:                           # chỉ ảnh hưởng hiển thị, KHÔNG tính vào config_hash (F28)
-  head_box_scale: 1.8
+  head_box_scale: 2.4
   pixelate_blocks: 12
   head_hold_s: 1.0

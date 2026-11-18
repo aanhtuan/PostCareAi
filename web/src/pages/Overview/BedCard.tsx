@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 
 import type { OverviewBedOut } from '../../api/types';
 import { PriorityBadge } from '../../components/Badges';
+import { RestStatusBadge } from '../../components/RestStatusBadge';
 import { fmt, vi } from '../../i18n/vi';
 import { CARD_COLOR, bedCardStatus } from './bedCardStatus';
 
@@ -59,6 +60,12 @@ export function BedCard({ bed }: { bed: OverviewBedOut }) {
               {vi.bedCard.quality}:{' '}
               {bed.state ? vi.quality[bed.state.observation_quality] : vi.common.none}
             </Text>
+            {bed.state && (
+              <Group gap="xs">
+                <Text size="sm">{vi.bedCard.rest}:</Text>
+                <RestStatusBadge status={bed.state.rest_status} />
+              </Group>
+            )}
             <Group gap="xs">
               <Text size="sm">
                 {vi.bedCard.pending}: <b>{bed.pending_alert_count}</b>

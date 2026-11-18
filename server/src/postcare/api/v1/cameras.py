@@ -3,12 +3,19 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from postcare.api.deps import get_session, get_store, require_admin, require_staff
+from postcare.api.deps import (
+    get_session,
+    get_store,
+    require_admin,
+    require_roles,
+    require_staff,
+)
 from postcare.db.models import Camera, User
 from postcare.domain import camera_config, catalog
 from postcare.domain.dto import (
     CameraCreate,
     CameraDetailOut,
+    CameraDisplayModeIn,
     CameraOut,
     CameraRoiIn,
     CameraRoiOut,
@@ -19,6 +26,7 @@ from postcare.domain.dto import (
     Page,
 )
 from postcare.domain.runtime import RuntimeStore
+from postcare.schemas.enums import UserRole
 
 router = APIRouter(prefix="/cameras", tags=["catalog"])
 
@@ -119,3 +127,19 @@ def update_thresholds(
 ) -> CameraThresholdsOut:
     """Thay toàn bộ override; `{}` = khôi phục mặc định. Sai → 400 kèm đường dẫn khóa."""
     return camera_config.update_thresholds(db, camera_id, body.thresholds, user)
+
+
+# ---------- Chế độ hiển thị (F28): ADMIN và CHARGE_NURSE ----------
+
+require_display_mode_editor = require_roles(UserRole.ADMIN, UserRole.CHARGE_NURSE)
+
+
+@router.put("/{camera_id}/display-mode", response_model=CameraOut)
+def update_display_mode(
+    camera_id: int,
+    body: CameraDisplayModeIn,
+    user: User = Depends(require_display_mode_editor),
+    db: Session = Depends(get_session),
+) -> CameraOut:
+    """Đổi chế độ hiển thị `RAW` / `BLUR` / `SKELETON`; đổi → tăng `config_version` + audit."""
+    return camera_config.update_display_mode(db, camera_id, body.display_mode, user)

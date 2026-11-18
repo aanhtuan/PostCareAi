@@ -258,12 +258,17 @@ def session_chain(db: Session, session_id: int) -> Page[SessionChainItem]:
     session = db.get(MonitoringSession, session_id)
     if session is None:
         raise not_found("Không tìm thấy phiên theo dõi")
+    # `seen` chặn vòng lặp vô hạn nếu dữ liệu lỗi tạo chu trình previous_session_id.
     first = session
-    while first.previous_session is not None:
+    seen = {first.id}
+    while first.previous_session is not None and first.previous_session.id not in seen:
         first = first.previous_session
+        seen.add(first.id)
     chain: list[MonitoringSession] = []
+    seen = set()
     cur: MonitoringSession | None = first
-    while cur is not None:
+    while cur is not None and cur.id not in seen:
+        seen.add(cur.id)
         chain.append(cur)
         cur = cur.next_session
     items = [
