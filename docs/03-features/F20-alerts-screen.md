@@ -148,6 +148,8 @@ Prototype đã có màn hình Cảnh báo. Việc của F20 là đối chiếu t
 - `AlertsPage.test.tsx::409 shows message and refreshes the card` render `<Notifications />` và kiểm toàn bộ câu "Cảnh báo đã được tiếp nhận bởi …".
 - `AlertsPage.test.tsx::high priority plays sound once` đẩy cùng một `alert.created` hai lần: đỏ trước khi sửa (âm thanh phát 2 lần). Sửa `web/src/realtime/RealtimeProvider.tsx`: nhớ id cảnh báo đã báo (tối đa 500 id mỗi kết nối), `alert.created` lặp lại không hiện thông báo và không phát âm thanh lần nữa. Cache vẫn được làm mới bình thường. Merge `main` (chưa có F21) trước khi sửa; khi F21 merge, nếu F21 có bộ báo cảnh báo riêng thì giữ một chỗ khử trùng duy nhất.
 
+**`make check` sau review (2026-11-18): xanh toàn bộ** (pytest `1223 passed, 6 deselected`; vitest `29 files, 204 tests passed`; build xanh).
+
 ## 11. Definition of Done
 
 - [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
