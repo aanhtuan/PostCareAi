@@ -1,0 +1,72 @@
+"""F28 AC1 (phía worker), R1, R3, R4: worker render khung theo `display_mode` trước khi gửi."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import cv2
+import numpy as np
+
+from postcare.schemas.enums import DisplayMode
+from postcare.worker.config import WorkerConfig
+from tests.worker.helpers import default_config, make_harness
+
+SOURCE_GRAY = 80  # FakeFrameSource: khung xám 80
+
+
+def _decode(jpeg: bytes) -> np.ndarray:
+    image = cv2.imdecode(np.frombuffer(jpeg, dtype=np.uint8), cv2.IMREAD_COLOR)
+    assert image is not None
+    return image
+
+
+def _frames(h: Any, since: float = 0.0) -> list[np.ndarray]:
+    return [_decode(c[3]) for c in h.api.paths("/frame") if c[0] >= since]
+
+
+def test_worker_applies_new_display_mode() -> None:
+    h = make_harness(config=default_config(display_mode="RAW"))
+    h.run_until(3.0)
+    raw = _frames(h)
+    assert raw and all(abs(float(np.median(f)) - SOURCE_GRAY) < 5 for f in raw)
+    changed_at = h.time.t
+    h.api.config.update(display_mode="SKELETON", config_version=2)
+    assert h.worker.config is not None
+    for _ in range(100_000):
+        if h.worker.config.display_mode is DisplayMode.SKELETON:
+            break
+        h.worker.step()
+    applied_at = h.time.t
+    assert applied_at - changed_at <= 5.0
+    h.run_until(applied_at - 100.0 + 2.0)
+    skeleton = _frames(h, since=applied_at)
+    assert skeleton
+    # Nền trơn mới: không còn màu xám của nguồn ở phần lớn khung.
+    for f in skeleton:
+        assert float(np.median(f)) < SOURCE_GRAY / 2
+    # Đổi chế độ hiển thị không tạo lại engine (R8).
+    assert len(h.engines) == 1
+
+
+def test_skeleton_frames_do_not_depend_on_source_pixels() -> None:
+    a = make_harness(config=default_config(display_mode="SKELETON"))
+    a.run_until(2.0)
+    jpeg_a = [c[3] for c in a.api.paths("/frame")]
+    # Nguồn giả mã hóa số khung ở pixel (0, 0): khung RAW khác nhau, khung SKELETON thì không.
+    assert len(jpeg_a) >= 5
+    assert len(set(jpeg_a)) == 1
+
+
+def test_worker_invalid_or_missing_display_mode_uses_blur() -> None:
+    cfg = default_config(display_mode="FOO")
+    assert WorkerConfig.model_validate(cfg).display_mode is DisplayMode.BLUR
+    missing = default_config()
+    del missing["display_mode"]
+    assert WorkerConfig.model_validate(missing).display_mode is DisplayMode.BLUR
+    assert WorkerConfig.model_validate(default_config(display_mode=None)).display_mode is (
+        DisplayMode.BLUR
+    )
+    h = make_harness(config=cfg)
+    h.run_until(2.0)
+    assert h.worker.config is not None and h.worker.config.display_mode is DisplayMode.BLUR
+    assert h.api.paths("/frame")  # vẫn gửi khung, không dừng worker
