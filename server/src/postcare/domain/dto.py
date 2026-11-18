@@ -5,6 +5,7 @@ API không trả câu tiếng Việt cho sự kiện; frontend ánh xạ mã →
 
 import re
 from datetime import datetime, time
+from fnmatch import fnmatchcase
 from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints
@@ -304,13 +305,53 @@ class CameraThresholdsIn(StrictIn):
     thresholds: dict[str, Any]
 
 
+class ThresholdLimit(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    min: float | None = None
+    max: float | None = None
+
+
+class ThresholdRelation(BaseModel):
+    """`low` ≤ `high` (strict: `low` < `high`) trên giá trị đang áp dụng."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    low: str
+    high: str
+    strict: bool = False
+
+
+class ThresholdRules(BaseModel):
+    """Quy tắc override theo camera (`config/camera_overrides.yaml`; F08 R4, AGENTS.md quy tắc 6).
+
+    `allowed`, khóa của `limits`: đường dẫn `a.b` hoặc mẫu `a.*` (fnmatch).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    allowed: list[str]
+    limits: dict[str, ThresholdLimit] = Field(default_factory=dict)
+    relations: list[ThresholdRelation] = Field(default_factory=list)
+
+    def is_allowed(self, path: str) -> bool:
+        return any(fnmatchcase(path, pattern) for pattern in self.allowed)
+
+    def limit_for(self, path: str) -> ThresholdLimit | None:
+        for pattern, limit in self.limits.items():
+            if fnmatchcase(path, pattern):
+                return limit
+        return None
+
+
 class CameraThresholdsOut(BaseModel):
-    """Ngưỡng mặc định, override của camera và giá trị đang áp dụng (mặc định + override)."""
+    """Ngưỡng mặc định, override của camera, giá trị đang áp dụng và quy tắc override."""
 
     defaults: dict[str, Any]
     overrides: dict[str, Any]
     effective: dict[str, Any]
     config_version: int
+    rules: ThresholdRules
 
 
 # Mã và chuỗi bắt buộc: bỏ khoảng trắng đầu/cuối rồi mới kiểm tra (F03 R6).

@@ -84,7 +84,7 @@ def test_reset_thresholds_with_empty_object(client: TestClient, login: Login, db
     ("overrides", "path"),
     [
         ({"posture": {"lying_entr_deg": 20}}, "thresholds.posture.lying_entr_deg"),
-        ({"postur": {"lying_enter_deg": 20}}, "thresholds.postur"),
+        ({"postur": {"lying_enter_deg": 20}}, "thresholds.postur.lying_enter_deg"),
         ({"min_duration_s": {"SLEEPING": 1.0}}, "thresholds.min_duration_s.SLEEPING"),
     ],
 )
