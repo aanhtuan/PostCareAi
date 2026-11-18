@@ -19,6 +19,8 @@
 - `POST /api/v1/auth/login` `{username, password}` → `{access_token, token_type: "bearer", user: {...}}`.
 - Gửi header `Authorization: Bearer <token>`. Token hết hạn sau 8 giờ *(giả định A10)*.
 - WebSocket và MJPEG (không gửi được header): `?token=<jwt>`.
+  - Access log của uvicorn che giá trị này thành `token=***` (`postcare.api.log_redaction`, gắn trong `create_app`; dùng chung cho MJPEG F07 và WS F18). Code tự ghi log có URL kèm query cũng phải qua `redact()`.
+  - Kết nối dài (MJPEG) kiểm tra lại người xem mỗi `STREAM_REVALIDATE_S` (5 s): tài khoản bị khóa, đặt lại mật khẩu (`token_version`) hoặc không còn là vai trò nhân viên → server đóng stream.
 - Phân quyền theo vai trò:
 
 | Hành động | NURSE | CHARGE_NURSE | DOCTOR | ADMIN | FAMILY |

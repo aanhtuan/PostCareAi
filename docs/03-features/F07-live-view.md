@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F07 |
-| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | Done <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 2 phiên |
@@ -35,7 +35,9 @@ Cho người dùng xem hình ảnh camera của một giường trên màn hình
 
 - **R1.** `GET /api/v1/cameras/{id}/stream.mjpeg?token=<jwt>` trả `multipart/x-mixed-replace` *(api-conventions.md)*:
   - token qua query vì thẻ `<img>` không gửi được header *(api-conventions.md)*; thiếu/sai/hết hạn → 401;
-  - mọi vai trò đã đăng nhập được xem *(api-conventions.md, bảng phân quyền)*;
+  - chỉ **vai trò nhân viên** được xem (`require_staff_query`, cùng tập vai trò với `require_staff`); `FAMILY` → 403 `FORBIDDEN` *(api-conventions.md, bảng phân quyền; F35 R2; F36 AC2)*;
+  - camera không tồn tại, chưa có khung hoặc khung đã cũ lúc mở → 404, không gửi byte ảnh *(giả định)*;
+  - trong lúc phát, kiểm tra lại người xem mỗi `stream_revalidate_s` *(giả định 5 s)*: bị khóa / đặt lại mật khẩu / đổi vai trò → đóng stream *(F35)*;
   - mỗi khi bộ đệm có khung mới thì gửi khung đó; không có khung mới thì không gửi lại khung cũ;
   - khung trong bộ đệm cũ hơn `stale_frame_s` *(giả định 3 s)* thì ngừng gửi và đóng stream, để trình duyệt không giữ ảnh đứng yên;
   - module `api` không import `vision` *(overview.md §3)*: API chỉ chuyển tiếp bytes JPEG worker đã gửi.
@@ -46,7 +48,7 @@ Cho người dùng xem hình ảnh camera của một giường trên màn hình
   - trạng thái camera: "Camera hoạt động" / "Mất kết nối camera" / "Chưa rõ trạng thái" / "Chưa gắn camera";
   - video từ thẻ `<img src="…/stream.mjpeg?token=…">` *(ADR-0005)*.
 - **R4.** Camera offline (`cameras.status = OFFLINE`) hoặc stream đóng → ẩn ảnh, hiện khối "Mất kết nối camera" *(tên theo catalog `CAMERA_OFFLINE` trong event-engine.md)*. Camera online lại → tự mở lại stream *(giả định)*.
-- **R5.** Trạng thái camera và phiên được làm mới bằng polling `GET /api/v1/cameras/{id}` và `GET /api/v1/sessions?active=true&bed_id=…` mỗi 2 giây *(giả định; F21 bỏ polling khi có WebSocket)*. Lỗi tải ảnh (`onError` của `<img>`) cũng chuyển sang khối "Mất kết nối camera".
+- **R5.** Trạng thái camera và phiên được làm mới bằng polling mỗi 2 giây: `GET /api/v1/overview` (phiên đang mở, mã bệnh nhân, giờ bắt đầu, trạng thái camera, `bed.state`) và `GET /api/v1/cameras/{id}` (trạng thái camera mới nhất, `roi_polygon`) *(giả định; F21 bỏ polling khi có WebSocket)*. Lỗi tải ảnh (`onError` của `<img>`) cũng chuyển sang khối "Mất kết nối camera".
 - **R6.** Vẽ đè Bed ROI nếu `cameras.roi_polygon` có giá trị *(PDF §16 (tr.17) kịch bản privacy nhắc "skeleton, Bed ROI")*:
   - lớp SVG nằm trên ảnh, toạ độ chuẩn hóa 0–1 nhân với kích thước ảnh đang hiển thị;
   - giữ đúng vị trí khi cửa sổ đổi kích thước;
@@ -86,6 +88,7 @@ Cho người dùng xem hình ảnh camera của một giường trên màn hình
 
 - *(giả định)* Đường dẫn màn hình `/beds/:bedId/live`.
 - *(giả định)* `stale_frame_s = 3`: khung cũ hơn thì đóng stream.
+- *(giả định)* `stream_revalidate_s = 5`: chu kỳ kiểm tra lại người xem trong lúc stream.
 - *(giả định)* Polling trạng thái 2 giây cho tới F21.
 - *(giả định)* ROI vẽ phía trình duyệt bằng SVG (không vẽ vào JPEG ở worker), để ROI hiển thị giống nhau ở mọi chế độ hiển thị.
 - *(giả định)* Camera online lại thì tự mở lại stream.
@@ -147,7 +150,15 @@ Chạy tay end-to-end (2026-11-18): DB `postcare_f07` (`alembic upgrade head` + 
 - `SkeletonView.tsx` (hình người que cố định theo trạng thái, thời giả lập) đã xóa cùng text `live.simulatedMode/simulatedHint`. Skeleton thật là việc của F28 (render trong worker, API/UI F07 không đổi; F28 chỉ thêm nhãn chế độ R10) và F36 (`target_keypoints` cho người nhà).
 - Giới hạn đã biết: nếu camera vẫn `ONLINE` nhưng ngừng gửi khung (ví dụ tạm dừng thu hình, F36), server đóng stream sau 3 s nhưng trình duyệt có thể giữ khung cuối trên `<img>`; F36 hiển thị nhãn "Đang tạm dừng thu hình" cho trường hợp này.
 - Uvicorn access log ghi URL có `?token=` (đã chấp nhận trong api-conventions cho WS/MJPEG). Nếu cần, F30 có thể tắt access log hoặc lọc query khi demo.
-- Settings mới: `STREAM_STALE_FRAME_S` (3), `stream_poll_interval_s` (0,05); `.env.example` đã thêm.
+- Settings mới: `STREAM_STALE_FRAME_S` (3), `stream_poll_interval_s` (0,05), `STREAM_REVALIDATE_S` (5); `.env.example` đã thêm.
+
+**2026-11-18 – review: Đạt**, kèm các điểm sửa (test trước, commit `test(F07): review fixes …` rồi `fix(F07): …`; đã merge `main` cục bộ (F06, F25) trước khi sửa):
+
+1. Access log không lộ JWT: `postcare.api.log_redaction` (`redact()`, `RedactQueryTokenFilter`, `install_access_log_redaction()` idempotent, gắn vào `uvicorn.access` trong `create_app`; dùng lại được cho WS F18). Test `server/tests/api/test_log_redaction.py` (record kiểu uvicorn, chuỗi thường, idempotent, `create_app` cài filter). api-conventions.md mục xác thực đã ghi.
+2. Spec R1 (chỉ vai trò nhân viên, `FAMILY` 403, 404 khi chưa có khung) và R5 (nguồn polling thực tế: `/overview` + `/cameras/{id}`) sửa theo code.
+3. `mjpeg_parts(still_valid=…, revalidate_s=…)`: mỗi `stream_revalidate_s` (5 s) kiểm tra lại token + `is_active` + `token_version` + vai trò (`deps.staff_from_token`, chạy trong thread, mở/đóng session mỗi lần); không hợp lệ → đóng stream. Test `test_mjpeg_parts_ends_when_viewer_no_longer_valid` (đồng hồ giả: 2 lần kiểm tra, dừng trong ≤ 10,5 s), `test_mjpeg_stream_ends_when_user_locked_mid_stream` (`real_commit`, khóa `nurse` từ luồng khác sau 0,5 s → stream đóng < 10 s dù `stale_frame_s = 30`).
+
+Trạng thái: **Done**.
 
 ## 11. Definition of Done
 
