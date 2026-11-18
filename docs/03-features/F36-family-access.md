@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F36 |
-| Trạng thái | Todo <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | In progress <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M4 |
 | Ước lượng | 3 phiên |
@@ -165,7 +165,46 @@ Người nhà muốn biết trạng thái và diễn biến của đúng ngườ
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+> Lập 18/11/2026. Pause/resume, `paused_at`, `capture_paused`, audit `session.pause/resume`, nút trên "Quản lý giường" và worker dừng đọc khung đã có (F04, worker F06). F36 làm phần còn lại.
+
+**Code dùng lại:** `api/realtime.py` (`WsHub`, `Connection`, `close_where`, `disconnect_user`), `api/deps.py` (`require_roles`, `STAFF_ROLES`), `domain/sessions.py` (phát `session.updated` sau commit; chuyển giường phát phiên cũ trước), `domain/timeline.py` (`_query`, `_build`), `domain/cameras.py::update_bed_state`, `domain/runtime.py` (`RuntimeStore`), `worker/loop.py` (`capture_paused`, `PAUSED`), `Engine.peek_target`, MJPEG `staff_from_token` (FAMILY đã 403).
+
+**Thiết kế chính**
+
+- *Hiệu lực quyền (R5):* hàm thuần `grant_end_reason(grant, now)` trong `domain/family_access.py`, trả `None` khi còn hiệu lực, nếu không trả lý do theo thứ tự `REVOKED`, `SESSION_ENDED`, `ACCOUNT_LOCKED` (tài khoản khóa hoặc không còn vai trò `FAMILY`), `EXPIRED` (`expires_at <= now`). `now` lấy từ `app.state.clock` (mặc định `utcnow`; test thay bằng đồng hồ giả).
+- *Cấp lại khi quyền cũ đã hết hạn nhưng chưa thu hồi:* partial unique chặn insert, nên lúc cấp hệ thống đóng quyền đã hết hạn (`revoked_at = now`, `revoked_by = null`, audit `family_access.revoke` actor hệ thống, `reason = "EXPIRED"`) rồi mới tạo quyền mới *(giả định)*.
+- *WebSocket:* `Connection` thêm `project(message) -> list[message]` (bản chiếu theo kết nối). Kết nối `FAMILY` dùng `FamilyProjection` (`api/family_stream.py`) giữ các grant đang hiệu lực (grant_id, session_id, bed_id, share_level, expires_at, trạng thái gần nhất, `capture_paused`, ROI). Bản chiếu dịch message nhân viên thành `family.*`:
+  - `event.created` / `alert.updated` → `family.event` (bỏ `LOG`);
+  - `bed.state` → `family.state` (bỏ `face_*`);
+  - `session.updated` → `family.state` (tạm dừng/tiếp tục) hoặc `family.access_ended` `SESSION_ENDED` (kết thúc, chuyển giường);
+  - message nội bộ `bed.skeleton` → `family.skeleton` (chỉ mức `SKELETON`, ≤ 5 lần/giây);
+  - message nội bộ `family.grant_ended` (phát sau commit thu hồi) → `family.access_ended` `REVOKED`.
+
+  Hết grant cuối → đóng 4403 (message `access_ended` được gửi trước lệnh đóng). Kết nối nhân viên có bộ lọc bỏ `bed.skeleton`, `family.*`. Mỗi kết nối `FAMILY` có task kiểm tra hết hạn mỗi 0,5 s. `disconnect_user` với kết nối `FAMILY` gửi `access_ended` `ACCOUNT_LOCKED` trước khi đóng. Đổi vai trò khỏi `FAMILY` cũng đóng kết nối (4403).
+- *Keypoint:* `BedStateIn.target_keypoints: dict[KeypointName, [x, y, visibility]] | None` (tùy chọn). API giữ bản mới nhất trong `RuntimeStore`, phát `bed.skeleton` nội bộ khi request có trường này. Request có `target_keypoints`: `bed.state` cho nhân viên chỉ phát khi trạng thái đổi hoặc đã ≥ 4 s từ lần phát trước (request không có trường này giữ hành vi cũ). Worker gửi state kèm keypoint của người mục tiêu (`Engine.peek_target`) theo nhịp khung (~5 lần/giây); `MULTIPLE_PEOPLE` / `NO_OBSERVATION` → `null`.
+- *Tạm dừng (R18):* API bỏ `state` và `frame` khi phiên của camera đang tạm dừng (không lưu, không phát).
+- *Timeline người nhà:* `timeline.family_session_timeline` dùng `_query` của F22 (`session_ids=[grant.session_id]`, không nối chuỗi, priority ≥ `INFO`), chỉ giữ `kind = event` và `session.pause` / `session.resume`; domain chiếu sang `FamilyTimelineItemOut {time, kind: event|capture_paused|capture_resumed, event_id, code, priority, alert_status}`.
+- *Chọn tài khoản người nhà:* `/users` chỉ ADMIN nên thêm `GET /api/v1/family-grants/accounts` (CHARGE_NURSE, ADMIN) trả `{id, username, full_name}` của tài khoản `FAMILY` đang dùng *(giả định: Phụ trách ca cần chọn người nhận quyền)*.
+- `family.event` có thêm `event_id` để web cập nhật trạng thái cảnh báo của cùng mục *(giả định)*.
+
+**Các bước**
+
+1. Spec plan, trạng thái In progress (commit `docs(F36): plan`).
+2. Test trước (đỏ đúng lý do), commit `test(F36): ...`:
+   - `server/tests/domain/test_family_access_validity.py`: bảng chân trị R5 (đồng hồ giả; `expires_at == now` hết hiệu lực; khóa tài khoản; đổi vai trò).
+   - `server/tests/api/test_family_grants.py` (AC1): `test_grant_default_level_info`, `test_grant_and_revoke_audited`, `test_grant_requires_charge_nurse_or_admin[nurse|doctor|family]`, `test_revoke_requires_charge_nurse_or_admin`, `test_grant_to_non_family_user_400`, `test_grant_requires_consent_note`, `test_grant_expires_in_past_400`, `test_grant_on_ended_session_409`, `test_duplicate_active_grant_409`, `test_revoke_twice_409`, `test_regrant_after_expiry`, `test_list_grants_staff_only`, `test_family_accounts_list`.
+   - `server/tests/api/test_family_access.py` (AC2–AC6, REST): `test_family_forbidden_on_staff_endpoints` (tham số hóa), `test_family_other_grant_403`, `test_family_view_audited_once_per_request`, `test_family_view_after_revoke_403`, `test_family_view_expired_403`, `test_grant_ends_when_session_ends`, `test_old_session_grant_invalid_after_transfer`, `test_new_session_after_transfer_requires_new_grant`, `test_family_view_has_no_patient_or_face`, `test_family_timeline_filtered`, `test_family_view_shows_paused`, `test_state_and_frame_ignored_while_paused`, `test_skeleton_level_view_has_keypoints_info_does_not`, `test_family_rest_payloads_have_no_image`.
+   - `server/tests/api/test_family_realtime.py`: `test_family_ws_without_grant_closes_4403`, `test_family_ws_not_delivered_other_bed`, `test_family_ws_receives_only_family_types`, `test_family_ws_revoked_mid_stream_closes_within_2s`, `test_revoke_one_grant_keeps_other`, `test_family_ws_expired_grant_closes`, `test_family_ws_session_end_sends_session_ended`, `test_family_ws_transfer_ends_grant`, `test_family_skeleton_has_no_jpeg`, `test_info_level_gets_no_skeleton`, `test_skeleton_null_when_multiple_people`, `test_family_ws_paused_state`, `test_family_ws_account_locked`, `test_staff_ws_never_gets_family_messages`, `test_family_ws_view_audited_on_connect`.
+   - `server/tests/worker/test_worker_family_keypoints.py`: worker gửi `target_keypoints` của người mục tiêu; nhiều người → `null`.
+3. Enum `ShareLevel`, `FamilyAccessEndReason` (`schemas/enums.py`); model `FamilyAccessGrant`; migration `0007_f36` (enum `share_level`, bảng, partial unique) nối sau `0006`; cập nhật `test_enums_match.py`.
+4. Domain `domain/family_access.py` + DTO; router `api/v1/family_grants.py` (nhân viên), `api/v1/family.py` (người nhà, guard `require_family`); `app.state.clock`.
+5. Hub: `project` trên `Connection`, `api/family_stream.py`, nhánh `FAMILY` trong `websocket_endpoint`, kiểm tra hết hạn; `api/v1/users.py` đóng kết nối khi vai trò rời `FAMILY`.
+6. Keypoint: `BedStateIn.target_keypoints`, skeleton trong `RuntimeStore`, `bed.skeleton`; bỏ state/frame khi tạm dừng; worker gửi keypoint.
+7. Web: `make gen-api-types`; hook người nhà trong `api/family.ts`; `pages/Family/FamilyPage.tsx`, `FamilySkeleton.tsx` (canvas trống, chỉ vẽ từ keypoint + ROI), luồng realtime riêng (dùng `wsClient`, 4403 → "Quyền xem đã kết thúc"); `pages/Management/FamilyGrantsPanel.tsx` (modal từ "Quản lý giường", chỉ CHARGE_NURSE/ADMIN); text trong `vi.ts`; test `FamilyPage.test.tsx` (`shows paused state`, `shows access ended`, `draws skeleton only at skeleton level`), `FamilyGrantsPanel.test.tsx`; bỏ `FamilyPlaceholder.tsx`.
+8. Docs: `api-conventions.md` (endpoint accounts, `event_id` trong `family.event`), `data-model.md` (migration `0007_f36`), spec §10.
+9. `make check`; kiểm chứng thủ công (DB `postcare_f36`, API cổng 8036, `postcare simulate`, client websockets Python).
+
+**Rủi ro:** test WS có giới hạn thời gian (≤ 2 s) → dùng hub thật trong TestClient, đo bằng `time.monotonic`. Worker gửi state ~5 lần/giây tăng tải API → `bed.state` cho nhân viên vẫn chỉ phát khi đổi.
 
 ## 10. Ghi chú bàn giao
 
