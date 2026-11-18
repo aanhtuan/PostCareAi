@@ -153,6 +153,7 @@ Dữ liệu `outcome` còn dùng để tính tỷ lệ cảnh báo sai (PDF §11
 - Test mới: `server/tests/api/test_alerts_api.py` (ma trận trạng thái × thao tác, 3 giá trị outcome, validation 422, audit before/after + người thực hiện, publish sau commit, DOCTOR 403/đọc được, 401, 404, lọc `bed_id`/`from`/`to`, `limit`), `server/tests/domain/test_alert_lifecycle.py` (tranh chấp `acknowledge`, `resolve`, `outcome`×`resolve` với hai session DB thật, mỗi ca chạy 3 lần).
 - Lệch spec: R11 ghi 400 cho body sai; code và api-conventions dùng 422 `VALIDATION_ERROR` cho lỗi schema. Đã sửa R11 theo api-conventions.
 - Không có migration, không đổi OpenAPI (không cần `make gen-api-types`).
+- `make check` xanh (2026-11-18): backend 1109 passed, web 121 passed, build OK. Chưa review.
 
 ## 11. Definition of Done
 
