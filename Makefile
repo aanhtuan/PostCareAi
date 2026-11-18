@@ -22,6 +22,7 @@ help:
 	@echo dev-web: run Vite dev server on port 5173
 	@echo worker: run worker for one camera: make worker CAMERA=1 [VIDEO=path] - F06
 	@echo workers: one worker per active camera: make workers [CAMERAS="1 2"] [VIDEOS="2=abs/path.mp4"] - F31
+	@echo "         clip paths in VIDEOS must not contain spaces - else run: postcare workers --video \"2=path\""
 	@echo seed: prototype demo - DROP all data, migrate, load base and demo data
 	@echo simulate: simulate AI worker: make simulate BED=A01 SCENARIO=bed-exit SPEED=1
 	@echo format: auto-format server and web

@@ -74,7 +74,7 @@ filterwarnings = [
 strict = true
 python_version = "3.12"
 mypy_path = "src"
-packages = ["postcare.schemas", "postcare.engine"]
+packages = ["postcare.schemas", "postcare.engine", "postcare.worker.launcher"]
 plugins = ["pydantic.mypy"]
 
 # PyYAML không kèm type stub; không thêm types-PyYAML (F10), safe_load trả Any và được validate bằng Pydantic.

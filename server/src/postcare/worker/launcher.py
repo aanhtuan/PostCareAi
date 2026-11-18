@@ -5,6 +5,7 @@ và kết nối API riêng, nên một worker lỗi hay mất nguồn không ké
 Launcher chỉ khởi động, theo dõi và dừng; không tự khởi động lại worker đã thoát (giả định:
 worker đã tự thử lại API và nguồn, thoát nghĩa là lỗi cần người sửa).
 
+SIGTERM tới launcher (POSIX) được xử lý như Ctrl+C: dừng mọi worker rồi thoát.
 Dừng: POSIX gửi SIGINT (worker đóng nguồn gọn) rồi `terminate()`/`kill()` khi quá hạn;
 Windows dùng `terminate()` (TerminateProcess). Ctrl+C trong console tới mọi tiến trình con cùng
 nhóm, nên launcher chỉ chờ chúng thoát rồi dọn phần còn lại.
@@ -17,10 +18,12 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 class LauncherError(ValueError):
@@ -148,6 +151,7 @@ class WorkerLauncher:
         """
         worst = 0
         interrupted = False
+        previous = _install_sigterm()
         try:
             self.start()  # trong try: lỗi giữa chừng vẫn dừng các worker đã khởi động
             while True:
@@ -159,11 +163,34 @@ class WorkerLauncher:
                     break
                 time.sleep(poll_s)
         except KeyboardInterrupt:
-            interrupted = True
+            interrupted = True  # Ctrl+C đã tới các worker cùng console
             self._log("Đang dừng các worker…")
+        except _TerminatedError:
+            self._log("Nhận SIGTERM: đang dừng các worker…")  # worker chưa nhận tín hiệu
         finally:
             self.stop(interrupted=interrupted)
+            _restore_sigterm(previous)
         return worst
+
+
+class _TerminatedError(Exception):
+    """SIGTERM tới launcher (POSIX: `kill`, systemd, docker stop)."""
+
+
+def _raise_terminated(signum: int, frame: object) -> None:
+    raise _TerminatedError
+
+
+def _install_sigterm() -> Any:
+    """POSIX: SIGTERM → dừng mọi worker như Ctrl+C. Windows/luồng phụ: không đổi gì."""
+    if os.name == "nt" or threading.current_thread() is not threading.main_thread():
+        return None
+    return signal.signal(signal.SIGTERM, _raise_terminated)
+
+
+def _restore_sigterm(previous: Any) -> None:
+    if previous is not None:
+        signal.signal(signal.SIGTERM, previous)
 
 
 def _interrupt(proc: subprocess.Popen[bytes]) -> None:

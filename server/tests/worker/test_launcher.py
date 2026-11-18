@@ -176,3 +176,64 @@ def test_run_stops_started_children_when_start_fails_midway() -> None:
         launcher.run(poll_s=0.05)
     assert launcher.pids()  # đã khởi động ít nhất một worker trước khi lỗi
     assert launcher.alive() == []
+
+
+_SIGTERM_SCRIPT = """
+import sys
+from postcare.worker.launcher import WorkerLauncher, WorkerSpec
+launcher = WorkerLauncher(
+    [WorkerSpec(1), WorkerSpec(2)],
+    command=lambda spec: [sys.executable, "-c", "import time; time.sleep(60)"],
+    log=lambda m: None,
+)
+orig_start = launcher.start
+def start():
+    orig_start()
+    print(" ".join(str(p) for p in launcher.pids().values()), flush=True)
+launcher.start = start
+sys.exit(launcher.run(poll_s=0.05))
+"""
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="SIGTERM chỉ có nghĩa trên POSIX")
+def test_sigterm_to_launcher_stops_children() -> None:
+    import os
+    import signal
+    import subprocess
+
+    proc = subprocess.Popen(
+        [sys.executable, "-c", _SIGTERM_SCRIPT], stdout=subprocess.PIPE, text=True
+    )
+    assert proc.stdout is not None
+    pids = [int(p) for p in proc.stdout.readline().split()]
+    assert len(pids) == 2
+    proc.send_signal(signal.SIGTERM)
+    assert proc.wait(timeout=15) == 0
+
+    def gone(pid: int) -> bool:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        return False
+
+    _wait(lambda: all(gone(p) for p in pids))
+
+
+def test_run_restores_sigterm_handler() -> None:
+    """`run()` cài handler SIGTERM (POSIX) trong lúc chạy; xong thì trả lại handler cũ."""
+    import signal
+
+    before = signal.getsignal(signal.SIGTERM)
+    during: list[object] = []
+    launcher = WorkerLauncher([WorkerSpec(1)], command=lambda spec: _py(SLEEP), log=lambda _m: None)
+
+    def should_stop() -> bool:
+        during.append(signal.getsignal(signal.SIGTERM))
+        return True
+
+    launcher.run(should_stop=should_stop, poll_s=0.01)
+    assert signal.getsignal(signal.SIGTERM) == before
+    assert during
+    if sys.platform != "win32":
+        assert during[0] != before

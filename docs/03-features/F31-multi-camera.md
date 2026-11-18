@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F31 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP cho R1–R4; phần còn lại Sau MVP |
 | Milestone | M4 (R1–R4) / Sau MVP |
 | Ước lượng | 3 phiên |
@@ -106,6 +106,15 @@ Sau khi MVP một giường ổn định, cho phép nhiều giường, mỗi gi�
 
 **make check** (2026-11-18, một lần): format-check, lint, typecheck, lint-imports, check-api-types xanh; pytest 1277 passed, 1 failed: `tests/test_tooling.py::test_dev_ps1_matches_makefile_targets` (target `workers` mới chưa có trong `scripts/dev.ps1`). Đã thêm task `workers` vào `scripts/dev.ps1` (`-Cameras 1,2 -Videos 2=<file>`), chạy lại `tests/test_tooling.py`: 34 passed. Hai bước còn lại chạy riêng sau đó: vitest (`--maxWorkers=1`) 31 file / 232 test passed, build web xanh.
 
+**Review** (2026-11-18, agent khác): **Đạt**, kèm các sửa nhỏ đã làm (test trước) trên cùng nhánh:
+1. Launcher xử lý SIGTERM (POSIX) như Ctrl+C: dừng mọi worker rồi thoát, trả lại handler cũ (`launcher.py`, `_install_sigterm`). Test `test_sigterm_to_launcher_stops_children` (chỉ POSIX, skip trên Windows) và `test_run_restores_sigterm_handler`; xác nhận đỏ rồi xanh trên Linux bằng container `python:3.12-slim` (19 passed), Windows 18 passed + 1 skip.
+2. `tech-stack.md`: cột độ trễ ghi "trung vị / max" cho mọi dòng và mọi worker; ghi cách bật/tắt face (`cameras.thresholds.face.enabled`).
+3. `DEMO-PLAN.md`: nói rõ phải truyền `CAMERAS="1 2"` cho demo 2 worker; clip không có dấu cách khi dùng `make workers`.
+4. `Makefile` help: đường dẫn clip trong `VIDEOS` không được có dấu cách.
+5. `postcare.worker.launcher` thêm vào `[tool.mypy] packages` (mypy strict xanh).
+
+Sau review, đã merge `main` mới; `make check` một lần đầy đủ, xanh: lint/format/typecheck/lint-imports/check-api-types OK, pytest 1359 passed + 1 skipped (SIGTERM, Windows), vitest 34 file / 253 test, build web OK.
+
 **Ghi chú cho người sau**
 - Test tích hợp nhiều worker xanh ngay khi viết: worker F06 đã theo `camera_id`, không cần sửa worker. Phần code mới chỉ là launcher, `python -m postcare`, `worker_camera_ids`, lệnh `workers`, `make workers`.
 - Smoke đầu tiên phát hiện lỗi: `start()` ném lỗi (console cp1252 không in được tiếng Việt) sau khi đã chạy một worker → worker đó mồ côi. Đã sửa (`start()` nằm trong `try/finally` của `run()`), có test `test_run_stops_started_children_when_start_fails_midway`. CLI đã ép stdout UTF-8 nên lệnh `postcare workers` không gặp lỗi này.
@@ -116,8 +125,8 @@ Sau khi MVP một giường ổn định, cho phép nhiều giường, mỗi gi�
 
 ## 11. Definition of Done
 
-- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
-- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
-- [ ] Doc liên quan đã cập nhật cùng PR.
-- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [x] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [x] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [x] Doc liên quan đã cập nhật cùng PR.
+- [x] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).
