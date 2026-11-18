@@ -5,6 +5,7 @@ import { RequireRole } from './auth/RequireRole';
 import { useAuth } from './auth/useAuth';
 import { AppLayout } from './components/AppLayout';
 import { AlertsPage } from './pages/Alerts/AlertsPage';
+import { CameraConfigPage } from './pages/CameraConfig/CameraConfigPage';
 import { HandoverPage } from './pages/Handover/HandoverPage';
 import { LiveViewPage } from './pages/LiveView/LiveViewPage';
 import { FamilyPlaceholder } from './pages/Family/FamilyPlaceholder';
@@ -62,6 +63,14 @@ export function App() {
           element={
             <RequireRole roles={['ADMIN']}>
               <UsersPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="cameras/:cameraId/config"
+          element={
+            <RequireRole roles={['ADMIN']}>
+              <CameraConfigPage />
             </RequireRole>
           }
         />

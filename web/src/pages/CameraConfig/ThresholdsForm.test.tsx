@@ -25,7 +25,7 @@ const DEFAULTS = {
 };
 
 function merged(over: Record<string, Record<string, number>>) {
-  const out = structuredClone(DEFAULTS) as Record<string, Record<string, number>>;
+  const out = structuredClone(DEFAULTS) as unknown as Record<string, Record<string, number>>;
   for (const [k, v] of Object.entries(over)) out[k] = { ...out[k], ...v };
   return out;
 }

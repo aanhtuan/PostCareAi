@@ -15,7 +15,7 @@ from tests.conftest import PASSWORD
 
 Login = Callable[[str], dict[str, str]]
 ROI_URL = "/api/v1/cameras/1/roi"
-ROI = [[0.2, 0.25], [0.8, 0.25], [0.8, 0.85], [0.2, 0.85]]
+ROI = [[0.15, 0.2], [0.85, 0.2], [0.85, 0.9], [0.15, 0.9]]  # khác DEMO_ROI của seed
 
 
 def _camera(db: Session, camera_id: int = 1) -> Camera:

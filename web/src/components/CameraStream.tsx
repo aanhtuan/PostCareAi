@@ -5,6 +5,7 @@
 import { Center, Stack, Text } from '@mantine/core';
 import { useEffect, useRef, useState } from 'react';
 
+import { streamUrl } from '../api/stream';
 import { vi } from '../i18n/vi';
 import { RoiOverlay } from './RoiOverlay';
 
@@ -86,13 +87,12 @@ export function CameraStream({
     );
   }
 
-  const query = new URLSearchParams({ token: token ?? '', n: String(attempt) });
   return (
     <div style={{ position: 'relative', width: '100%', lineHeight: 0 }}>
       <img
         key={attempt}
         ref={imgRef}
-        src={`/api/v1/cameras/${cameraId}/stream.mjpeg?${query.toString()}`}
+        src={streamUrl(cameraId, token, attempt)}
         alt={alt}
         style={{ display: 'block', width: '100%', height: 'auto', borderRadius: 8 }}
         onLoad={(e) => setSize({ w: e.currentTarget.clientWidth, h: e.currentTarget.clientHeight })}

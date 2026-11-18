@@ -348,6 +348,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cameras/{camera_id}/roi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Roi
+         * @description Lưu Bed ROI (toạ độ chuẩn hóa 0–1). Sai → 400 `INVALID_ROI_POLYGON`, `details.reason`.
+         */
+        put: operations["update_roi_api_v1_cameras__camera_id__roi_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cameras/{camera_id}/thresholds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Thresholds
+         * @description Ngưỡng mặc định, override của camera và giá trị đang áp dụng.
+         */
+        get: operations["get_thresholds_api_v1_cameras__camera_id__thresholds_get"];
+        /**
+         * Update Thresholds
+         * @description Thay toàn bộ override; `{}` = khôi phục mặc định. Sai → 400 kèm đường dẫn khóa.
+         */
+        put: operations["update_thresholds_api_v1_cameras__camera_id__thresholds_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions": {
         parameters: {
             query?: never;
@@ -1104,6 +1148,24 @@ export interface components {
             status: components["schemas"]["CameraStatus"];
         };
         /**
+         * CameraRoiIn
+         * @description `PUT /cameras/{id}/roi` (F08 R1). Điểm kiểm tra bằng `validate_roi_polygon` (lỗi 400
+         *     `INVALID_ROI_POLYGON`), nên ở đây chỉ cần là danh sách.
+         */
+        CameraRoiIn: {
+            /** Roi Polygon */
+            roi_polygon: unknown[];
+        };
+        /** CameraRoiOut */
+        CameraRoiOut: {
+            /** Camera Id */
+            camera_id: number;
+            /** Roi Polygon */
+            roi_polygon: number[][];
+            /** Config Version */
+            config_version: number;
+        };
+        /**
          * CameraRuntimeOut
          * @description Số liệu worker báo qua heartbeat, chỉ trong RAM của API (F06 R4, R9).
          */
@@ -1132,6 +1194,38 @@ export interface components {
          * @enum {string}
          */
         CameraStatus: "ONLINE" | "OFFLINE" | "UNKNOWN";
+        /**
+         * CameraThresholdsIn
+         * @description `PUT /cameras/{id}/thresholds` (F08 R4): thay toàn bộ override; `{}` = khôi phục mặc định.
+         *
+         *     Lồng nhau như `config/engine.default.yaml`, ví dụ `{"posture": {"lying_enter_deg": 20}}`.
+         */
+        CameraThresholdsIn: {
+            /** Thresholds */
+            thresholds: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * CameraThresholdsOut
+         * @description Ngưỡng mặc định, override của camera và giá trị đang áp dụng (mặc định + override).
+         */
+        CameraThresholdsOut: {
+            /** Defaults */
+            defaults: {
+                [key: string]: unknown;
+            };
+            /** Overrides */
+            overrides: {
+                [key: string]: unknown;
+            };
+            /** Effective */
+            effective: {
+                [key: string]: unknown;
+            };
+            /** Config Version */
+            config_version: number;
+        };
         /**
          * CameraUpdate
          * @description `bed_id: null` nghĩa là gỡ camera khỏi giường; không gửi thì giữ nguyên.
@@ -2755,6 +2849,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CameraOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_roi_api_v1_cameras__camera_id__roi_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                camera_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CameraRoiIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CameraRoiOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_thresholds_api_v1_cameras__camera_id__thresholds_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                camera_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CameraThresholdsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_thresholds_api_v1_cameras__camera_id__thresholds_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                camera_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CameraThresholdsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CameraThresholdsOut"];
                 };
             };
             /** @description Validation Error */
