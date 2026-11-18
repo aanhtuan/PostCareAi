@@ -1,0 +1,45 @@
+# Override ngưỡng theo camera (F08 R4; AGENTS.md quy tắc 6): khóa được phép, giới hạn an toàn,
+# quan hệ giữa các ngưỡng. API kiểm tra trên cấu hình đã hợp nhất (mặc định + override) và trả
+# giới hạn cho web. Không phải ngưỡng của engine: không tính vào config_hash.
+# Giá trị sàn/trần là *(giả định)*: chặn override vô hiệu hóa quy tắc an toàn (giữ đủ min_duration,
+# mất landmark → NO_OBSERVATION, ABNORMAL_MOVEMENT cần ≥ 2 điều kiện).
+
+version: 1
+
+# Khóa được override theo camera (HS §5.5; event-engine.md §6). Mẫu `a.*` = mọi khóa trong khối a.
+# Không có: privacy.* (F28), face.*, pose.required_keypoints, pose.num_poses, target, smoothing,
+# debounce, rest, activity cửa sổ/thời gian, ngưỡng điều kiện của abnormal_movement.
+allowed:
+  - min_duration_s.*
+  - pose.min_keypoint_visibility
+  - quality.low_quality_to_no_observation_s
+  - quality.restore_duration_s
+  - quality.observation_lost_event_s
+  - location.edge_distance_torso
+  - location.out_of_roi_margin_torso
+  - activity.low_threshold
+  - activity.high_threshold
+  - posture.lying_enter_deg
+  - posture.lying_exit_deg
+  - posture.sitting_enter_deg
+  - posture.sitting_exit_deg
+  - abnormal_movement.min_conditions
+
+# Giới hạn áp cho giá trị đang áp dụng (min, max tính cả bằng).
+limits:
+  min_duration_s.*: {min: 0.3, max: 30}
+  pose.min_keypoint_visibility: {min: 0.3, max: 0.95}
+  quality.low_quality_to_no_observation_s: {min: 0.5, max: 30}
+  quality.restore_duration_s: {min: 0.3, max: 30}
+  quality.observation_lost_event_s: {min: 1.0, max: 120}
+  location.edge_distance_torso: {min: 0.05}
+  abnormal_movement.min_conditions: {min: 2, max: 5}   # 5 điều kiện C1–C5
+
+# Quan hệ: low ≤ high (strict: low < high). Theo cách engine dùng (engine/posture.py):
+# vào LYING khi góc < lying_enter, giữ tới lying_exit; vào thân thẳng khi góc > sitting_enter,
+# giữ tới sitting_exit → lying_enter ≤ lying_exit < sitting_exit ≤ sitting_enter.
+relations:
+  - {low: posture.lying_enter_deg, high: posture.lying_exit_deg}
+  - {low: posture.lying_exit_deg, high: posture.sitting_exit_deg, strict: true}
+  - {low: posture.sitting_exit_deg, high: posture.sitting_enter_deg}
+  - {low: activity.low_threshold, high: activity.high_threshold, strict: true}

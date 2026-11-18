@@ -30,8 +30,27 @@ function merged(over: Record<string, Record<string, number>>) {
   return out;
 }
 
+// Cùng dạng `rules` của GET /thresholds (config/camera_overrides.yaml).
+const RULES = {
+  allowed: ['min_duration_s.*', 'posture.lying_enter_deg', 'activity.low_threshold'],
+  limits: {
+    'min_duration_s.*': { min: 0.3, max: 30 },
+    'pose.min_keypoint_visibility': { min: 0.3, max: 0.95 },
+  },
+  relations: [
+    { low: 'posture.lying_enter_deg', high: 'posture.lying_exit_deg', strict: false },
+    { low: 'activity.low_threshold', high: 'activity.high_threshold', strict: true },
+  ],
+};
+
 function data(overrides: Record<string, Record<string, number>>): ThresholdsData {
-  return { defaults: DEFAULTS, overrides, effective: merged(overrides), config_version: 3 };
+  return {
+    defaults: DEFAULTS,
+    overrides,
+    effective: merged(overrides),
+    config_version: 3,
+    rules: RULES,
+  };
 }
 
 const label = (path: string) => vi.cameraConfig.thresholds.labels[path];
@@ -89,6 +108,33 @@ describe('ThresholdsForm', () => {
     });
     expect(screen.getByRole('button', { name: vi.cameraConfig.thresholds.save })).toBeDisabled();
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('blocks save below the safety floor (OUT_OF_BED = 0)', () => {
+    const { onSave } = renderForm(data({}));
+    fireEvent.change(screen.getByLabelText(label('min_duration_s.OUT_OF_BED')), {
+      target: { value: '0' },
+    });
+    expect(screen.getByText(fmt(vi.cameraConfig.thresholds.min, { value: 0.3 }))).toBeVisible();
+    expect(screen.getByRole('button', { name: vi.cameraConfig.thresholds.save })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(label('pose.min_keypoint_visibility')), {
+      target: { value: '0.99' },
+    });
+    expect(screen.getByText(fmt(vi.cameraConfig.thresholds.max, { value: 0.95 }))).toBeVisible();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('blocks save when a threshold relation is broken', () => {
+    renderForm(data({}));
+    fireEvent.change(screen.getByLabelText(label('activity.low_threshold')), {
+      target: { value: '0.2' },
+    });
+    expect(
+      screen.getByText(
+        fmt(vi.cameraConfig.thresholds.mustBeAbove, { other: label('activity.low_threshold') }),
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: vi.cameraConfig.thresholds.save })).toBeDisabled();
   });
 
   it('ThresholdsForm resets to defaults', async () => {

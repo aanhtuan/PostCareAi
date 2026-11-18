@@ -192,3 +192,102 @@ def _worker_token() -> str:
     from tests.conftest import WORKER_TOKEN
 
     return WORKER_TOKEN
+
+
+# ---------- An toàn (review F08): danh sách khóa được phép, sàn/trần, quan hệ ----------
+
+
+@pytest.mark.parametrize(
+    ("overrides", "path"),
+    [
+        ({"min_duration_s": {"OUT_OF_BED": 0}}, "thresholds.min_duration_s.OUT_OF_BED"),
+        ({"min_duration_s": {"STANDING": 0.1}}, "thresholds.min_duration_s.STANDING"),
+        ({"min_duration_s": {"AT_EDGE": 3600}}, "thresholds.min_duration_s.AT_EDGE"),
+        ({"pose": {"min_keypoint_visibility": 0.0}}, "thresholds.pose.min_keypoint_visibility"),
+        (
+            {"quality": {"low_quality_to_no_observation_s": 0}},
+            "thresholds.quality.low_quality_to_no_observation_s",
+        ),
+        (
+            {"quality": {"observation_lost_event_s": 0}},
+            "thresholds.quality.observation_lost_event_s",
+        ),
+        ({"location": {"edge_distance_torso": 0}}, "thresholds.location.edge_distance_torso"),
+        (
+            {"abnormal_movement": {"min_conditions": 1}},
+            "thresholds.abnormal_movement.min_conditions",
+        ),
+        (
+            {"abnormal_movement": {"min_conditions": 6}},
+            "thresholds.abnormal_movement.min_conditions",
+        ),
+    ],
+)
+def test_thresholds_safety_limits_400(
+    client: TestClient, login: Login, db: Session, overrides: dict[str, Any], path: str
+) -> None:
+    _assert_rejected(client, login, db, overrides, path)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "path"),
+    [
+        ({"privacy": {"pixelate_blocks": 2}}, "thresholds.privacy.pixelate_blocks"),
+        ({"face": {"enabled": False}}, "thresholds.face.enabled"),
+        ({"pose": {"required_keypoints": ["left_hip"]}}, "thresholds.pose.required_keypoints"),
+        ({"pose": {"num_poses": 1}}, "thresholds.pose.num_poses"),
+        (
+            {"debounce": {"same_code_same_session_s": 0}},
+            "thresholds.debounce.same_code_same_session_s",
+        ),
+        (
+            {"abnormal_movement": {"hip_drop_speed_torso_per_s": 99}},
+            "thresholds.abnormal_movement.hip_drop_speed_torso_per_s",
+        ),
+        (
+            {"abnormal_movement": {"final_low_position_ratio": 1.0}},
+            "thresholds.abnormal_movement.final_low_position_ratio",
+        ),
+        ({"version": 1}, "thresholds.version"),
+    ],
+)
+def test_thresholds_key_not_overridable_400(
+    client: TestClient, login: Login, db: Session, overrides: dict[str, Any], path: str
+) -> None:
+    _assert_rejected(client, login, db, overrides, path)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "path"),
+    [
+        ({"posture": {"lying_enter_deg": 40}}, "thresholds.posture.lying_exit_deg"),
+        ({"posture": {"lying_exit_deg": 45}}, "thresholds.posture.sitting_exit_deg"),
+        ({"posture": {"sitting_exit_deg": 60}}, "thresholds.posture.sitting_enter_deg"),
+        ({"activity": {"low_threshold": 0.15}}, "thresholds.activity.high_threshold"),
+        ({"activity": {"high_threshold": 0.01}}, "thresholds.activity.high_threshold"),
+    ],
+)
+def test_thresholds_relations_400(
+    client: TestClient, login: Login, db: Session, overrides: dict[str, Any], path: str
+) -> None:
+    _assert_rejected(client, login, db, overrides, path)
+
+
+def test_thresholds_at_floor_accepted(client: TestClient, login: Login) -> None:
+    overrides = {
+        "min_duration_s": {"OUT_OF_BED": 0.3},
+        "pose": {"min_keypoint_visibility": 0.3},
+        "abnormal_movement": {"min_conditions": 2},
+        "posture": {"lying_enter_deg": 35, "lying_exit_deg": 35},
+    }
+    r = client.put(URL, json={"thresholds": overrides}, headers=login("admin"))
+    assert r.status_code == 200, r.text
+
+
+def test_get_thresholds_returns_rules_for_web(client: TestClient, login: Login) -> None:
+    rules = client.get(URL, headers=login("admin")).json()["rules"]
+    assert "min_duration_s.*" in rules["allowed"]
+    assert "privacy.*" not in rules["allowed"]
+    assert rules["limits"]["min_duration_s.*"]["min"] == 0.3
+    relation = {"low": "activity.low_threshold", "high": "activity.high_threshold", "strict": True}
+    assert relation in rules["relations"]

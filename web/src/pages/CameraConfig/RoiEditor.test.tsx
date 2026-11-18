@@ -111,6 +111,25 @@ describe('RoiEditor', () => {
     ]);
   });
 
+  it('arrow keys move the selected point', () => {
+    const { onSave } = setup({
+      initial: [
+        [0.1, 0.1],
+        [0.9, 0.1],
+        [0.5, 0.9],
+      ],
+    });
+    fireEvent.click(handle(3));
+    fireEvent.keyDown(handle(3), { key: 'ArrowUp' });
+    fireEvent.keyDown(handle(3), { key: 'ArrowLeft', shiftKey: true });
+    fireEvent.click(saveButton());
+    expect(onSave).toHaveBeenCalledWith([
+      [0.1, 0.1],
+      [0.9, 0.1],
+      [0.48, 0.895],
+    ]);
+  });
+
   it('clear removes all points', () => {
     setup({
       initial: [
