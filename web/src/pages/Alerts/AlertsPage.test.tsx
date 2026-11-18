@@ -1,4 +1,5 @@
 // F20 AC1, AC3, AC4: danh sách, bộ lọc, realtime, âm thanh, không hiện mã nội bộ.
+import { Notifications } from '@mantine/notifications';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -54,6 +55,7 @@ function serve(items: AlertOut[]): Store {
 function renderPage() {
   return renderWithProviders(
     <RealtimeProvider>
+      <Notifications />
       <AlertsPage />
     </RealtimeProvider>,
     nurse,
@@ -293,14 +295,18 @@ describe('AlertsPage', () => {
     await userEvent
       .setup()
       .click(await screen.findByRole('button', { name: vi.alerts.acknowledge }));
+    expect(
+      await screen.findByText(`Cảnh báo đã được tiếp nhận bởi ${otherNurse.full_name}`),
+    ).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: vi.alerts.resolve })).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(otherNurse.full_name))).toBeInTheDocument();
   });
 
   it('high priority plays sound once', async () => {
     serve([]);
     renderPage();
     await screen.findByText(vi.alerts.empty);
+    // Cùng một cảnh báo gửi lại (ví dụ sau khi kết nối lại) không phát âm thanh lần nữa.
+    push('alert.created', createdPayload(makeAlert(9)));
     push('alert.created', createdPayload(makeAlert(9)));
     expect(sound.play).toHaveBeenCalledTimes(1);
   });
