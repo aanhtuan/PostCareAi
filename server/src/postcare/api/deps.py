@@ -103,6 +103,19 @@ require_staff = require_roles(*STAFF_ROLES)
 require_writer = require_roles(*WRITE_ROLES)
 # Quản lý danh mục (F03), ROI, ngưỡng (F08): chỉ ADMIN.
 require_admin = require_roles(UserRole.ADMIN)
+# Cấp / thu hồi quyền xem của người nhà (F36 R2, R4): người chịu trách nhiệm khu vực.
+require_grant_manager = require_roles(UserRole.CHARGE_NURSE, UserRole.ADMIN)
+# Endpoint `/api/v1/family/...`: chỉ người nhà (F36 R7).
+require_family = require_roles(UserRole.FAMILY)
+
+
+def get_clock(request: Request) -> Callable[[], datetime]:
+    """Đồng hồ inject được (F36 R5): mặc định `utcnow`, test thay bằng đồng hồ giả."""
+    return request.app.state.clock
+
+
+def get_now(clock: Callable[[], datetime] = Depends(get_clock)) -> datetime:
+    return clock()
 
 
 def require_staff_query(request: Request, token: str | None = Query(default=None)) -> User:

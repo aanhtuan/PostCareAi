@@ -15,11 +15,13 @@ from postcare.domain.dto import (
     FaceSignalsIn,
     HeartbeatIn,
     HeartbeatOut,
+    TargetKeypoints,
 )
 from postcare.domain.errors import not_found, validation_error
 from postcare.domain.events import create_camera_event, publish_created
+from postcare.domain.family_access import session_shares_skeleton
 from postcare.domain.notifications import Publisher, safe_publish
-from postcare.domain.runtime import CameraRuntime, RuntimeStore
+from postcare.domain.runtime import BedSkeleton, CameraRuntime, RuntimeStore
 from postcare.domain.sessions import session_at
 from postcare.schemas.enums import (
     ActivityLevel,
@@ -31,6 +33,8 @@ from postcare.schemas.enums import (
 )
 from postcare.schemas.events import EventCode
 
+BED_SKELETON = "bed.skeleton"  # message nội bộ (F36 R11)
+
 
 def _camera(db: Session, camera_id: int) -> Camera:
     camera = db.get(Camera, camera_id)
@@ -39,14 +43,10 @@ def _camera(db: Session, camera_id: int) -> Camera:
     return camera
 
 
-def ensure_worker_camera(db: Session, camera_id: int) -> None:
-    """Camera tồn tại và còn dùng, nếu không → 404 (F06 R2, R8)."""
-    _camera(db, camera_id)
-
-
-def camera_config(db: Session, camera_id: int) -> CameraConfigOut:
+def camera_config(db: Session, camera_id: int, now: datetime | None = None) -> CameraConfigOut:
+    now = now or utcnow()
     camera = _camera(db, camera_id)
-    session = session_at(db, camera.bed_id, utcnow()) if camera.bed_id else None
+    session = session_at(db, camera.bed_id, now) if camera.bed_id else None
     return CameraConfigOut(
         camera_id=camera.id,
         bed_id=camera.bed_id,
@@ -58,7 +58,22 @@ def camera_config(db: Session, camera_id: int) -> CameraConfigOut:
         config_version=camera.config_version,
         active_session_id=session.id if session else None,
         capture_paused=session is not None and session.paused_at is not None,
+        share_skeleton=session is not None and session_shares_skeleton(db, session.id, now),
     )
+
+
+def capture_paused_for_camera(db: Session, camera: Camera, now: datetime) -> bool:
+    """Phiên đang mở của giường gắn camera đang tạm dừng thu hình (F36 R18)."""
+    if camera.bed_id is None:
+        return False
+    session = session_at(db, camera.bed_id, now)
+    return session is not None and session.paused_at is not None
+
+
+def accept_worker_frame(db: Session, camera_id: int) -> bool:
+    """404 nếu camera không dùng được; False khi đang tạm dừng thu hình → API bỏ khung (R18)."""
+    camera = _camera(db, camera_id)
+    return not capture_paused_for_camera(db, camera, utcnow())
 
 
 def _status_out(camera: Camera, runtime: CameraRuntime) -> CameraStatusOut:
@@ -120,13 +135,30 @@ def heartbeat(
     return HeartbeatOut(config_version=camera.config_version)
 
 
+# Worker gửi state kèm keypoint ~5 lần/giây khi có người nhà xem mức SKELETON (F36 R11): khi đó
+# `bed.state` cho nhân viên chỉ phát khi trạng thái đổi hoặc sau khoảng làm mới này.
+STATE_REPUBLISH_S = 4.0
+
+
+def _same_state(a: BedStateOut, b: BedStateOut) -> bool:
+    return a.model_dump(exclude={"updated_at"}) == b.model_dump(exclude={"updated_at"})
+
+
+def _plain_keypoints(kp: TargetKeypoints | None) -> dict[str, list[float]] | None:
+    return {k.value: list(v) for k, v in kp.items()} if kp is not None else None
+
+
 def update_bed_state(
     db: Session, camera_id: int, data: BedStateIn, store: RuntimeStore, publisher: Publisher
 ) -> BedStateOut:
-    """Trạng thái giường chỉ nằm trong RAM; không có gì để commit nên phát ngay (F18 R4)."""
+    """Trạng thái giường chỉ nằm trong RAM; không có gì để commit nên phát ngay (F18 R4).
+
+    Phiên đang tạm dừng thu hình: bỏ qua, không lưu, không phát (F36 R18).
+    """
     camera = _camera(db, camera_id)
     if camera.bed_id is None:
         raise validation_error("Camera chưa gắn giường")
+    now = utcnow()
     state = BedStateOut(
         bed_id=camera.bed_id,
         body_state=data.body_state,
@@ -135,10 +167,37 @@ def update_bed_state(
         rest_status=data.rest_status,
         face_status=data.face_status,
         face_signals=data.face_signals,
-        updated_at=data.ts or utcnow(),
+        updated_at=data.ts or now,
     )
+    if capture_paused_for_camera(db, camera, now):
+        return state
+    previous = store.get_bed_state(camera.bed_id)
+    with_skeleton = "target_keypoints" in data.model_fields_set
     store.set_bed_state(state)
-    safe_publish(publisher, "bed.state", state)
+    publish_state = (
+        not with_skeleton
+        or previous is None
+        or not _same_state(previous, state)
+        or (state.updated_at - previous.updated_at).total_seconds() >= STATE_REPUBLISH_S
+    )
+    if publish_state:
+        safe_publish(publisher, "bed.state", state)
+    elif previous is not None:
+        store.set_bed_state(previous)  # giữ mốc lần phát trước để tính khoảng làm mới
+    if with_skeleton:
+        skeleton = BedSkeleton(camera.bed_id, data.target_keypoints, state.updated_at)
+        store.set_skeleton(skeleton)
+        # Message nội bộ: chỉ bản chiếu của người nhà mức SKELETON dùng (không gửi nhân viên).
+        safe_publish(
+            publisher,
+            BED_SKELETON,
+            {
+                "bed_id": camera.bed_id,
+                "keypoints": _plain_keypoints(data.target_keypoints),
+                "roi_polygon": camera.roi_polygon,
+                "ts": state.updated_at.isoformat(),
+            },
+        )
     return state
 
 

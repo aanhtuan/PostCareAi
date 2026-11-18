@@ -1,11 +1,14 @@
 """API nội bộ cho worker / giả lập (ADR-0002). Xác thực bằng header `X-Worker-Token`."""
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from postcare.api.deps import (
     get_frames,
+    get_now,
     get_publisher,
     get_session,
     get_settings_dep,
@@ -35,8 +38,10 @@ router = APIRouter(prefix="/internal/v1", tags=["internal"], dependencies=[Depen
 
 
 @router.get("/cameras/{camera_id}/config", response_model=CameraConfigOut)
-def config(camera_id: int, db: Session = Depends(get_session)) -> CameraConfigOut:
-    return svc.camera_config(db, camera_id)
+def config(
+    camera_id: int, db: Session = Depends(get_session), now: datetime = Depends(get_now)
+) -> CameraConfigOut:
+    return svc.camera_config(db, camera_id, now)
 
 
 @router.post("/cameras/{camera_id}/heartbeat", response_model=HeartbeatOut)
@@ -99,6 +104,6 @@ async def frame(
         raise validation_error("Khung hình rỗng")
     if not data.startswith(JPEG_MAGIC):
         raise validation_error("Khung hình không phải JPEG")
-    await run_in_threadpool(svc.ensure_worker_camera, db, camera_id)
-    frames.put(camera_id, bytes(data))
+    if await run_in_threadpool(svc.accept_worker_frame, db, camera_id):
+        frames.put(camera_id, bytes(data))  # tạm dừng thu hình: bỏ khung (F36 R18)
     return Response(status_code=204)

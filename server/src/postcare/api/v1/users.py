@@ -50,10 +50,13 @@ def update_user(
     db: Session = Depends(db_session),
     publisher: Publisher = Depends(get_publisher),
 ) -> UserOut:
+    target = db.get(User, user_id)
+    was_family = target is not None and target.role is UserRole.FAMILY
     out, left_staff = svc.update_user(
         db, user_id=user_id, actor=actor, full_name=body.full_name, role=body.role
     )
-    if left_staff:  # sau commit: không còn quyền vào luồng nhân viên (api-conventions.md, 4403)
+    left_family = was_family and out.role is not UserRole.FAMILY  # quyền xem hết hiệu lực (F36 R5)
+    if left_staff or left_family:  # sau commit: không còn quyền vào luồng hiện tại (4403)
         disconnect_user(publisher, user_id, CLOSE_FORBIDDEN)
     return out
 

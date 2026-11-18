@@ -33,6 +33,7 @@ from postcare.engine import Engine
 from postcare.pipeline import FrameEngine, process_frame
 from postcare.schemas.context import EngineContext
 from postcare.schemas.engine_config import EngineConfig
+from postcare.schemas.enums import BodyState, ObservationQuality
 from postcare.schemas.events import EngineEvent, EngineOutput
 from postcare.schemas.observation import PersonPose
 from postcare.schemas.roi import RoiPolygon, validate_roi_polygon
@@ -150,6 +151,32 @@ def _is_file_source(source: FrameSource) -> bool:
     return isinstance(source, FileSource)
 
 
+# Không xác định được người mục tiêu: không gửi keypoint (F36 R11; QA#20).
+_NO_TARGET_QUALITIES = frozenset(
+    {
+        ObservationQuality.MULTIPLE_PEOPLE,
+        ObservationQuality.NO_PERSON,
+        ObservationQuality.CAMERA_ISSUE,
+    }
+)
+
+
+def target_keypoints(
+    state: BodyStateSnapshot, target: PersonPose | None
+) -> dict[str, list[float]] | None:
+    """Keypoint 2D chuẩn hóa `[x, y, visibility]` của người mục tiêu, hoặc `None` (F36 R11)."""
+    if (
+        target is None
+        or state.body_state is BodyState.NO_OBSERVATION
+        or state.observation_quality in _NO_TARGET_QUALITIES
+    ):
+        return None
+    return {
+        name.value: [round(kp.x, 3), round(kp.y, 3), round(kp.visibility, 3)]
+        for name, kp in target.keypoints.items()
+    }
+
+
 def _state_body(state: BodyStateSnapshot, ts: datetime) -> dict[str, Any]:
     return {
         "body_state": state.body_state.value,
@@ -219,6 +246,9 @@ class Worker:
         self._next_frame_at: float | None = None
         self._state_sent = False
         self._last_state_at = 0.0
+        self._target: PersonPose | None = None
+        """Người mục tiêu ở khung vừa xử lý: chỉ dùng khi phiên chia sẻ mức SKELETON (F36)."""
+        self._next_skeleton_at = 0.0
         self._events: deque[_PendingEvent] = deque()
 
     # ---- thông tin cho test / log ----
@@ -476,6 +506,8 @@ class Worker:
         if engine is not None:
             obs, output = process_frame(frame, self.adapter, engine, self.face)
             self._persons = obs.persons
+            share = self.config is not None and self.config.share_skeleton
+            self._target = engine.peek_target(obs) if share else None
             self._handle_output(frame, output)
         else:
             # Chưa có ROI: không chạy pose → BLUR mờ toàn khung, SKELETON chỉ nền trơn.
@@ -494,14 +526,21 @@ class Worker:
         if self._events:
             self._flush_events(now)
         due_refresh = now - self._last_state_at >= self.options.state_refresh_s
-        if output.state_changed or not self._state_sent or due_refresh:
+        # Người nhà xem mức SKELETON: gửi keypoint theo nhịp khung (~5 lần/giây, F36 R11).
+        due_skeleton = cfg.share_skeleton and now >= self._next_skeleton_at
+        if due_skeleton:
+            self._next_skeleton_at = now + 1.0 / self.options.frame_fps
+        if output.state_changed or not self._state_sent or due_refresh or due_skeleton:
             self._send_state(output.state, self._to_utc(frame.ts_ms), now)
 
     def _send_state(self, state: BodyStateSnapshot, ts: datetime, now: float) -> None:
         if not self._api_open(now):
             return
+        body = _state_body(state, ts)
+        if self.config is not None and self.config.share_skeleton:
+            body["target_keypoints"] = target_keypoints(state, self._target)
         try:
-            self.api.post_state(_state_body(state, ts))
+            self.api.post_state(body)
         except WorkerUnauthorizedError as exc:
             raise WorkerStopError(str(exc)) from exc
         except WorkerApiError as exc:

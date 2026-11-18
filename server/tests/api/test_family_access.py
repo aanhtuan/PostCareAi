@@ -1,7 +1,7 @@
 """F36 AC2–AC6 (REST): người nhà chỉ xem đúng phiên được cấp, dữ liệu đã lọc, không có ảnh."""
 
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
@@ -264,10 +264,11 @@ def test_family_timeline_filtered(
 ) -> None:
     sid = open_session["id"]
     gid = grant_ok(client, login, sid, fam)
-    t0 = datetime.now(UTC) - timedelta(minutes=10)
-    assert post_event("POSTURE_CHANGE", "LOG", occurred_at=t0).status_code == 201
-    assert post_event("SIT_UP", "INFO", occurred_at=t0 + timedelta(minutes=1)).status_code == 201
-    r = post_event("BED_EXIT", "HIGH", occurred_at=t0 + timedelta(minutes=2))
+    t0 = datetime.fromisoformat(open_session["started_at"])  # sự kiện ngay sau khi mở phiên
+    ms = timedelta(milliseconds=1)
+    assert post_event("POSTURE_CHANGE", "LOG", occurred_at=t0 + ms).status_code == 201
+    assert post_event("SIT_UP", "INFO", occurred_at=t0 + 2 * ms).status_code == 201
+    r = post_event("BED_EXIT", "HIGH", occurred_at=t0 + 3 * ms)
     assert r.status_code == 201
     alerts = client.get("/api/v1/alerts", headers=login("nurse")).json()["items"]
     alert_id = alerts[0]["id"]

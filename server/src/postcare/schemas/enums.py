@@ -101,3 +101,19 @@ class DisplayMode(StrEnum):
     RAW = "RAW"
     BLUR = "BLUR"
     SKELETON = "SKELETON"
+
+
+class ShareLevel(StrEnum):
+    """Mức chia sẻ với người nhà (F36; MS §3). Không mức nào gửi ảnh (QA#29)."""
+
+    INFO = "INFO"
+    SKELETON = "SKELETON"
+
+
+class FamilyAccessEndReason(StrEnum):
+    """Lý do quyền xem của người nhà hết hiệu lực (F36 R5, R13)."""
+
+    REVOKED = "REVOKED"
+    EXPIRED = "EXPIRED"
+    SESSION_ENDED = "SESSION_ENDED"
+    ACCOUNT_LOCKED = "ACCOUNT_LOCKED"

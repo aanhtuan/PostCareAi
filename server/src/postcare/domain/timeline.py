@@ -9,7 +9,7 @@ Quy tắc sắp (R3), xác định kể cả khi phân trang qua các mục trù
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import BigInteger, cast, func, literal, null, or_, select, union_all
+from sqlalchemy import BigInteger, and_, cast, func, literal, null, or_, select, union_all
 from sqlalchemy.orm import Session, aliased, selectinload
 
 from postcare.db.models import Alert, AuditLog, Event, MonitoringSession
@@ -239,6 +239,35 @@ def session_timeline(
     ids = [s.id for s in session_chain(db, session_id).items] if chain else [session_id]
     sub = _query(session_ids=ids, bed_id=None, from_=None, to=None, priorities=priorities)
     return _page(db, sub, limit, offset)
+
+
+FAMILY_SESSION_ACTIONS = ("session.pause", "session.resume")
+FAMILY_PRIORITIES = [p for p in Priority if p is not Priority.LOG]
+
+
+def family_session_timeline(
+    db: Session, session_id: int, limit: int, offset: int
+) -> Page[TimelineItemOut]:
+    """Timeline cho người nhà (F36 R10): đúng một phiên (không nối chuỗi chuyển giường), sự kiện
+    ≥ INFO và tạm dừng/tiếp tục thu hình của phiên đó. Không có thao tác cảnh báo."""
+    sub = _query(
+        session_ids=[session_id], bed_id=None, from_=None, to=None, priorities=FAMILY_PRIORITIES
+    )
+    keep = or_(
+        sub.c.kind == "event",
+        and_(
+            sub.c.kind == "session_action",
+            AuditLog.action.in_(FAMILY_SESSION_ACTIONS),
+            AuditLog.entity_id == session_id,
+        ),
+    )
+    filtered = (
+        select(sub.c.kind, sub.c.time, sub.c.ord, sub.c.event_id, sub.c.audit_id)
+        .outerjoin(AuditLog, AuditLog.id == sub.c.audit_id)
+        .where(keep)
+        .subquery("family_timeline")
+    )
+    return _page(db, filtered, limit, offset)
 
 
 def bed_timeline(

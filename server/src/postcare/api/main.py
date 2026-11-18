@@ -22,6 +22,8 @@ from postcare.api.v1 import (
     beds,
     cameras,
     catalog,
+    family,
+    family_grants,
     health,
     monitoring,
     patients,
@@ -30,6 +32,7 @@ from postcare.api.v1 import (
     users,
 )
 from postcare.db.session import make_engine, make_session_factory
+from postcare.db.types import utcnow
 from postcare.domain.cameras import mark_offline_cameras
 from postcare.domain.runtime import RuntimeStore
 from postcare.settings import Settings, get_settings
@@ -93,6 +96,7 @@ def create_app(settings: Settings | None = None, *, watch_cameras: bool = True) 
     app.state.store = RuntimeStore()
     app.state.frames = LatestFrameStore()  # F06: khung JPEG mới nhất, chỉ trong RAM
     app.state.hub = WsHub()
+    app.state.clock = utcnow  # F36 R5: đồng hồ inject được (test thay bằng đồng hồ giả)
 
     app.add_middleware(
         CORSMiddleware,
@@ -116,6 +120,8 @@ def create_app(settings: Settings | None = None, *, watch_cameras: bool = True) 
         monitoring.router,
         users.router,
         stream.router,
+        family_grants.router,
+        family.router,
     )
     for r in v1_routers:
         app.include_router(r, prefix="/api/v1")

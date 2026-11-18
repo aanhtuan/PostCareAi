@@ -36,6 +36,8 @@ class WorkerConfig(BaseModel):
     config_version: int
     active_session_id: int | None
     capture_paused: bool = False
+    share_skeleton: bool = False
+    """Phiên có quyền người nhà mức SKELETON: gửi keypoint người mục tiêu (F36 R11)."""
 
     @field_validator("display_mode", mode="before")
     @classmethod

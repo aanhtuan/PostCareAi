@@ -7,6 +7,7 @@ migration mới; test `test_models_match_migrations` bắt lệch giữa model v
   shift_definitions (migration 0001).
 - areas, beds.area_id (thay chuỗi beds.area), shift_definitions.is_active/created_at: F37,
   migration 0006.
+- family_access_grants: F36, migration 0007_f36.
 - events, alerts và cột cameras.last_config_hash: phần prototype (ADR-0010) được giữ để API
   chạy được, tạo ở migration 0002; F17 tiếp nhận.
 """
@@ -39,6 +40,7 @@ from postcare.schemas.enums import (
     DisplayMode,
     ObservationQuality,
     Priority,
+    ShareLevel,
     UserRole,
 )
 from postcare.schemas.events import EventCode
@@ -195,6 +197,40 @@ class MonitoringSession(Base):
     next_session: Mapped["MonitoringSession | None"] = relationship(
         foreign_keys=[previous_session_id], back_populates="previous_session", uselist=False
     )
+
+
+class FamilyAccessGrant(Base):
+    """Quyền xem của người nhà theo phiên (F36 R1). Hiệu lực tính lúc truy vấn (R5)."""
+
+    __tablename__ = "family_access_grants"
+    __table_args__ = (
+        # Tối đa một quyền chưa thu hồi cho mỗi (phiên, người nhà) (F36 R1, giả định).
+        Index(
+            "uq_family_access_grants_active",
+            "session_id",
+            "user_id",
+            unique=True,
+            postgresql_where=text("revoked_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[int] = _id()
+    session_id: Mapped[int] = _fk("monitoring_sessions.id")
+    user_id: Mapped[int] = _fk("users.id")
+    share_level: Mapped[ShareLevel] = mapped_column(
+        pg_enum(ShareLevel, "share_level"), server_default=ShareLevel.INFO.value
+    )
+    consent_note: Mapped[str] = mapped_column(Text)
+    granted_by: Mapped[int] = _fk("users.id")
+    granted_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    revoked_by: Mapped[int | None] = _fk("users.id", nullable=True)
+
+    session: Mapped[MonitoringSession] = relationship()
+    user: Mapped[User] = relationship(foreign_keys=[user_id])
+    granter: Mapped[User] = relationship(foreign_keys=[granted_by])
+    revoker: Mapped[User | None] = relationship(foreign_keys=[revoked_by])
 
 
 class Event(Base):

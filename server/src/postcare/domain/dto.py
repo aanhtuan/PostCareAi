@@ -30,12 +30,15 @@ from postcare.schemas.enums import (
     CameraStatus,
     DisplayMode,
     FaceStatus,
+    FamilyAccessEndReason,
     ObservationQuality,
     Priority,
     RestStatus,
+    ShareLevel,
     UserRole,
 )
 from postcare.schemas.events import EventCode
+from postcare.schemas.observation import KeypointName, UnitFloat
 
 
 class StrictIn(BaseModel):
@@ -520,6 +523,10 @@ class FaceSignalsIn(BaseModel):
     mouth_change: bool = False
 
 
+Point3 = tuple[UnitFloat, UnitFloat, UnitFloat]
+TargetKeypoints = dict[KeypointName, Point3]
+
+
 class BedStateIn(StrictIn):
     body_state: BodyState
     observation_quality: ObservationQuality
@@ -528,6 +535,9 @@ class BedStateIn(StrictIn):
     face_status: FaceStatus = FaceStatus.NOT_VISIBLE
     face_signals: FaceSignalsIn = Field(default_factory=FaceSignalsIn)
     ts: AwareDatetime | None = None
+    # F36 R11: keypoint 2D chuẩn hóa [x, y, visibility] của người mục tiêu; null = không xác định
+    # được (nhiều người, không có người). Không bao giờ là ảnh. Chỉ gửi khi phiên có quyền SKELETON.
+    target_keypoints: TargetKeypoints | None = None
 
 
 class BedStateOut(BaseModel):
@@ -810,3 +820,95 @@ class CameraConfigOut(BaseModel):
     active_session_id: int | None
     # Phiên đang mở của giường đang tạm dừng thu hình: worker dừng đọc khung (F04 R22; F36 R18).
     capture_paused: bool = False
+    # Phiên có quyền xem của người nhà mức SKELETON đang hiệu lực: worker gửi keypoint người mục
+    # tiêu (F36 R11). False → không gửi keypoint ra khỏi worker (tối thiểu hóa dữ liệu).
+    share_skeleton: bool = False
+
+
+# ---------- Người nhà (F36) ----------
+
+
+class FamilyGrantCreate(StrictIn):
+    user_id: int
+    share_level: ShareLevel = ShareLevel.INFO
+    consent_note: str = Field(max_length=2000)
+    expires_at: AwareDatetime | None = None
+
+
+class FamilyGrantRevoke(StrictIn):
+    reason: str | None = Field(default=None, max_length=1000)
+
+
+class FamilyGrantOut(BaseModel):
+    """Quyền xem cho nhân viên. `active`/`end_reason` tính lúc truy vấn (F36 R5)."""
+
+    id: int
+    session_id: int
+    bed_code: str
+    user: UserRef
+    share_level: ShareLevel
+    consent_note: str
+    granted_by: UserRef
+    granted_at: datetime
+    expires_at: datetime | None
+    revoked_at: datetime | None
+    revoked_by: UserRef | None
+    active: bool
+    end_reason: FamilyAccessEndReason | None
+
+
+class FamilyAccountOut(BaseModel):
+    id: int
+    username: str
+    full_name: str
+
+
+class FamilyGrantSummaryOut(BaseModel):
+    """Quyền đang hiệu lực của chính người nhà. Không có mã bệnh nhân, tên nhân viên (R8)."""
+
+    id: int
+    bed_code: str
+    session_started_at: datetime
+    share_level: ShareLevel
+    expires_at: datetime | None
+    capture_paused: bool
+
+
+class FamilyStateOut(BaseModel):
+    """Trạng thái hiện tại cho người nhà: không có tín hiệu khuôn mặt (R9)."""
+
+    body_state: BodyState
+    observation_quality: ObservationQuality
+    activity_level: ActivityLevel
+    rest_status: RestStatus
+    capture_paused: bool
+    updated_at: datetime
+
+
+class FamilySkeletonOut(BaseModel):
+    """Chỉ số: keypoint chuẩn hóa của người mục tiêu và Bed ROI. Không bao giờ có ảnh (R11)."""
+
+    keypoints: TargetKeypoints | None
+    roi_polygon: list[list[float]] | None
+    ts: datetime | None
+
+
+class FamilyViewOut(BaseModel):
+    grant_id: int
+    bed_code: str
+    session_started_at: datetime
+    share_level: ShareLevel
+    capture_paused: bool
+    state: FamilyStateOut | None
+    skeleton: FamilySkeletonOut | None  # null khi mức INFO
+
+
+class FamilyTimelineItemOut(BaseModel):
+    """Mục timeline cho người nhà (R10): sự kiện ≥ INFO, tạm dừng/tiếp tục thu hình."""
+
+    time: datetime
+    kind: Literal["event", "capture_paused", "capture_resumed"]
+    event_id: int | None
+    code: EventCode | None
+    priority: Priority | None
+    alert_status: AlertStatus | None

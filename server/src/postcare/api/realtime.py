@@ -4,9 +4,10 @@ Endpoint REST chạy trong thread pool, nên `publish()` chuyển message về e
 bằng `call_soon_threadsafe`. Mỗi kết nối có hàng đợi riêng; client chậm bị đóng (1013) để tự
 kết nối lại và làm mới dữ liệu, không chặn ai.
 
-Mỗi kết nối là một `Connection` (user, vai trò, bộ lọc `accept`). F36 thêm luồng `FAMILY` bằng
-cách đăng ký với bộ lọc theo quyền xem và đóng 4403 bằng `close_where`, không phải viết lại hub
-(QA#31).
+Mỗi kết nối là một `Connection` (user, vai trò, bộ lọc `accept`, bản chiếu `projection`).
+Kết nối nhân viên có bộ lọc bỏ message nội bộ của người nhà. Kết nối `FAMILY` (F36) có
+`FamilyProjection`: mỗi message của hub được chiếu thành `family.*` của đúng grant của kết nối đó;
+hết grant cuối → đóng 4403 (QA#31).
 """
 
 import asyncio
@@ -20,14 +21,23 @@ from typing import Any
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from postcare.api.deps import STAFF_ROLES, user_from_token
+from postcare.api.family_stream import (
+    CLOSE_MESSAGE,
+    EXPIRY_CHECK_S,
+    FamilyProjection,
+    GrantStream,
+    staff_accept,
+)
+from postcare.db.models import User
 from postcare.domain.errors import DomainError
+from postcare.domain.family_access import active_grants_for_user, family_state, record_view
+from postcare.schemas.enums import FamilyAccessEndReason, UserRole
 
 logger = logging.getLogger(__name__)
 
 CLOSE_UNAUTHORIZED = 4401
-CLOSE_FORBIDDEN = 4403  # FAMILY trước F36 (F35 R2; api-conventions.md)
+CLOSE_FORBIDDEN = 4403  # không (còn) quyền vào luồng: FAMILY hết grant, rời vai trò (F35, F36)
 CLOSE_TRY_AGAIN = 1013  # client chậm bị loại: kết nối lại và làm mới (F18 R7, giả định)
-CLOSE_MESSAGE = "__close__"  # message nội bộ trong hàng đợi: đóng kết nối, không gửi cho client
 QUEUE_SIZE = 200
 
 Message = dict[str, Any]
@@ -42,6 +52,7 @@ class Connection:
     user_id: int | None
     role: str | None
     accept: Accept | None = None
+    projection: FamilyProjection | None = None
 
 
 class WsHub:
@@ -75,6 +86,14 @@ class WsHub:
 
     def _fanout(self, message: Message) -> None:
         for conn in list(self._conns.values()):
+            if conn.projection is not None:
+                try:
+                    out = conn.projection.project(message)
+                except Exception:
+                    logger.exception("Bản chiếu người nhà lỗi; bỏ qua message cho kết nối này")
+                    continue
+                self._deliver(conn, out)
+                continue
             if conn.accept is not None:
                 try:
                     if not conn.accept(message):
@@ -82,11 +101,30 @@ class WsHub:
                 except Exception:
                     logger.exception("Bộ lọc kết nối WebSocket lỗi; bỏ qua message cho kết nối này")
                     continue
+            self._deliver(conn, [message])
+
+    def _deliver(self, conn: Connection, messages: list[Message]) -> None:
+        """Đưa message vào hàng đợi; message đóng (`CLOSE_MESSAGE`) đóng kết nối sau các message
+        đứng trước nó (ví dụ `family.access_ended` rồi 4403)."""
+        for message in messages:
+            if message.get("type") == CLOSE_MESSAGE:
+                self._close(conn, int(message["code"]), drain=False)
+                return
             try:
                 conn.queue.put_nowait(message)
             except asyncio.QueueFull:
                 logger.warning("Đóng client WebSocket gửi chậm (%s)", CLOSE_TRY_AGAIN)
                 self._close(conn, CLOSE_TRY_AGAIN)
+                return
+
+    def deliver_to(self, queue: asyncio.Queue[Message], messages: list[Message]) -> None:
+        """Gửi message cho một kết nối (gọi trong event loop của hub)."""
+        conn = self._conns.get(queue)
+        if conn is not None and messages:
+            self._deliver(conn, messages)
+
+    def is_registered(self, queue: asyncio.Queue[Message]) -> bool:
+        return queue in self._conns
 
     def close_where(self, predicate: Callable[[Connection], bool], code: int) -> None:
         """Đóng mọi kết nối thỏa `predicate` với mã `code`. Gọi SAU commit."""
@@ -103,20 +141,34 @@ class WsHub:
             except Exception:
                 logger.exception("Điều kiện đóng kết nối WebSocket lỗi; bỏ qua kết nối này")
                 continue
-            if matched:
+            if not matched:
+                continue
+            if conn.projection is not None:
+                # Người nhà bị khóa / đổi vai trò: báo hết quyền từng grant rồi mới đóng (F36 R14).
+                ended = conn.projection.end_all(FamilyAccessEndReason.ACCOUNT_LOCKED)
+                self._deliver(conn, [*ended, {"type": CLOSE_MESSAGE, "code": code}])
+            else:
                 self._close(conn, code)
 
-    def _close(self, conn: Connection, code: int) -> None:
+    def _close(self, conn: Connection, code: int, *, drain: bool = True) -> None:
         self._conns.pop(conn.queue, None)
-        while not conn.queue.empty():  # bỏ message chưa gửi: không gửi thêm gì sau khi đóng
+        # Mặc định bỏ message chưa gửi; `drain=False` giữ chúng (gửi `access_ended` trước 4403).
+        while drain and not conn.queue.empty():
+            conn.queue.get_nowait()
+        if conn.queue.full():
             conn.queue.get_nowait()
         conn.queue.put_nowait({"type": CLOSE_MESSAGE, "code": code})
 
     def register(
-        self, user_id: int | None = None, *, role: str | None = None, accept: Accept | None = None
+        self,
+        user_id: int | None = None,
+        *,
+        role: str | None = None,
+        accept: Accept | None = None,
+        projection: FamilyProjection | None = None,
     ) -> asyncio.Queue[Message]:
         queue: asyncio.Queue[Message] = asyncio.Queue(maxsize=QUEUE_SIZE)
-        self._conns[queue] = Connection(queue, user_id, role, accept)
+        self._conns[queue] = Connection(queue, user_id, role, accept, projection)
         return queue
 
     def unregister(self, queue: asyncio.Queue[Message]) -> None:
@@ -138,27 +190,50 @@ async def _receiver(ws: WebSocket) -> None:
         await ws.receive_text()
 
 
-@router.websocket("/api/v1/ws")
-async def websocket_endpoint(ws: WebSocket, token: str | None = None) -> None:
-    app = ws.app
-    await ws.accept()
-    db = app.state.session_factory()
-    try:
-        user = user_from_token(db, token or "", app.state.settings)
-        user_id, role = user.id, user.role
-    except DomainError:
-        await ws.close(code=CLOSE_UNAUTHORIZED)
-        return
-    finally:
-        db.close()
-    if role not in STAFF_ROLES:
-        # Luồng nhân viên chỉ dành cho vai trò nhân viên; FAMILY có luồng riêng ở F36.
-        await ws.close(code=CLOSE_FORBIDDEN)
-        return
+async def _watch_expiry(
+    hub: WsHub,
+    queue: asyncio.Queue[Message],
+    projection: FamilyProjection,
+    clock: Callable[[], datetime],
+) -> None:
+    """Quyền hết hạn giữa chừng (F36 R14): kiểm tra mỗi `EXPIRY_CHECK_S` giây."""
+    while hub.is_registered(queue):
+        await asyncio.sleep(EXPIRY_CHECK_S)
+        hub.deliver_to(queue, projection.expire(clock()))
+    await asyncio.Event().wait()  # đã đóng: chờ `_sender` gửi lệnh đóng rồi bị hủy
 
-    hub: WsHub = app.state.hub
-    queue = hub.register(user_id, role=role.value)
-    tasks = [asyncio.create_task(_sender(ws, queue)), asyncio.create_task(_receiver(ws))]
+
+def _family_projection(app: Any, db: Any, user: User) -> FamilyProjection | None:
+    """Grant đang hiệu lực của người nhà → bản chiếu; không có grant → None (đóng 4403)."""
+    grants = active_grants_for_user(db, user, app.state.clock())
+    if not grants:
+        return None
+    streams = []
+    for g in grants:
+        paused = g.session.paused_at is not None
+        state = family_state(g, app.state.store, paused)
+        streams.append(
+            GrantStream(
+                grant_id=g.id,
+                session_id=g.session_id,
+                bed_id=g.session.bed_id,
+                share_level=g.share_level,
+                expires_at=g.expires_at,
+                capture_paused=paused,
+                state=state.model_dump(mode="json", exclude={"capture_paused"}) if state else None,
+            )
+        )
+        record_view(db, user, g, "ws")  # mỗi lần mở kết nối, không theo message (R6)
+    db.commit()
+    return FamilyProjection(streams)
+
+
+async def _run(ws: WebSocket, hub: WsHub, queue: asyncio.Queue[Message], *extra: Any) -> None:
+    tasks = [
+        asyncio.create_task(_sender(ws, queue)),
+        asyncio.create_task(_receiver(ws)),
+        *(asyncio.create_task(c) for c in extra),
+    ]
     try:
         _, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
         for t in pending:
@@ -168,3 +243,36 @@ async def websocket_endpoint(ws: WebSocket, token: str | None = None) -> None:
                 await t
     finally:
         hub.unregister(queue)
+
+
+@router.websocket("/api/v1/ws")
+async def websocket_endpoint(ws: WebSocket, token: str | None = None) -> None:
+    app = ws.app
+    await ws.accept()
+    db = app.state.session_factory()
+    projection: FamilyProjection | None = None
+    try:
+        user = user_from_token(db, token or "", app.state.settings)
+        user_id, role = user.id, user.role
+        if role is UserRole.FAMILY:
+            projection = _family_projection(app, db, user)
+    except DomainError:
+        await ws.close(code=CLOSE_UNAUTHORIZED)
+        return
+    finally:
+        db.close()
+
+    hub: WsHub = app.state.hub
+    if role is UserRole.FAMILY:
+        if projection is None:  # không có quyền xem nào đang hiệu lực (F36 R12)
+            await ws.close(code=CLOSE_FORBIDDEN)
+            return
+        queue = hub.register(user_id, role=role.value, projection=projection)
+        hub.deliver_to(queue, projection.initial())
+        await _run(ws, hub, queue, _watch_expiry(hub, queue, projection, app.state.clock))
+        return
+    if role not in STAFF_ROLES:
+        await ws.close(code=CLOSE_FORBIDDEN)
+        return
+    queue = hub.register(user_id, role=role.value, accept=staff_accept)
+    await _run(ws, hub, queue)
