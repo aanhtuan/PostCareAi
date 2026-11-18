@@ -94,8 +94,8 @@ F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được tr�
 | F24 | Bàn giao ca | M2 | Todo |
 | F25 | Face adapter và cổng chất lượng khuôn mặt | M3 | Done |
 | F26 | Tín hiệu khuôn mặt và FACE_ATTENTION | M3 | Done |
-| F27 | Trạng thái nghỉ/hoạt động (tham khảo) | M3 | Todo |
-| F28 | Chế độ riêng tư khi hiển thị | M4 | Todo |
+| F27 | Trạng thái nghỉ/hoạt động (tham khảo) | M3 | Done |
+| F28 | Chế độ riêng tư khi hiển thị | M4 | Done |
 | F29 | Đánh giá chính thức và chỉ số realtime/workflow | M4 | Todo |
 | F30 | Sẵn sàng demo | M4 | Todo |
 | F31 | Nhiều camera/giường chạy đồng thời (R1–R3 ở M4) | M4 / Sau MVP | Todo |
