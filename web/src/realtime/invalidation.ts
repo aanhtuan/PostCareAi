@@ -60,6 +60,49 @@ function higher(a: Priority | null, b: Priority): Priority {
   return a !== null && PRIORITIES.indexOf(a) >= PRIORITIES.indexOf(b) ? a : b;
 }
 
+function newerOrSame(a: BedStateOut, b: BedStateOut | null): boolean {
+  if (!b) return true;
+  const ta = Date.parse(a.updated_at);
+  const tb = Date.parse(b.updated_at);
+  return Number.isNaN(ta) || Number.isNaN(tb) || ta >= tb;
+}
+
+/**
+ * Kết quả refetch `GET /overview` có thể cũ hơn `bed.state` đã áp dụng (request bắt đầu trước khi
+ * message tới). Giữ trạng thái mới hơn theo `updated_at` (F21 review). Server trả `state = null`
+ * (hết phiên, mất trạng thái) thì nhận theo server.
+ */
+export function keepNewerStates(fresh: OverviewOut, cached: OverviewOut | undefined): OverviewOut {
+  if (!cached) return fresh;
+  const byBed = new Map(cached.beds.map((b) => [b.bed_id, b.state]));
+  return {
+    ...fresh,
+    beds: fresh.beds.map((b) => {
+      const old = byBed.get(b.bed_id) ?? null;
+      return b.state && old && !newerOrSame(b.state, old) ? { ...b, state: old } : b;
+    }),
+  };
+}
+
+// alert.created đã tính vào thẻ, theo QueryClient: message gửi lại không tăng số lần nữa.
+const bumpedAlerts = new WeakMap<QueryClient, Set<number>>();
+const BUMPED_LIMIT = 500; // hằng số UI: giới hạn bộ nhớ
+
+function firstBump(qc: QueryClient, alertId: number): boolean {
+  let seen = bumpedAlerts.get(qc);
+  if (!seen) {
+    seen = new Set();
+    bumpedAlerts.set(qc, seen);
+  }
+  if (seen.has(alertId)) return false;
+  seen.add(alertId);
+  if (seen.size > BUMPED_LIMIT) {
+    const oldest = seen.values().next().value;
+    if (oldest !== undefined) seen.delete(oldest);
+  }
+  return true;
+}
+
 function updateOverview(qc: QueryClient, fn: (old: OverviewOut) => OverviewOut): void {
   qc.setQueryData<OverviewOut>(['overview'], (old) => (old ? fn(old) : old));
 }
@@ -70,7 +113,10 @@ export function applyMessage(qc: QueryClient, msg: WsMessage): void {
       const state = msg.payload as BedStateOut;
       updateOverview(qc, (old) => ({
         ...old,
-        beds: old.beds.map((b) => (b.bed_id === state.bed_id ? { ...b, state } : b)),
+        // Bỏ qua trạng thái cũ hơn trạng thái đang giữ (message tới trễ, sai thứ tự).
+        beds: old.beds.map((b) =>
+          b.bed_id === state.bed_id && newerOrSame(state, b.state) ? { ...b, state } : b,
+        ),
       }));
       break;
     }
@@ -95,7 +141,7 @@ export function applyMessage(qc: QueryClient, msg: WsMessage): void {
       const { alert } = msg.payload as AlertCreatedOut;
       const bedId = alert?.bed?.id;
       const priority = alert?.event?.priority;
-      if (bedId !== undefined && priority) {
+      if (bedId !== undefined && priority && firstBump(qc, alert.id)) {
         updateOverview(qc, (old) => ({
           ...old,
           beds: old.beds.map((b) =>

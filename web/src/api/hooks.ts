@@ -1,6 +1,7 @@
 // Hook TanStack Query. Dữ liệu server chỉ lấy qua đây; WebSocket chỉ làm mới cache.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { keepNewerStates } from '../realtime/invalidation';
 import { fallbackInterval, useRealtimeStatus } from '../realtime/status';
 import { api, type QueryValue } from './client';
 import type {
@@ -42,9 +43,14 @@ export const OVERVIEW_POLL_MS = 5000;
 
 export function useOverview() {
   const ws = useRealtimeStatus();
+  const qc = useQueryClient();
   return useQuery({
     queryKey: qk.overview,
-    queryFn: () => api<OverviewOut>('/overview'),
+    queryFn: async () =>
+      keepNewerStates(
+        await api<OverviewOut>('/overview'),
+        qc.getQueryData<OverviewOut>(qk.overview),
+      ),
     refetchInterval: fallbackInterval(ws, OVERVIEW_POLL_MS),
   });
 }
