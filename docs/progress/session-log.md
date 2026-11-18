@@ -2,6 +2,16 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-18 – Claude Code (Opus) – Đợt 2–4: M1 xong, M0/M2 phần lớn
+
+- **Mục tiêu phiên:** Làm tiếp roadmap theo vòng đời subagent, chạy được pipeline thật từ video/camera tới dashboard.
+- **Đã làm:** Done và đã push: F02, F03, F04, F06, F07, F09, F11, F12, F13, F14, F15, F16, F17, F23, F25, F35, F37 (cùng F00, F01, F05, F10 trước đó). Hiệu chỉnh ngưỡng trên tập dev (ABNORMAL_MOVEMENT 2/71 → 19/71, precision 0,95; FP/giờ 10,7 → 2,7). Quyết định an toàn: phát BED_EDGE khi chưa có lịch sử quan sát; ABNORMAL_MOVEMENT bắt buộc có điều kiện hạ thấp; SITTING→STANDING→OUT_OF_BED là đường rời giường hợp lệ. Sửa lỗi script merge đánh dấu nhầm dòng milestone trong ROADMAP.
+- **Kết quả kiểm tra:** `make check` trên `main` (8d2b332): pytest 1071 passed, vitest xanh, build xanh. End-to-end F06/F07: worker chạy MediaPipe trên clip Pexels → BED_EDGE thật → cảnh báo; Live View hiện luồng MJPEG thật kèm ROI. Chưa thử điện thoại thật.
+- **Đang dở:** F08, F18 (builder đang chạy trong worktree).
+- **Bước tiếp theo:** review + merge F08, F18; rồi F19, F20–F22, F24, F26–F28, F36, F31 R1–R3, F29, F30 và dựng demo.
+- **Blocker / câu hỏi cho người dùng:** Không chặn. Dữ liệu rời giường từ camera cố định chưa có (cần nhóm tự quay). MediaPipe mất dấu người nằm sàn ở 38/71 ca ngã.
+- **Giả định mới:** xem spec F15, F23, F25, F04 mục 7; calibration-2026-11-18.md.
+
 ## 2026-11-17 – Claude Code (Opus) – Đợt 1 (F01, F05, F10), tạm dừng
 
 - **Mục tiêu phiên:** Làm tiếp roadmap theo vòng đời subagent (builder trong worktree → code-reviewer → merge).
