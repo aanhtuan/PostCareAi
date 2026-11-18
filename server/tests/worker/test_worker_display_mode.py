@@ -70,3 +70,29 @@ def test_worker_invalid_or_missing_display_mode_uses_blur() -> None:
     h.run_until(2.0)
     assert h.worker.config is not None and h.worker.config.display_mode is DisplayMode.BLUR
     assert h.api.paths("/frame")  # vẫn gửi khung, không dừng worker
+
+
+class _BrokenRenderer:
+    """Render luôn lỗi (review F28): worker bỏ khung, không bao giờ gửi ảnh gốc."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def render(self, *args: Any, **kwargs: Any) -> Any:
+        self.calls += 1
+        raise RuntimeError("render lỗi")
+
+    def reset(self) -> None:
+        pass
+
+
+def test_render_error_drops_frame_and_keeps_running() -> None:
+    h = make_harness(config=default_config(display_mode="BLUR"))
+    broken = _BrokenRenderer()
+    h.worker.renderer = broken  # type: ignore[assignment]
+    h.run_until(5.0)
+    assert broken.calls > 0
+    assert h.api.paths("/frame") == []  # không gửi khung nào, kể cả ảnh gốc
+    assert h.engines and len(h.engines[0].processed) > 10  # engine vẫn chạy
+    assert h.api.paths("/state")  # trạng thái vẫn gửi
+    assert h.api.paths("/heartbeat")
