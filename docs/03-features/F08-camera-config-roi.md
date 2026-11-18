@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F08 |
-| Trạng thái | In review <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
+| Trạng thái | Done <!-- Todo / Planned / In progress / In review / Done / Blocked --> |
 | Ưu tiên | MVP |
 | Milestone | M0 |
 | Ước lượng | 3 phiên |
@@ -44,6 +44,11 @@ Cho quản trị viên vẽ vùng giường (Bed ROI) dạng polygon bằng các
   - `thresholds = {}` nghĩa là "Khôi phục mặc định" *(giả định cách biểu diễn)*;
   - override chỉ chấp nhận khóa có trong `config/engine.default.yaml` và giá trị cùng kiểu với giá trị mặc định; số phải ≥0; khóa lạ hoặc sai kiểu → 400 `VALIDATION_ERROR`, `details` chỉ rõ khóa *(giả định; QA#22)*;
   - khi F10 đã xong, kiểm tra bằng `EngineConfig` sau khi hợp nhất mặc định + override *(F10 AC2)*.
+  - **an toàn (review F08; AGENTS.md quy tắc 6):** quy tắc nằm ở `config/camera_overrides.yaml`, không viết cứng *(giả định giá trị)*:
+    - chỉ khóa trong `allowed` được override: `min_duration_s.*`, `pose.min_keypoint_visibility`, `quality.{low_quality_to_no_observation_s, restore_duration_s, observation_lost_event_s}`, `location.{edge_distance_torso, out_of_roi_margin_torso}`, `activity.{low_threshold, high_threshold}`, `posture.{lying_enter_deg, lying_exit_deg, sitting_enter_deg, sitting_exit_deg}`, `abnormal_movement.min_conditions`. Khóa khác (`privacy.*`, `face.*`, `pose.required_keypoints`, `pose.num_poses`, `debounce`, ngưỡng điều kiện của `abnormal_movement`…) → 400 "không được chỉnh theo camera";
+    - giới hạn an toàn trên giá trị đang áp dụng (`limits`): `min_duration_s.*` 0,3–30 s; `pose.min_keypoint_visibility` 0,3–0,95; thời gian `quality.*` có sàn > 0; `location.edge_distance_torso` ≥ 0,05; `abnormal_movement.min_conditions` 2–5 (điều kiện hạ thấp C1/C4 vẫn bắt buộc trong engine và ngưỡng của nó không override được);
+    - quan hệ (`relations`, theo `engine/posture.py`): `lying_enter_deg ≤ lying_exit_deg < sitting_exit_deg ≤ sitting_enter_deg`; `activity.low_threshold < activity.high_threshold`. Vi phạm → 400, `details.errors[].path` nêu cả hai khóa;
+    - `GET /thresholds` trả thêm `rules` để web kiểm tra giống backend (ThresholdsForm).
 - **R5.** Ngưỡng chính hiển thị trên form, chọn theo HS §5.5 ("thời gian duy trì, ngưỡng chất lượng, khoảng cách tới biên giường và mức thay đổi vận động") và ghi chú ở event-engine.md §6 ("ngưỡng posture được override theo từng camera"):
   - thời gian duy trì: các khóa `min_duration_s.*`;
   - chất lượng: `pose.min_keypoint_visibility`, `quality.low_quality_to_no_observation_s`;
@@ -149,6 +154,13 @@ Kiểm tra tay (DB `postcare_f08`, `postcare seed`, API cổng 8018, worker `--v
 - NURSE `PUT /roi` → 403; nơ → 400 `INVALID_ROI_POLYGON` `reason SELF_INTERSECTION`; khóa gõ sai → 400 có `thresholds.posture.lying_entr_deg`. `audit_logs`: `camera.update_roi` 1→2, `camera.update_thresholds` 2→3, 3→4.
 - Chưa mở màn hình web trên trình duyệt thật (máy hạn chế bộ nhớ); UI được kiểm bằng component test. Người review nên thử `/cameras/1/config` với `make dev`.
 
+**Review lần 1 (2026-11-18): Chưa đạt (an toàn).** Override theo camera có thể vô hiệu hóa quy tắc an toàn (ví dụ `min_duration_s.OUT_OF_BED = 0`, `face.enabled`, `privacy.*`, `abnormal_movement.min_conditions = 1`), chưa kiểm tra quan hệ hysteresis, `web/tsconfig.tsbuildinfo` bị commit. Đã sửa (test trước):
+- `config/camera_overrides.yaml` (khóa được phép, giới hạn, quan hệ) + `load_override_rules`, `rule_violations` trong `domain/camera_config.py`; thứ tự kiểm tra: khóa được phép → `EngineConfig` → giới hạn/quan hệ.
+- Test: `test_thresholds_safety_limits_400` (gồm `{"min_duration_s":{"OUT_OF_BED":0}}`), `test_thresholds_key_not_overridable_400`, `test_thresholds_relations_400`, `test_thresholds_at_floor_accepted`, `test_get_thresholds_returns_rules_for_web`, `tests/domain/test_camera_override_rules.py` (mặc định thỏa mọi quy tắc); web `ThresholdsForm` chặn lưu dưới sàn/trên trần và sai quan hệ.
+- `*.tsbuildinfo` vào `.gitignore`, gỡ khỏi git.
+- Thêm (tùy chọn của review): phím mũi tên dịch điểm ROI đang chọn (Shift: bước lớn), test `arrow keys move the selected point`.
+- `make check` xanh sau khi sửa. **Kết luận: Đạt** → Done.
+
 Ghi chú cho người sau:
 - `validate_roi_polygon` giờ ném `RoiPolygonError(ValueError)` có `reason`; thêm giới hạn 20 điểm và từ chối giá trị không phải số (ảnh hưởng nhẹ tới file cấu hình replay F12: vẫn là `ValueError`).
 - `streamUrl` tách ra `web/src/api/stream.ts`, dùng chung cho `CameraStream` (F07) và `RoiEditor`.
@@ -159,5 +171,5 @@ Ghi chú cho người sau:
 - [x] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
 - [x] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
 - [x] Doc liên quan đã cập nhật cùng PR.
-- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [x] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).
