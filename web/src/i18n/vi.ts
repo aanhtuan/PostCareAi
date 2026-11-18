@@ -347,6 +347,8 @@ export const vi = {
     unresolved: 'Cảnh báo chưa xử lý',
     stateChanges: 'Số lần đổi trạng thái',
     noEvents: 'Không có sự kiện',
+    outcomes: 'Kết quả kiểm tra',
+    deletedBed: '{code} (Đã xóa)',
   },
   management: {
     title: 'Quản lý giường',

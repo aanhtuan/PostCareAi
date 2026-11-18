@@ -14,7 +14,7 @@ import {
 import { useMemo, useState } from 'react';
 
 import { useHandover, useShifts, type HandoverFilter } from '../../api/hooks';
-import type { EventCode } from '../../api/types';
+import type { AlertOutcome, EventCode } from '../../api/types';
 import { AlertStatusBadge, PriorityBadge } from '../../components/Badges';
 import { fmt, vi } from '../../i18n/vi';
 import {
@@ -135,7 +135,7 @@ export function HandoverPage() {
           <Text c="red">{handover.error.message}</Text>
         ) : data ? (
           <Stack mt="md">
-            <Card withBorder>
+            <Card withBorder data-testid="handover-outstanding">
               <Title order={4} mb="xs">
                 {vi.handover.outstanding}
               </Title>
@@ -176,7 +176,7 @@ export function HandoverPage() {
               <Title order={4} mb="xs">
                 {vi.handover.byBed}
               </Title>
-              <Table striped>
+              <Table striped data-testid="handover-beds">
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>{vi.common.bed}</Table.Th>
@@ -184,14 +184,18 @@ export function HandoverPage() {
                     <Table.Th>{vi.handover.resolved}</Table.Th>
                     <Table.Th>{vi.handover.unresolved}</Table.Th>
                     <Table.Th>{vi.handover.stateChanges}</Table.Th>
+                    <Table.Th>{vi.handover.outcomes}</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {data.beds.map((b) => {
                     const counts = Object.entries(b.event_counts) as [EventCode, number][];
+                    const outcomes = Object.entries(b.outcome_counts) as [AlertOutcome, number][];
                     return (
                       <Table.Tr key={b.bed_id}>
-                        <Table.Td fw={700}>{b.code}</Table.Td>
+                        <Table.Td fw={700}>
+                          {b.is_active ? b.code : fmt(vi.handover.deletedBed, { code: b.code })}
+                        </Table.Td>
                         <Table.Td>
                           {counts.length === 0
                             ? vi.handover.noEvents
@@ -204,6 +208,15 @@ export function HandoverPage() {
                         <Table.Td>{b.alerts_resolved}</Table.Td>
                         <Table.Td>{b.alerts_unresolved}</Table.Td>
                         <Table.Td>{b.state_change_count}</Table.Td>
+                        <Table.Td>
+                          {outcomes.length === 0
+                            ? vi.common.none
+                            : outcomes.map(([o, n]) => (
+                                <div key={o}>
+                                  {vi.outcome[o]}: <b>{n}</b>
+                                </div>
+                              ))}
+                        </Table.Td>
                       </Table.Tr>
                     );
                   })}
