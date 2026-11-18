@@ -26,5 +26,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // Máy dev 16 GB chạy nhiều tiến trình song song: giới hạn worker để tránh Node hết heap.
+    maxWorkers: 2,
   },
 });
