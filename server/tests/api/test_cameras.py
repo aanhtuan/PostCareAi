@@ -179,3 +179,22 @@ def test_camera_move_to_free_bed(client: TestClient, login) -> None:
 def test_camera_rejects_unknown_fields(client: TestClient, login) -> None:
     r = client.patch(f"{CAMERAS}/1", json={"status": "ONLINE"}, headers=login("admin"))
     assert r.status_code == 422 and r.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_camera_detail_includes_roi_polygon(client: TestClient, login, db: Session) -> None:
+    """F07 R6: màn hình theo dõi trực tiếp đọc Bed ROI từ `GET /cameras/{id}`."""
+    from postcare.db.models import Camera
+
+    camera = db.get(Camera, 1)
+    assert camera is not None
+    camera.roi_polygon = [[0.1, 0.2], [0.9, 0.2], [0.9, 0.8]]
+    db.commit()
+    r = client.get(f"{CAMERAS}/1", headers=login("nurse"))
+    assert r.status_code == 200
+    assert r.json()["roi_polygon"] == [[0.1, 0.2], [0.9, 0.2], [0.9, 0.8]]
+    camera.roi_polygon = None
+    db.commit()
+    assert client.get(f"{CAMERAS}/1", headers=login("nurse")).json()["roi_polygon"] is None
+    # Danh sách không có ROI (không đổi).
+    listed = client.get(CAMERAS, headers=login("nurse")).json()["items"][0]
+    assert "roi_polygon" not in listed

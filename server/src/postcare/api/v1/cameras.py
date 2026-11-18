@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from postcare.api.deps import get_session, get_store, require_admin, require_staff
-from postcare.db.models import User
+from postcare.db.models import Camera, User
 from postcare.domain import catalog
 from postcare.domain.dto import (
     CameraCreate,
@@ -40,7 +40,7 @@ def create_camera(
 def get_camera(
     camera_id: int, db: Session = Depends(get_session), store: RuntimeStore = Depends(get_store)
 ) -> CameraDetailOut:
-    """Kèm `runtime` (FPS, độ sáng, khung bỏ, trạng thái nguồn) từ heartbeat trong RAM (F06 R9)."""
+    """Kèm `runtime` từ heartbeat trong RAM (F06 R9) và `roi_polygon` (F07 R6)."""
     out = catalog.get_camera(db, camera_id)
     rt = store.find_camera(camera_id)
     runtime = None
@@ -52,7 +52,9 @@ def get_camera(
             source_status=rt.source_status,
             updated_at=rt.updated_at,
         )
-    return CameraDetailOut(**out.model_dump(), runtime=runtime)
+    camera = db.get(Camera, camera_id)
+    roi = camera.roi_polygon if camera is not None else None
+    return CameraDetailOut(**out.model_dump(), runtime=runtime, roi_polygon=roi)
 
 
 @router.patch("/{camera_id}", response_model=CameraOut)

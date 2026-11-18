@@ -1,7 +1,9 @@
+// "Theo dõi trực tiếp" (F07; PDF §9.1): ảnh camera thật qua MJPEG, Bed ROI vẽ đè, trạng thái
+// camera và phiên. Trạng thái làm mới bằng polling 2 s cho tới F21 (WebSocket).
 import {
-  Alert,
   Badge,
   Card,
+  Center,
   Group,
   Loader,
   Select,
@@ -14,24 +16,41 @@ import {
 import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
-import { useEvents, useOverview } from '../../api/hooks';
+import { useCameraDetail, useEvents, useLiveOverview } from '../../api/hooks';
+import type { CameraStatus } from '../../api/types';
+import { useAuth } from '../../auth/useAuth';
+import { CameraStream } from '../../components/CameraStream';
 import { PriorityBadge } from '../../components/Badges';
 import { fmt, vi } from '../../i18n/vi';
-import { formatDateTime, formatTime } from '../../utils/time';
-import { SkeletonView } from './SkeletonView';
+import { formatTime } from '../../utils/time';
+
+const POLL_MS = 2000; // giả định F07 R5
+
+const STATUS_COLOR: Record<CameraStatus, string> = {
+  ONLINE: 'green',
+  OFFLINE: 'red',
+  UNKNOWN: 'gray',
+};
 
 export function LiveViewPage() {
   const { bedId } = useParams();
   const navigate = useNavigate();
-  const overview = useOverview();
+  const { token } = useAuth();
+  const overview = useLiveOverview(POLL_MS);
   const beds = overview.data?.beds ?? [];
   const selectedId = bedId ? Number(bedId) : beds[0]?.bed_id;
   const bed = beds.find((b) => b.bed_id === selectedId);
+  const cameraDetail = useCameraDetail(bed?.camera?.id, POLL_MS);
   const latest = useEvents({ bed_id: selectedId, limit: 1 });
 
   if (overview.isPending) return <Loader />;
   const state = bed?.state ?? null;
   const event = latest.data?.items[0];
+  // Ưu tiên trạng thái từ chi tiết camera (mới hơn), rồi tới tổng quan.
+  const cameraStatus: CameraStatus | null = bed?.camera
+    ? (cameraDetail.data?.status ?? bed.camera.status)
+    : null;
+  const roi = cameraDetail.data?.roi_polygon ?? null;
 
   return (
     <Stack>
@@ -52,16 +71,53 @@ export function LiveViewPage() {
       {bed && (
         <SimpleGrid cols={{ base: 1, md: 2 }}>
           <Card withBorder>
-            <Group justify="space-between" mb="xs">
-              <Text fw={700}>{fmt(vi.bed.title, { code: bed.code })}</Text>
-              <Badge color="grape" variant="light">
-                {vi.live.simulatedMode}
-              </Badge>
-            </Group>
-            <SkeletonView bodyState={state?.body_state ?? null} />
-            <Alert color="grape" variant="light" mt="sm">
-              {vi.live.simulatedHint}
-            </Alert>
+            <Stack gap="xs">
+              <Group justify="space-between">
+                <Text fw={700} size="lg">
+                  {fmt(vi.bed.title, { code: bed.code })}
+                </Text>
+                <Badge color={cameraStatus ? STATUS_COLOR[cameraStatus] : 'gray'} variant="light">
+                  {cameraStatus ? vi.cameraStatus[cameraStatus] : vi.camera.notAssigned}
+                </Badge>
+              </Group>
+              {bed.session ? (
+                <Text size="sm">
+                  <Text span fw={600}>
+                    {vi.live.monitoring}
+                  </Text>
+                  {' · '}
+                  {fmt(vi.live.sessionDetail, {
+                    patient: bed.session.patient_code,
+                    time: formatTime(bed.session.started_at),
+                  })}
+                </Text>
+              ) : (
+                <Text size="sm" c="dimmed">
+                  {vi.live.noSession}
+                </Text>
+              )}
+              {bed.camera && cameraStatus ? (
+                <>
+                  <CameraStream
+                    cameraId={bed.camera.id}
+                    token={token}
+                    online={cameraStatus === 'ONLINE'}
+                    offlineText={vi.cameraStatus[cameraStatus]}
+                    roi={roi}
+                    alt={fmt(vi.live.streamAlt, { code: bed.code })}
+                  />
+                  {cameraDetail.isSuccess && !roi && (
+                    <Text size="sm" c="dimmed">
+                      {vi.live.roiNotConfigured}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <Center bg="gray.1" style={{ aspectRatio: '16 / 9', borderRadius: 8 }}>
+                  <Text c="dimmed">{vi.camera.notAssigned}</Text>
+                </Center>
+              )}
+            </Stack>
           </Card>
           <Card withBorder>
             <Stack gap="sm">
@@ -89,19 +145,7 @@ export function LiveViewPage() {
                   />
                   <Row
                     label={vi.live.camera}
-                    value={
-                      bed.camera
-                        ? `${bed.camera.name} · ${vi.cameraStatus[bed.camera.status]}`
-                        : vi.camera.notAssigned
-                    }
-                  />
-                  <Row
-                    label={vi.live.session}
-                    value={
-                      bed.session
-                        ? `${fmt(vi.bedCard.patient, { code: bed.session.patient_code })} · ${vi.management.startedAt} ${formatDateTime(bed.session.started_at)}`
-                        : vi.bedCard.NOT_MONITORED
-                    }
+                    value={bed.camera ? bed.camera.name : vi.camera.notAssigned}
                   />
                   {state && (
                     <Row

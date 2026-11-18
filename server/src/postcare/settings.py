@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     camera_watch_interval_s: float = 1.0
     # F06: khung JPEG xem trực tiếp (A03; giả định R7, R8). API chỉ giữ khung mới nhất trong RAM.
     frame_max_bytes: int = 2 * 1024 * 1024
+    # F07 R1: MJPEG ngừng phát khi khung mới nhất cũ hơn ngưỡng này (giả định 3 s); chu kỳ kiểm tra.
+    stream_stale_frame_s: float = 3.0
+    stream_poll_interval_s: float = 0.05
+    # Kiểm tra lại người xem (khóa, đặt lại mật khẩu, đổi vai trò; F35) trong lúc stream (giả định).
+    stream_revalidate_s: float = 5.0
     # Worker (F06; A02, A03, ADR-0002): chu kỳ heartbeat, poll cấu hình, nhịp gửi khung, nén JPEG.
     worker_heartbeat_interval_s: float = 2.0
     worker_config_poll_s: float = 5.0

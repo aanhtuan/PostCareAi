@@ -8,6 +8,7 @@ import type {
   AlertStatus,
   AreaOut,
   BedOut,
+  CameraDetailOut,
   CameraOut,
   EventOut,
   HandoverOut,
@@ -261,5 +262,24 @@ export function useCatalogLifecycle() {
         ? api<unknown>(`/${resource}/${id}`, { method: 'DELETE' })
         : api<unknown>(`/${resource}/${id}/restore`, { method: 'POST' }),
     onSettled: invalidate,
+  });
+}
+
+/** Chi tiết camera (trạng thái, Bed ROI) cho "Theo dõi trực tiếp"; polling tới khi có F21. */
+export function useCameraDetail(cameraId: number | undefined, pollMs?: number) {
+  return useQuery({
+    queryKey: ['cameras', 'detail', cameraId] as const,
+    queryFn: () => api<CameraDetailOut>(`/cameras/${cameraId}`),
+    enabled: cameraId !== undefined,
+    refetchInterval: pollMs,
+  });
+}
+
+/** Tổng quan có polling cho "Theo dõi trực tiếp" (F07 R5; F21 thay bằng WebSocket). */
+export function useLiveOverview(pollMs: number) {
+  return useQuery({
+    queryKey: qk.overview,
+    queryFn: () => api<OverviewOut>('/overview'),
+    refetchInterval: pollMs,
   });
 }

@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 
 import jwt
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Header, Query, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -103,6 +103,27 @@ require_staff = require_roles(*STAFF_ROLES)
 require_writer = require_roles(*WRITE_ROLES)
 # Quản lý danh mục (F03), ROI, ngưỡng (F08): chỉ ADMIN.
 require_admin = require_roles(UserRole.ADMIN)
+
+
+def require_staff_query(request: Request, token: str | None = Query(default=None)) -> User:
+    """Xác thực token ở query (`<img>` MJPEG không gửi được header; api-conventions.md).
+
+    Tự mở và đóng DB session ngay, không dùng `get_session`: stream kéo dài nên không giữ kết nối
+    DB suốt thời gian phát. Thiếu/sai/hết hạn → 401; không phải vai trò nhân viên → 403.
+    """
+    db: Session = request.app.state.session_factory()
+    try:
+        return staff_from_token(db, token or "", request.app.state.settings)
+    finally:
+        db.close()
+
+
+def staff_from_token(db: Session, token: str, settings: Settings) -> User:
+    """Token hợp lệ (F35: `is_active`, `token_version`) và vai trò nhân viên; nếu không thì lỗi."""
+    user = user_from_token(db, token, settings)
+    if user.role not in STAFF_ROLES:
+        raise DomainError("FORBIDDEN", "Không đủ quyền thực hiện thao tác này", 403)
+    return user
 
 
 def require_worker(

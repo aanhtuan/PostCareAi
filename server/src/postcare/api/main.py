@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from postcare.api.errors import install_error_handlers
 from postcare.api.frame_buffer import LatestFrameStore
 from postcare.api.internal import cameras as internal_cameras
+from postcare.api.log_redaction import install_access_log_redaction
 from postcare.api.realtime import WsHub
 from postcare.api.realtime import router as ws_router
 from postcare.api.v1 import (
@@ -25,6 +26,7 @@ from postcare.api.v1 import (
     monitoring,
     patients,
     sessions,
+    stream,
     users,
 )
 from postcare.db.session import make_engine, make_session_factory
@@ -61,6 +63,7 @@ async def _watch_cameras(app: FastAPI) -> None:
 
 def create_app(settings: Settings | None = None, *, watch_cameras: bool = True) -> FastAPI:
     settings = settings or get_settings()
+    install_access_log_redaction()  # `?token=` của MJPEG/WS không vào access log
     engine = make_engine(settings.database_url)
 
     @asynccontextmanager
@@ -112,6 +115,7 @@ def create_app(settings: Settings | None = None, *, watch_cameras: bool = True) 
         alerts.router,
         monitoring.router,
         users.router,
+        stream.router,
     )
     for r in v1_routers:
         app.include_router(r, prefix="/api/v1")
