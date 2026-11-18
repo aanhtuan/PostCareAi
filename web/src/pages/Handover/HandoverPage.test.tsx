@@ -118,6 +118,23 @@ describe('HandoverPage', () => {
     expect(rows[1]).toHaveTextContent('Bệnh nhân đang ở mép giường');
   });
 
+  it('alert resolved after the window shows "Đã xử lý sau ca"', async () => {
+    serve({
+      ...BODY,
+      outstanding_alerts: [
+        acknowledged(9, {
+          status: 'RESOLVED',
+          resolved_at: '2026-10-12T16:00:00Z', // sau `to` (15:00Z)
+          resolved_by: { id: 2, full_name: 'Trần Văn Nam' },
+        }),
+      ],
+    });
+    renderWithProviders(<HandoverPage />, nurse, '/handover');
+    const outstanding = await screen.findByTestId('handover-outstanding');
+    expect(within(outstanding).getByText('Đã xử lý sau ca')).toBeInTheDocument();
+    expect(within(outstanding).queryByText('Đã xử lý')).not.toBeInTheDocument();
+  });
+
   it('shows empty outstanding text', async () => {
     serve({ ...BODY, outstanding_alerts: [] });
     renderWithProviders(<HandoverPage />, nurse, '/handover');

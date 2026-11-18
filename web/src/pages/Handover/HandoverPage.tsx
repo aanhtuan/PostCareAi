@@ -1,4 +1,5 @@
 import {
+  Badge,
   Button,
   Card,
   Group,
@@ -163,7 +164,16 @@ export function HandoverPage() {
                           <PriorityBadge priority={a.event.priority} />
                         </Table.Td>
                         <Table.Td>
-                          <AlertStatusBadge status={a.status} />
+                          {a.status === 'RESOLVED' &&
+                          a.resolved_at &&
+                          new Date(a.resolved_at) >= new Date(data.to) ? (
+                            // Khoảng đã qua: tại cuối khoảng cảnh báo còn tồn đọng (F24 R4).
+                            <Badge color="gray" variant="light">
+                              {vi.handover.resolvedAfter}
+                            </Badge>
+                          ) : (
+                            <AlertStatusBadge status={a.status} />
+                          )}
                         </Table.Td>
                         <Table.Td>{a.acknowledged_by?.full_name ?? vi.common.none}</Table.Td>
                       </Table.Tr>

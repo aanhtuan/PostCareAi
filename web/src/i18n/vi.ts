@@ -363,6 +363,7 @@ export const vi = {
     noEvents: 'Không có sự kiện',
     outcomes: 'Kết quả kiểm tra',
     deletedBed: '{code} (Đã xóa)',
+    resolvedAfter: 'Đã xử lý sau ca',
   },
   management: {
     title: 'Quản lý giường',
