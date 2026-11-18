@@ -14,8 +14,20 @@ function setup() {
   const spy = vi.spyOn(qc, 'invalidateQueries');
   const overview = {
     beds: [
-      { bed_id: 1, state: null, camera: { id: 10, status: 'ONLINE' } },
-      { bed_id: 2, state: null, camera: { id: 20, status: 'ONLINE' } },
+      {
+        bed_id: 1,
+        state: null,
+        camera: { id: 10, status: 'ONLINE' },
+        pending_alert_count: 0,
+        max_open_priority: null,
+      },
+      {
+        bed_id: 2,
+        state: null,
+        camera: { id: 20, status: 'ONLINE' },
+        pending_alert_count: 1,
+        max_open_priority: 'HIGH',
+      },
     ],
   } as unknown as OverviewOut;
   qc.setQueryData(['overview'], overview);
