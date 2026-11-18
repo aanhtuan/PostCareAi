@@ -123,8 +123,9 @@ def resume_session(
 def session_timeline(
     session_id: int,
     priority: list[Priority] | None = Query(None),
+    chain: bool = Query(False, description="Gộp cả chuỗi phiên chuyển giường (F04 R16)"),
     limit: int = Query(200, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(db_session),
 ) -> Page[TimelineItemOut]:
-    return tl.session_timeline(db, session_id, priority, limit, offset)
+    return tl.session_timeline(db, session_id, priority, limit, offset, chain=chain)

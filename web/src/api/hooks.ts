@@ -1,5 +1,5 @@
 // Hook TanStack Query. Dữ liệu server chỉ lấy qua đây; WebSocket chỉ làm mới cache.
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { keepNewerStates } from '../realtime/invalidation';
 import { fallbackInterval, useRealtimeStatus } from '../realtime/status';
@@ -132,20 +132,33 @@ export type TimelineFilter =
   | { mode: 'session'; session_id: number; priority?: Priority[] }
   | { mode: 'range'; bed_id: number; from?: string; to?: string; priority?: Priority[] };
 
+/** Số mục mỗi lần tải (API tối đa 200, F22 R4). */
+export const TIMELINE_PAGE_SIZE = 200;
+
+/**
+ * Timeline theo phiên (gộp cả chuỗi chuyển giường, F04 R16) hoặc theo giường + khoảng thời gian.
+ * Tải tiếp bằng `offset` khi `total` lớn hơn số mục đã có *(giả định F22)*.
+ */
 export function useTimeline(filter: TimelineFilter | null) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: qk.timeline(filter ?? {}),
     enabled: filter !== null,
-    queryFn: () => {
+    initialPageParam: 0,
+    getNextPageParam: (last: Page<TimelineItemOut>, pages: Page<TimelineItemOut>[]) => {
+      const loaded = pages.reduce((n, p) => n + p.items.length, 0);
+      return last.items.length > 0 && loaded < last.total ? loaded : undefined;
+    },
+    queryFn: ({ pageParam }) => {
       if (!filter) throw new Error('no filter');
+      const paging = { limit: TIMELINE_PAGE_SIZE, offset: pageParam };
       if (filter.mode === 'session') {
         return api<Page<TimelineItemOut>>(`/sessions/${filter.session_id}/timeline`, {
-          query: { priority: filter.priority },
+          query: { priority: filter.priority, chain: true, ...paging },
         });
       }
       const { mode: _mode, ...query } = filter;
       void _mode;
-      return api<Page<TimelineItemOut>>('/timeline', { query });
+      return api<Page<TimelineItemOut>>('/timeline', { query: { ...query, ...paging } });
     },
   });
 }
