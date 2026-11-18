@@ -202,6 +202,9 @@ describe('AlertsPage', () => {
     const medium = screen.getByText(/^Giường A04 - /).closest('[data-priority]');
     expect(high).toHaveAttribute('data-priority', 'HIGH');
     expect(medium).toHaveAttribute('data-priority', 'MEDIUM');
+    // Ưu tiên cao: viền đỏ đậm; Cần chú ý: viền thường.
+    expect(high?.getAttribute('style')).toContain('--mantine-color-red-6');
+    expect(medium?.getAttribute('style') ?? '').not.toContain('--mantine-color-red-6');
   });
 
   it('detail dialog shows people, outcome and links without technical values', async () => {
