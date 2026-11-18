@@ -158,7 +158,7 @@ Nguồn sự thật trong code là `postcare/schemas/events.py`. Bảng dưới 
 - Chuỗi mất quan sát: từ frame đầu có `body_state = NO_OBSERVATION` (kể cả lúc engine khởi động với cổng đóng) tới frame đầu không còn `NO_OBSERVATION` (cổng mở **và** state machine đã xác lập lại trạng thái ổn định).
 - `OBSERVATION_LOST`: chuỗi giữ ≥ `quality.observation_lost_event_s` → phát một lần mỗi chuỗi; `occurred_at_ms` = đầu chuỗi, `detected_at_ms` = frame đạt ngưỡng; `confidence = 1.0`; `explanation`: `rule_id = observation.observation_lost`, `held_ms`, `threshold_s`, `observation_quality`.
 - `OBSERVATION_RESTORED`: phát ở frame thoát chuỗi, **chỉ khi** `OBSERVATION_LOST` của chính chuỗi đó đã qua debounce (mất quan sát ngắn, hoặc LOST bị debounce chặn → không RESTORED); `occurred_at_ms = detected_at_ms`; `explanation`: `rule_id = observation.observation_restored`, `lost_ms`, `body_state`.
-- Hai mã đi qua cùng `Debouncer` với các rule khác. Mất quan sát không bao giờ sinh `BED_EXIT`.
+- `OBSERVATION_LOST` đi qua cùng `Debouncer` với các rule khác. `OBSERVATION_RESTORED` **không** qua debounce: nó chỉ sinh khi LOST của cùng chuỗi đã phát, nên luôn đi cặp với một LOST (ví dụ LOST 10 s, RESTORED 55 s, LOST 70 s, RESTORED 75 s: cả bốn đều phát) *(review F17)*. Mất quan sát không bao giờ sinh `BED_EXIT`.
 
 Các sự kiện mức LOG/INFO chỉ vào timeline. MEDIUM/HIGH tạo cảnh báo PENDING *(giả định QA#17)*. Mức ưu tiên là ưu tiên **workflow**, không phải phân tầng nguy cơ lâm sàng (PDF §7).
 

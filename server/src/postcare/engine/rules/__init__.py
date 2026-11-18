@@ -45,7 +45,10 @@ class RuleSet:
         drafts.extend(self._movement.evaluate(ts_ms, assessment, activity))
         drafts.extend(self._observation.evaluate(ts_ms, assessment, body_state))
         for draft in drafts:
-            if not self._debouncer.allow(draft.code.value, draft.detected_at_ms):
+            # RESTORED chỉ sinh khi LOST của cùng chuỗi đã phát, nên đi cặp với LOST đó và không
+            # qua debounce (review F17): LOST đã được debounce thay cho cả cặp.
+            paired = draft.code == EventCode.OBSERVATION_RESTORED
+            if not paired and not self._debouncer.allow(draft.code.value, draft.detected_at_ms):
                 continue
             if draft.code == EventCode.OBSERVATION_LOST:
                 # RESTORED chỉ phát khi LOST của chuỗi này thực sự được phát (F17 R16).

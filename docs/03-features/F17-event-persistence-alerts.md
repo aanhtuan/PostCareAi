@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F17 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 3 phiên |
@@ -98,11 +98,11 @@ Feature này nối engine với nghiệp vụ. Worker chạy engine realtime và
 
 ## 5. Acceptance criteria
 
-- [ ] **AC1.** Migration tạo `events` và `alerts` đúng data-model (`upgrade`/`downgrade` hai chiều). Worker chạy engine realtime và gửi `POST /internal/v1/events`. API lưu sự kiện gắn đúng phiên, giường, camera *(PDF §10 (tr.12); HS §4.2, §6.2)*. — *Kiểm chứng:* `alembic downgrade -1 && alembic upgrade head`; `server/tests/integration/test_worker_events.py::test_worker_fake_exit_sequence_persists_events` (worker với `FakeFrameSource` / `FakePoseAdapter` phát chuỗi rời giường); `test_ingest_event.py::test_event_attached_to_open_session_at_occurred_at`.
-- [ ] **AC2.** Sự kiện MEDIUM hoặc HIGH tạo alert `PENDING` ("Chờ tiếp nhận") trong cùng transaction. LOG và INFO chỉ có sự kiện, không có alert. Publisher chỉ được gọi sau commit *(QA#17; HS §4.2)*. — *Kiểm chứng:* `test_ingest_event.py` (`test_high_event_creates_pending_alert`, `test_log_info_event_no_alert`, `test_publisher_called_after_commit`).
-- [ ] **AC3.** Giường không có phiên mở: worker không gửi sự kiện của engine; chỉ có sự kiện camera. API từ chối sự kiện engine không có phiên với 409 `NO_ACTIVE_SESSION` *(data-model.md; api-conventions.md)*. — *Kiểm chứng:* `test_worker_events.py::test_no_active_session_sends_no_engine_events`; `test_internal_events.py::test_engine_event_without_session_rejected`.
-- [ ] **AC4.** `CAMERA_OFFLINE` (MEDIUM, có alert) và `CAMERA_ONLINE` (LOG) do API sinh khi trạng thái camera đổi. `OBSERVATION_LOST` (INFO) và `OBSERVATION_RESTORED` (LOG) do engine sinh đúng mức *(QA#21; A11; event-engine.md mục 5)*. — *Kiểm chứng:* `test_camera_events.py` (`test_online_to_offline_creates_camera_offline_alert`, `test_offline_to_online_creates_camera_online_log`, `test_first_online_no_event`); `test_rules_observation.py` (`test_prolonged_no_observation_emits_observation_lost_info`, `test_restored_only_after_lost`).
-- [ ] **AC5.** Gửi lại cùng `event_uid` không tạo bản ghi, alert hay thông báo trùng *(ADR-0002)*. — *Kiểm chứng:* `test_internal_events.py::test_same_event_uid_twice_single_row` (kiểm tra số dòng `events`, `alerts`, và số lần publisher được gọi).
+- [x] **AC1.** Migration tạo `events` và `alerts` đúng data-model (`upgrade`/`downgrade` hai chiều). Worker chạy engine realtime và gửi `POST /internal/v1/events`. API lưu sự kiện gắn đúng phiên, giường, camera *(PDF §10 (tr.12); HS §4.2, §6.2)*. — *Kiểm chứng:* `alembic downgrade -1 && alembic upgrade head`; `server/tests/integration/test_worker_events.py::test_worker_fake_exit_sequence_persists_events` (worker với `FakeFrameSource` / `FakePoseAdapter` phát chuỗi rời giường); `test_ingest_event.py::test_event_attached_to_open_session_at_occurred_at`.
+- [x] **AC2.** Sự kiện MEDIUM hoặc HIGH tạo alert `PENDING` ("Chờ tiếp nhận") trong cùng transaction. LOG và INFO chỉ có sự kiện, không có alert. Publisher chỉ được gọi sau commit *(QA#17; HS §4.2)*. — *Kiểm chứng:* `test_ingest_event.py` (`test_high_event_creates_pending_alert`, `test_log_info_event_no_alert`, `test_publisher_called_after_commit`).
+- [x] **AC3.** Giường không có phiên mở: worker không gửi sự kiện của engine; chỉ có sự kiện camera. API từ chối sự kiện engine không có phiên với 409 `NO_ACTIVE_SESSION` *(data-model.md; api-conventions.md)*. — *Kiểm chứng:* `test_worker_events.py::test_no_active_session_sends_no_engine_events`; `test_internal_events.py::test_engine_event_without_session_rejected`.
+- [x] **AC4.** `CAMERA_OFFLINE` (MEDIUM, có alert) và `CAMERA_ONLINE` (LOG) do API sinh khi trạng thái camera đổi. `OBSERVATION_LOST` (INFO) và `OBSERVATION_RESTORED` (LOG) do engine sinh đúng mức *(QA#21; A11; event-engine.md mục 5)*. — *Kiểm chứng:* `test_camera_events.py` (`test_online_to_offline_creates_camera_offline_alert`, `test_offline_to_online_creates_camera_online_log`, `test_first_online_no_event`); `test_rules_observation.py` (`test_prolonged_no_observation_emits_observation_lost_info`, `test_restored_only_after_lost`).
+- [x] **AC5.** Gửi lại cùng `event_uid` không tạo bản ghi, alert hay thông báo trùng *(ADR-0002)*. — *Kiểm chứng:* `test_internal_events.py::test_same_event_uid_twice_single_row` (kiểm tra số dòng `events`, `alerts`, và số lần publisher được gọi).
 
 ## 6. Kế hoạch test
 
@@ -200,10 +200,17 @@ Lệch so với spec (ghi lại, không chặn):
 
 Kiểm tra (2026-11-18, sau khi merge `main` có F25): `make check` exit 0 (server 1039 passed, web 87 passed, build OK; lần chạy trước merge có một lần vitest hết bộ nhớ, chạy lại đạt). `scripts\dev.ps1 check` không chạy vì máy thiếu bộ nhớ; job Windows trên CI kiểm thay.
 
+**2026-11-18 – review: Đạt**, kèm 2 điểm sửa (test trước, commit `test(F17): review fixes …` rồi `fix(F17): …`):
+
+1. `OBSERVATION_RESTORED` không qua debounce khi LOST của cùng chuỗi đã phát (luôn đi cặp): `test_rules_observation.py::test_restored_not_debounced_when_its_lost_was_emitted` (kịch bản 0/10/55/60/70/75 s → cả hai RESTORED đều phát). Ghi ở event-engine.md mục 5.
+2. Nhánh `IntegrityError` của `ingest_event` (request khác lưu cùng `event_uid` giữa lúc kiểm tra và lúc insert) được kiểm chứng xác định: `test_ingest_event.py::test_integrity_error_branch_returns_existing` (`_existing` lần đầu trả None → rollback, trả bản đã có, `created = false`, không phát).
+
+Bằng chứng AC ở bảng trên (mục 5 đã tick). Sau sửa: MAKECHECK. Trạng thái: **Done**.
+
 ## 11. Definition of Done
 
-- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
-- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
-- [ ] Doc liên quan đã cập nhật cùng PR.
-- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [x] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [x] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [x] Doc liên quan đã cập nhật cùng PR.
+- [x] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).

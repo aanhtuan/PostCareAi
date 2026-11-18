@@ -6,7 +6,8 @@
 - `OBSERVATION_LOST`: chuỗi giữ ≥ `quality.observation_lost_event_s` → một bản nháp mỗi chuỗi;
   `occurred_at_ms` = đầu chuỗi, `detected_at_ms` = frame đạt ngưỡng.
 - `OBSERVATION_RESTORED`: ở frame thoát chuỗi, **chỉ khi** `OBSERVATION_LOST` của chuỗi đó đã qua
-  debounce (`RuleSet` gọi `confirm_lost`). Mất quan sát ngắn không sinh gì (giảm nhiễu timeline).
+  debounce (`RuleSet` gọi `confirm_lost`); bản thân RESTORED không qua debounce (đi cặp với LOST).
+  Mất quan sát ngắn không sinh gì (giảm nhiễu timeline).
 - `confidence = 1.0` *(giả định: hệ thống biết chắc là mình không quan sát được; không có keypoint
   để lấy trung bình visibility)*.
 
