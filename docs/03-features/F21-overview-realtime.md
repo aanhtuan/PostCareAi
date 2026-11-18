@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F21 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -114,6 +114,8 @@ Feature này nâng màn hình "Tổng quan" khung của F09 thành bản realtim
 - *(giả định)* "Diễn biến gần đây" giới hạn 10 dòng (R6).
 - *(giả định)* Số cảnh báo tính bằng SQL `GROUP BY` (R9).
 - Quy tắc ánh xạ thẻ theo A12.
+- *(giả định, 18/11)* Polling 5 s chỉ còn là đường dự phòng khi WebSocket không ở trạng thái mở (đang kết nối / đang kết nối lại); khi WebSocket mở thì không polling (R8). Lý do: F09 R6 yêu cầu dữ liệu vẫn mới khi mất WebSocket.
+- *(giả định, 18/11)* Invalidate từ WebSocket được gộp trong 200 ms (hằng số UI) để chuỗi message liên tiếp chỉ gây một lần refetch mỗi query; vẫn trong mục tiêu ≤ 1–2 s.
 
 ## 8. Câu hỏi mở
 
@@ -121,7 +123,35 @@ Feature này nâng màn hình "Tổng quan" khung của F09 thành bản realtim
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+> Lập 18/11/2026. Prototype đã có phần lớn màn hình (làm cùng F09/F18/F37). F21 kiểm lại từng AC với code + test, chỉ lấp chỗ thiếu.
+
+**Đã đáp ứng (bằng chứng hiện có):**
+
+| Mục | Code | Test |
+|---|---|---|
+| R2/AC1 ánh xạ A12 (kèm tạm dừng thu hình, camera mất kết nối) | `web/src/pages/Overview/bedCardStatus.ts` | `bedCardStatus.test.ts`; `OverviewPage.test.tsx::renders a card per bed with A12 status…`; `BedCard.test.tsx` |
+| R3/R4 trạng thái cơ thể, chất lượng, số chờ, ưu tiên cao nhất | `BedCard.tsx`, `vi.quality`, `vi.bodyState` | `BedCard.test.tsx`, `OverviewPage.test.tsx` |
+| R5/R6 hai khối, nút [Đã tiếp nhận], không hiện mã | `OverviewPage.tsx` (`AttentionEvents`, `RecentActivity`, `AlertActions`) | `OverviewPage.test.tsx::shows attention and recent activity blocks…`, `doctor sees no action buttons` |
+| R9 trường mở rộng của `GET /overview` (SQL `GROUP BY`) | `server/src/postcare/domain/overview.py` | `test_timeline_handover.py`, `test_realtime_seed.py` (chưa có trong `test_overview.py`) |
+| R7 `bed.state`/`camera.status` → `setQueryData`; còn lại → invalidate | `web/src/realtime/invalidation.ts` | `invalidation.test.ts` |
+| Ghi chú 17/11: thẻ "tạm dừng thu hình"; FAMILY không vào Tổng quan | `bedCardStatus.ts` (`PAUSED`), `App.tsx::Protected` | `bedCardStatus.test.ts`, `App.test.tsx`, `test_overview_requires_staff` |
+
+**Còn thiếu → bước làm:**
+
+1. Test trước (commit `test(F21): …`):
+   - `test_overview.py::test_overview_alert_counts_and_max_priority` (ca âm: `RESOLVED` không đếm).
+   - `invalidation.test.ts`: `alert.created bumps the bed card immediately`; `bursts of messages coalesce into one invalidation per key` (không "bão refetch").
+   - `alertNotifier.test.ts`: `HIGH alert shows toast and sound once`, `MEDIUM alert toast without sound`, `duplicate alert.created is ignored`.
+   - `OverviewPage.test.tsx`: `card updates from bed.state without refetch`, `attention block updates on alert.created`, `recent activity updates on event.created` (ca âm: sự kiện LOG không vào khối chú ý), `no refetch interval while WebSocket open` (fake timers 30 s), `polls as fallback while WebSocket disconnected`, `refetches after reconnect`, `does not render internal codes`.
+   - `LiveViewPage.test.tsx`: `shows body state from bed.state`, `shows observation quality label`, `shows latest event text from vi.ts`, `no bed.state shows Không đủ dữ liệu quan sát`, `no polling while WebSocket open`.
+   - Hạ tầng test: `renderWithProviders` nhận `{ ws, qc }` để giả trạng thái WebSocket và đẩy message qua `applyMessage`.
+2. `web/src/realtime/useRealtimeStatus.ts` (đọc `RealtimeContext`). `useOverview`/`useCameraDetail` chỉ polling khi WebSocket không ở trạng thái `open`; bỏ `useLiveOverview`, LiveView dùng chung `useOverview`.
+3. `invalidation.ts`: gộp invalidate theo khóa trong cửa sổ ngắn (`INVALIDATE_COALESCE_MS = 200`, hằng số UI) để chuỗi message không gây bão refetch; `alert.created` cập nhật ngay thẻ (`pending_alert_count`, `max_open_priority`) bằng `setQueryData`.
+4. `web/src/realtime/alertNotifier.ts`: toast cho mỗi `alert.created` đúng một lần theo `alert.id`; âm thanh chỉ khi `HIGH` (QA#17). `RealtimeProvider` dùng notifier này.
+5. Doc: F21 §10, `api-conventions.md` (mục WebSocket: gộp invalidate, polling dự phòng), `coding-standards.md` nếu cần.
+6. `make check` một lần; kiểm chứng thủ công: DB `postcare_f21`, API :8021, web :5181, `postcare simulate --bed A01`.
+
+Không có migration, không đổi OpenAPI, không thêm thư viện.
 
 ## 10. Ghi chú bàn giao
 
