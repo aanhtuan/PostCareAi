@@ -89,7 +89,7 @@ F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được tr�
 | F19 | Vòng đời cảnh báo và audit | M2 | Done |
 | F20 | Màn hình Cảnh báo | M2 | Done |
 | F21 | Dashboard Tổng quan realtime | M2 | Done |
-| F22 | Timeline / Lịch sử theo dõi | M2 | Todo |
+| F22 | Timeline / Lịch sử theo dõi | M2 | Done |
 | F23 | Mức vận động và chuyển động bất thường | M2 | Done |
 | F24 | Bàn giao ca | M2 | Todo |
 | F25 | Face adapter và cổng chất lượng khuôn mặt | M3 | Done |

@@ -80,7 +80,7 @@ Gắn một bệnh nhân (mã thử nghiệm) với một giường và camera t
 - **R20.** Đang tạm dừng mà gọi pause → 409 `SESSION_ALREADY_PAUSED`; không tạm dừng mà gọi resume → 409 `SESSION_NOT_PAUSED`; phiên đã kết thúc → 409 `SESSION_ALREADY_ENDED` (F36 R16). Kết thúc phiên hoặc chuyển giường khi đang tạm dừng là hợp lệ; khi đó `paused_at`/`paused_by` của phiên cũ được xóa (giá trị cũ nằm trong `before` của audit) *(giả định)*, phiên mới không tạm dừng (R17).
 - **R21.** Audit `session.pause` (`after` `{paused_at, reason}`) / `session.resume` (`before` `{paused_at}`), cùng transaction; sau commit phát `session.updated` (F36 R17, phần nhân viên).
 - **R22.** `GET /internal/v1/cameras/{id}/config` trả `capture_paused` (phiên đang mở của giường đang tạm dừng); `POST /internal/v1/events` cho phiên đang tạm dừng (sự kiện xảy ra từ lúc `paused_at`) → 409 `CAPTURE_PAUSED` (F36 R18). UI "Quản lý giường": nút "Tạm dừng thu hình" / "Tiếp tục thu hình" cho vai trò được ghi, nhãn "Đang tạm dừng thu hình – hệ thống không quan sát trong lúc này" (F36 R18, R21).
-- Vẫn thuộc F36: `family.state`/`capture_paused` cho người nhà, worker dừng đọc khung, API bỏ `state`/`frame` khi tạm dừng, mục tạm dừng trên timeline.
+- Vẫn thuộc F36: `family.state`/`capture_paused` cho người nhà, worker dừng đọc khung, API bỏ `state`/`frame` khi tạm dừng, lọc timeline cho người nhà. Mục tạm dừng/tiếp tục/chuyển giường trên timeline nhân viên đã làm ở F22 (`kind = "session_action"`).
 
 ## 4. Thiết kế liên quan
 

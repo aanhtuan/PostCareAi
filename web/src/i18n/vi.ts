@@ -320,6 +320,12 @@ export const vi = {
     acknowledge: 'Đã tiếp nhận cảnh báo ({name})',
     outcome: 'Ghi kết quả: {outcome} ({name})',
     resolve: 'Sự kiện đã xử lý ({name})',
+    // Thao tác phiên (F04 R16, R19–R22)
+    transfer: 'Chuyển từ giường {from} sang giường {to} ({name})',
+    pause: 'Tạm dừng thu hình ({name})',
+    resume: 'Tiếp tục thu hình ({name})',
+    reason: 'Lý do',
+    loadMore: 'Xem thêm',
     system: 'hệ thống',
     alertInfo: '{status} · {outcome}',
     hint: 'Timeline là nguồn tham khảo, không thay thế hồ sơ bệnh án.',

@@ -2254,6 +2254,18 @@
             }
           },
           {
+            "name": "chain",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Gộp cả chuỗi phiên chuyển giường (F04 R16)",
+              "default": false,
+              "title": "Chain"
+            },
+            "description": "Gộp cả chuỗi phiên chuyển giường (F04 R16)"
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -6500,7 +6512,8 @@
             "type": "string",
             "enum": [
               "event",
-              "alert_action"
+              "alert_action",
+              "session_action"
             ],
             "title": "Kind"
           },
@@ -6508,6 +6521,17 @@
             "type": "string",
             "format": "date-time",
             "title": "Time"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
           },
           "bed_code": {
             "anyOf": [
@@ -6521,14 +6545,35 @@
             "title": "Bed Code"
           },
           "event_id": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Event Id"
           },
           "code": {
-            "$ref": "#/components/schemas/EventCode"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "priority": {
-            "$ref": "#/components/schemas/Priority"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Priority"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "observation_quality": {
             "anyOf": [
@@ -6557,7 +6602,10 @@
                 "enum": [
                   "alert.acknowledge",
                   "alert.outcome",
-                  "alert.resolve"
+                  "alert.resolve",
+                  "session.transfer",
+                  "session.pause",
+                  "session.resume"
                 ]
               },
               {
@@ -6607,18 +6655,41 @@
               }
             ],
             "title": "Alert Id"
+          },
+          "event_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_bed_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Bed Code"
           }
         },
         "type": "object",
         "required": [
           "kind",
           "time",
+          "session_id",
           "bed_code",
           "event_id",
           "code",
           "priority"
         ],
-        "title": "TimelineItemOut"
+        "title": "TimelineItemOut",
+        "description": "Một mục timeline (F22 R2). `kind`:\n\n- `event`: `event_id`, `code`, `priority`, `observation_quality`, `alert`;\n- `alert_action`: `action` (`alert.*`), `actor`, `outcome`, `note`, `alert_id`, `event_code`\n  (`event_id`/`code`/`priority` là của sự kiện gốc);\n- `session_action`: `action` (`session.*`), `actor`, `note` (lý do), `from_bed_code` khi\n  chuyển giường; không có sự kiện nên `event_id`/`code`/`priority` = null."
       },
       "UserCreate": {
         "properties": {

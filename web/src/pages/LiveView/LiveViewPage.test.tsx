@@ -92,6 +92,12 @@ describe('LiveViewPage', () => {
     expect(screen.queryByText(vi.live.roiNotConfigured)).toBeNull();
   });
 
+  it('LiveViewPage links to the bed timeline (F22 R7)', async () => {
+    setup(bed());
+    const link = await screen.findByRole('link', { name: vi.timeline.title });
+    expect(link.getAttribute('href')).toMatch(/^\/timeline\?bed=1&session=\d+$/);
+  });
+
   it('LiveViewPage shows no-session label', async () => {
     setup(bed({ session: null }));
     expect(await screen.findByText(vi.live.noSession)).toBeInTheDocument();
