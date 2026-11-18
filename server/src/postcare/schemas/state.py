@@ -52,3 +52,7 @@ class BodyStateSnapshot(BaseModel):
     explanation: dict[str, JsonValue] | None = None
     """Căn cứ của lần chuyển `body_state` gần nhất (F14 R10): `rule_id`, `from_state`, `to_state`,
     `held_ms`, đặc trưng chính, có thể có `anomaly`. None ở trạng thái khởi tạo."""
+    rest_explanation: dict[str, JsonValue] | None = None
+    """Entry mức LOG của lần chuyển `rest_status` gần nhất (F27 R5): `rule_id`, `priority`,
+    `from_status`, `to_status`, `activity_level`, `face_status`, `low_activity_ms`,
+    `eyes_closed_ms`, `ts_ms`. Không phải sự kiện, không gửi lên API. None khi chưa chuyển."""
