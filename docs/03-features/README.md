@@ -38,7 +38,7 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F28](F28-privacy-display-modes.md) | Chế độ riêng tư khi hiển thị | M4 | MVP | A+C | F07, F11 | PDF §11, §16; HS §6.3 | Done |
 | [F29](F29-final-evaluation.md) | Đánh giá chính thức và chỉ số realtime/workflow | M4 | MVP | A+B | F16, F18, F19, F26 | PDF §11, §13; HS §8.2 | Todo |
 | [F30](F30-demo-readiness.md) | Sẵn sàng demo | M4 | MVP | C | F20–F28, F31 (R1–R3), F36 | PDF §16; HS §8.3; QA#32 | Todo |
-| [F31](F31-multi-camera.md) | Nhiều camera/giường chạy đồng thời (R1–R3 cho demo chung kết) | M4 (R1–R3) / Sau MVP | MVP (R1–R3) | A+B | F06, F17 | HS §9.2; PDF §18; QA#32 | Todo |
+| [F31](F31-multi-camera.md) | Nhiều camera/giường chạy đồng thời (R1–R3 cho demo chung kết) | M4 (R1–R3) / Sau MVP | MVP (R1–R3) | A+B | F06, F17 | HS §9.2; PDF §18; QA#32 | Done |
 | [F32](F32-alert-escalation.md) | Chuyển tiếp cảnh báo chưa được tiếp nhận | Sau MVP | Sau MVP | B | F19 | HS §9.2; PDF §18 | Todo |
 | [F33](F33-mobile-notifications.md) | Thông báo di động cho điều dưỡng | Sau MVP | Sau MVP | B+C | F18 | HS §9.2; PDF §18, tr.10 | Todo |
 | [F34](F34-long-term-statistics.md) | Dashboard thống kê dài hạn theo ca | Sau MVP | Sau MVP | B+C | F24 | HS §9.2; PDF §18 | Todo |
