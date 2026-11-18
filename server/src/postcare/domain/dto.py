@@ -282,6 +282,37 @@ class CameraDetailOut(CameraOut):
     roi_polygon: list[list[float]] | None = None
 
 
+class CameraRoiIn(StrictIn):
+    """`PUT /cameras/{id}/roi` (F08 R1). Điểm kiểm tra bằng `validate_roi_polygon` (lỗi 400
+    `INVALID_ROI_POLYGON`), nên ở đây chỉ cần là danh sách."""
+
+    roi_polygon: list[Any]
+
+
+class CameraRoiOut(BaseModel):
+    camera_id: int
+    roi_polygon: list[list[float]]
+    config_version: int
+
+
+class CameraThresholdsIn(StrictIn):
+    """`PUT /cameras/{id}/thresholds` (F08 R4): thay toàn bộ override; `{}` = khôi phục mặc định.
+
+    Lồng nhau như `config/engine.default.yaml`, ví dụ `{"posture": {"lying_enter_deg": 20}}`.
+    """
+
+    thresholds: dict[str, Any]
+
+
+class CameraThresholdsOut(BaseModel):
+    """Ngưỡng mặc định, override của camera và giá trị đang áp dụng (mặc định + override)."""
+
+    defaults: dict[str, Any]
+    overrides: dict[str, Any]
+    effective: dict[str, Any]
+    config_version: int
+
+
 # Mã và chuỗi bắt buộc: bỏ khoảng trắng đầu/cuối rồi mới kiểm tra (F03 R6).
 Code = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
