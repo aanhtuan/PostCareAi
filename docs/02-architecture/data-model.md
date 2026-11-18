@@ -84,10 +84,10 @@ erDiagram
 | bed_id | bigint FK → beds | unique, null | MVP: 1 camera / giường. Xóa (mềm) camera đặt về null (F03) |
 | source_type | enum `camera_source_type` | not null | `WEBCAM`, `URL`, `FILE` |
 | source | text | not null | Index webcam, URL (`http://<ip>:4747/video`…), hoặc đường dẫn file |
-| roi_polygon | jsonb | null | `[[x,y],…]`, x,y ∈ [0,1], ≥3 điểm, không tự cắt (F08) |
-| thresholds | jsonb | default `{}` | Override ngưỡng của [engine](event-engine.md#6-cấu-hình-và-ngưỡng-mặc-định) |
+| roi_polygon | jsonb | null | `[[x,y],…]`, x,y ∈ [0,1], 3–20 điểm, không tự cắt, diện tích > 0 (F08; kiểm tra bằng `postcare.schemas.roi.validate_roi_polygon`) |
+| thresholds | jsonb | default `{}` | Override ngưỡng của [engine](event-engine.md#6-cấu-hình-và-ngưỡng-mặc-định), lồng nhau như `config/engine.default.yaml`; F08 validate bằng `EngineConfig` sau khi hợp nhất với mặc định |
 | display_mode | enum `display_mode` | default `BLUR` | `RAW`, `BLUR`, `SKELETON` (F28; A08) |
-| config_version | int | default 1 | Tăng mỗi lần sửa cấu hình (worker poll). F03: tăng khi `source_type`, `source` hoặc `bed_id` đổi giá trị (kể cả xóa camera đang gắn giường); đổi `name` thì không |
+| config_version | int | default 1 | Tăng mỗi lần sửa cấu hình (worker poll). F03: tăng khi `source_type`, `source` hoặc `bed_id` đổi giá trị (kể cả xóa camera đang gắn giường); đổi `name` thì không. F08: tăng khi `roi_polygon` hoặc `thresholds` đổi giá trị |
 | status | enum `camera_status` | default `UNKNOWN` | `ONLINE`, `OFFLINE`, `UNKNOWN` |
 | last_seen_at | timestamptz | null | Heartbeat gần nhất |
 | last_config_hash | text | not null, default `''` | Prototype (ADR-0010, migration 0002): hash cấu hình ngưỡng gần nhất worker gửi lên; dùng cho `events.config_hash` của sự kiện camera do API sinh |
@@ -176,7 +176,7 @@ Index: `(status, created_at)`.
 |---|---|---|---|
 | id | bigint PK | | |
 | actor_user_id | FK → users | null | null = hệ thống/worker |
-| action | text | not null | Ví dụ `session.start`, `session.transfer`, `session.pause`, `alert.acknowledge`, `camera.update_roi`, `bed.delete`, `bed.restore`, `user.lock`, `family_access.grant`, `family_access.view` |
+| action | text | not null | Ví dụ `session.start`, `session.transfer`, `session.pause`, `alert.acknowledge`, `camera.update_roi`, `camera.update_thresholds`, `bed.delete`, `bed.restore`, `user.lock`, `family_access.grant`, `family_access.view` |
 | entity_type | text | not null | `session`, `alert`, `camera`, `bed`, `patient`, `user`, `area`, `shift`, `family_access_grant`… |
 | entity_id | bigint | not null | |
 | before / after | jsonb | null | Ảnh chụp các trường thay đổi |
