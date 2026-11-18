@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F22 |
-| Trạng thái | Todo |
+| Trạng thái | In progress |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -108,6 +108,25 @@ Feature này làm API timeline gồm cả sự kiện lẫn thao tác cảnh bá
 ## 9. Kế hoạch triển khai
 
 > Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+
+**Khảo sát (2026-11-18).** Prototype đã có:
+- `server/src/postcare/domain/timeline.py`: `UNION ALL` sự kiện + audit `alert.acknowledge|outcome|resolve`, `ORDER BY time, ord, event_id, audit_id` (sự kiện trước khi trùng giờ, R3), lọc giường/phiên/khoảng `[from, to)`/mức ưu tiên (mục thao tác theo mức của sự kiện gốc, R4), mặc định 24 giờ, `from >= to` → 400, phiên không có → 404, `limit ≤ 200`.
+- `GET /api/v1/sessions/{id}/timeline` (`require_staff`), `GET /api/v1/timeline` (router `require_staff`); FAMILY → 403 đã có trong `tests/api/test_family_role_default_deny.py`.
+- `tests/test_timeline_handover.py::test_session_timeline_order` (thứ tự, actor, outcome, không có `alert.create`, lọc giường + khoảng); `test_timeline_unknown_session_404`; `tests/api/test_catalog_delete.py` (timeline giường đã xóa); `test_session_transfer.py::test_transfer_keeps_old_events_on_old_session`.
+- `web/src/pages/Timeline/TimelinePage.tsx`: chọn giường (kể cả "Đã xóa", F03 R17)/phiên/khoảng/mức ưu tiên, dòng `{time} - {text}` từ `vi.ts`, tiêu đề ngày khi qua nhiều ngày, người tiếp nhận, kết quả, `AlertActions` (tự ẩn với DOCTOR), invalidation `timeline` khi có `event.created`/`alert.updated` (F18/F21); liên kết từ "Xem chi tiết" cảnh báo (`AlertDetailModal`). Test: chỉ `deletedBeds.test.tsx`.
+
+**AC đã đạt một phần (chưa có test theo tên AC):** AC1 (gộp + thứ tự), AC3 (lọc, phía API), R6 (404, FAMILY 403). AC2, AC4 chưa có component test.
+
+**Thiếu (sẽ làm):**
+1. *Chuỗi phiên sau chuyển giường* (hộp 17/11; F04 R16): `GET /sessions/{id}/timeline?chain=true` gộp mọi phiên cùng chuỗi `previous_session_id` (dùng `session_chain` của F04). Mặc định `chain=false` để F36 dùng đúng một phiên được cấp *(giả định)*. UI luôn gửi `chain=true` khi xem theo phiên.
+2. *Mục thao tác phiên* `kind = "session_action"` từ audit `session.transfer|pause|resume` (`entity_type = "session"`): "Chuyển từ giường A01 sang giường A02 (tên)", "Tạm dừng thu hình (tên)", "Tiếp tục thu hình (tên)" (F04 R16, F36 ghi chú). Theo giường: transfer hiện ở cả giường cũ và giường mới. Không có mức ưu tiên nên **luôn giữ** khi lọc mức ưu tiên *(giả định)*. `TimelineItemOut`: `event_id`, `code`, `priority` thành nullable; thêm `session_id`, `from_bed_code`; `action` mở rộng. Chạy `make gen-api-types`.
+3. *Test server* `server/tests/api/test_timeline.py` theo tên AC: `test_session_timeline_merges_events_and_alert_actions_sorted`, `test_outcome_rewrite_shows_two_actions`, `test_alert_create_not_listed`, `test_same_time_ties_are_deterministic`, `test_bed_timeline_filters_by_time_range` (biên `from` gồm, `to` loại), `test_filter_by_priority_keeps_related_actions`, `test_bed_timeline_includes_camera_events_without_session`, `test_session_timeline_chain_after_transfer`, `test_pause_resume_and_transfer_entries`, `test_pagination`, `test_doctor_can_read_timeline`, `test_family_forbidden_timeline`, ca âm tính phiên khác không xuất hiện, 404.
+4. *Component test* `web/src/pages/Timeline/TimelinePage.test.tsx`: `formats line as HH:mm:ss - text in Asia/Ho_Chi_Minh`, `does not render internal codes`, `sends filter params`, `shows acknowledger name`, `records outcome from timeline row`, `doctor sees no action buttons`, mục chuyển giường/tạm dừng, gửi `chain=true`.
+5. *R7 truy cập từ thẻ giường:* thẻ giường mở "Theo dõi trực tiếp" (F21); thêm liên kết "Lịch sử theo dõi" trên trang đó tới `/timeline?bed=…&session=…`.
+6. *Phân trang UI:* API trả `total`; khi `total > items.length` hiện nút "Xem thêm" (tăng `limit`… bằng `offset`) *(giả định)*.
+7. Docs: `api-conventions.md` (tham số `chain`, `kind = session_action`), spec §10.
+
+**Câu hỏi mở:** không có điểm chặn; các lựa chọn trên ghi là giả định.
 
 ## 10. Ghi chú bàn giao
 
