@@ -45,6 +45,7 @@ EngineOutput
 ```
 
 - `face = None` nghĩa là frame này không chạy face (do `face.run_every_n_frames`). Engine giữ tín hiệu mặt gần nhất trong tối đa `face.run_every_n_frames` frame, sau đó coi là `NOT_VISIBLE` *(giả định)*.
+- Nhánh face (F25, `vision/inference/face_gate.py`) chạy **trước** engine, trên người mục tiêu mà engine sắp chọn (`Engine.peek_target(obs)`, chỉ đọc). Ở frame chạy face, `status` gán theo thứ tự: không có mục tiêu → `NOT_VISIBLE`; dưới 2 keypoint đầu (`nose`, mắt, tai) đạt `pose.min_keypoint_visibility` → `LOW_CONFIDENCE`; `head_box_px < face.min_head_box_px` → `TOO_SMALL` (ba trường hợp này không gọi Face Landmarker); thiếu model, ảnh cắt rỗng hoặc adapter lỗi → `NOT_VISIBLE` (đếm lỗi, ghi WARNING); không thấy mặt trong ảnh cắt → `NOT_VISIBLE`; còn lại `OK`. `head_box_px` là cạnh hình vuông quanh keypoint đầu, nới theo `face.head_crop_scale` (`vision/inference/head_region.py`, dùng chung với F28). `face.enabled = false` → không chạy nhánh face, `face` luôn `None`. Lỗi face không bao giờ đổi trạng thái hay sự kiện cơ thể.
 - Vòng đời một instance `Engine` = một phiên theo dõi. Worker tạo `Engine` mới khi phiên đổi hoặc ROI/ngưỡng đổi *(giả định)*.
 
 `KeypointName` là danh sách tên trung lập. Adapter MediaPipe ánh xạ 33 landmark sang các tên này. Adapter khác (ví dụ RTMPose) ánh xạ tập keypoint của nó sang cùng tên (PDF §10).
@@ -230,7 +231,7 @@ face:
   enabled: true                    # tắt để đo FPS hoặc khi thu hẹp M3 (F25)
   min_head_box_px: 80              # A05
   run_every_n_frames: 2            # A05
-  head_crop_scale: 1.6             # nới vùng đầu khi cắt (F25)
+  head_crop_scale: 2.2             # nới vùng đầu khi cắt (F25)
   # Gộp nhiều khóa của một tín hiệu (trái/phải, mouth*) bằng max (F26)
   signals:                         # ngưỡng blendshape 0..1
     eyes_closed: {keys: [eyeBlinkLeft, eyeBlinkRight], threshold: 0.6}

@@ -24,10 +24,11 @@ from postcare.schemas.enums import (
     RestStatus,
 )
 from postcare.schemas.events import EngineEvent, EngineOutput, EventCode
-from postcare.schemas.observation import FrameObservation
+from postcare.schemas.observation import FaceObservation, FrameObservation, PersonPose
 from postcare.schemas.roi import validate_roi_polygon
 from postcare.schemas.state import BodyStateSnapshot, FaceSignals
 from postcare.vision.fake import FakeFrameSource
+from postcare.vision.inference.face_gate import FaceGate
 from postcare.vision.inference.fake import FakePoseAdapter
 from postcare.worker.client import WorkerApiClient
 from postcare.worker.config import WorkerConfig
@@ -168,9 +169,15 @@ class FakeEngine:
         self._events_at = set(events_at)
         self._current = BodyState.LYING
         self.processed: list[int] = []
+        self.faces: list[FaceObservation | None] = []
+
+    def peek_target(self, obs: FrameObservation) -> PersonPose | None:
+        """Mục tiêu giả: người đầu tiên trong khung (F25)."""
+        return obs.persons[0] if obs.persons else None
 
     def process(self, obs: FrameObservation) -> EngineOutput:
         self.processed.append(obs.frame_index)
+        self.faces.append(obs.face)
         changed = False
         if obs.frame_index in self._states:
             new = self._states[obs.frame_index]
@@ -215,6 +222,8 @@ def make_harness(
     source: Callable[[], Any] | None = None,
     pace: Callable[[Any], bool] | None = None,
     hang: bool = False,
+    persons: Callable[[int], list[PersonPose]] | None = None,
+    face_factory: Callable[[WorkerConfig], FaceGate | None] | None = None,
 ) -> Harness:
     t = FakeTime()
     api = FakeApi(time=t, config=config or default_config())
@@ -241,7 +250,8 @@ def make_harness(
         return src
 
     def adapter_factory(cfg: WorkerConfig) -> FakePoseAdapter:
-        adapter = FakePoseAdapter({})
+        by_index = {i: persons(i) for i in range(len(make_script()))} if persons else {}
+        adapter = FakePoseAdapter(by_index)
         adapters.append(adapter)
         return adapter
 
@@ -250,6 +260,7 @@ def make_harness(
         engine_factory=engine_factory,
         source_factory=source_factory,
         adapter_factory=adapter_factory,
+        face_factory=face_factory,
         options=options or WorkerOptions(),
         clock=t.monotonic,
         wall=t.wall,

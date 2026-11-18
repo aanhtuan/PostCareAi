@@ -54,10 +54,29 @@ class TargetSelector:
         self._last_hip = None
         self._last_torso = None
 
+    def peek(self, obs: FrameObservation) -> PersonPose | None:
+        """Người mà `select(obs)` sẽ chọn, nhưng không đổi trạng thái (nhánh face F25 chạy trước
+        engine). Gọi ngay trước `select(obs)` thì luôn trùng `select(obs).target`."""
+        chosen, _, _ = self._choose(obs)
+        return None if chosen is None else chosen.person
+
     def select(self, obs: FrameObservation) -> TargetSelection:
+        chosen, in_roi, is_new = self._choose(obs)
+        if chosen is None:
+            return TargetSelection(target=None, persons_in_roi=in_roi, is_new=False)
+        # Chỉ cập nhật vị trí nhớ khi hai hông nhìn thấy rõ: vị trí đoán lúc bị che không được kéo
+        # mục tiêu đi (review F13). Lúc nhận mới thì luôn ghi để có mốc bám.
+        if is_new or self._hips_visible(chosen.person):
+            self._last_hip = chosen.hip
+            if chosen.torso:
+                self._last_torso = chosen.torso
+        return TargetSelection(target=chosen.person, persons_in_roi=in_roi, is_new=is_new)
+
+    def _choose(self, obs: FrameObservation) -> tuple[_Candidate | None, int, bool]:
+        """(người được chọn, số người trong ROI, có phải nhận mới). Không đổi trạng thái."""
         if not obs.source_ok:
             # Không tin khung hình lỗi nguồn: không đếm, không cập nhật vị trí nhớ.
-            return TargetSelection(target=None, persons_in_roi=0, is_new=False)
+            return None, 0, False
         geo = self._geometry.get(obs.image_size)
         candidates: list[_Candidate] = []
         for i, person in enumerate(obs.persons[: self._num_poses]):
@@ -76,25 +95,12 @@ class TargetSelector:
                 )
             )
         in_roi = [c for c in candidates if c.inside]
-
-        chosen: _Candidate | None = None
-        is_new = False
         if self._last_hip is not None:
-            chosen = self._match_continuous(candidates, self._last_hip)
-        elif in_roi:
+            return self._match_continuous(candidates, self._last_hip), len(in_roi), False
+        if in_roi:
             # Nhận mới: người nằm sâu nhất trong ROI; hòa thì người đứng trước (xác định).
-            chosen = max(in_roi, key=lambda c: (c.depth, -c.index))
-            is_new = True
-
-        if chosen is None:
-            return TargetSelection(target=None, persons_in_roi=len(in_roi), is_new=False)
-        # Chỉ cập nhật vị trí nhớ khi hai hông nhìn thấy rõ: vị trí đoán lúc bị che không được kéo
-        # mục tiêu đi (review F13). Lúc nhận mới thì luôn ghi để có mốc bám.
-        if is_new or self._hips_visible(chosen.person):
-            self._last_hip = chosen.hip
-            if chosen.torso:
-                self._last_torso = chosen.torso
-        return TargetSelection(target=chosen.person, persons_in_roi=len(in_roi), is_new=is_new)
+            return max(in_roi, key=lambda c: (c.depth, -c.index)), len(in_roi), True
+        return None, len(in_roi), False
 
     def _hips_visible(self, person: PersonPose) -> bool:
         return all(

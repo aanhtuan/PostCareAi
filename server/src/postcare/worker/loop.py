@@ -7,7 +7,8 @@ test chạy nhanh và xác định (R12, R13). Mỗi `step()`:
 2. Đến hạn → heartbeat (2 s, A02); `config_version` khác → tải lại cấu hình. Poll cấu hình 5 s.
 3. Gửi lại sự kiện đang chờ (cùng `event_uid`).
 4. Tạm dừng thu hình → đóng nguồn, dừng engine, chỉ heartbeat (`source_status = PAUSED`).
-5. Đọc một khung → `process_frame` (pose + engine) → state khi đổi, sự kiện; JPEG ~5 fps (A03).
+5. Đọc một khung → `process_frame` (pose + face nếu `face.enabled` + engine) → state khi đổi,
+   sự kiện; JPEG ~5 fps (A03). Nhánh face (F25) lỗi không làm dừng pose/engine (F25 R8).
 
 Nguồn file được phát theo nhịp thời gian thực (`pace`): một camera không chạy nhanh hơn thời gian
 thật. Quy đổi `ts_ms` → UTC: `t0_utc + (ts_ms − ts0_ms)` với `t0_utc` lúc nhận khung đầu (F17 R4).
@@ -36,6 +37,7 @@ from postcare.schemas.state import BodyStateSnapshot
 from postcare.vision.camera import FileSource, Frame, FrameSource, SourceOpenError
 from postcare.vision.image_stats import mean_brightness
 from postcare.vision.inference.base import PoseAdapter
+from postcare.vision.inference.face_gate import FaceGate
 from postcare.vision.render import encode_jpeg
 from postcare.worker.client import (
     ApiUnavailableError,
@@ -89,6 +91,7 @@ class _PendingEvent:
 EngineFactory = Callable[[WorkerConfig], FrameEngine]
 SourceFactory = Callable[[WorkerConfig], FrameSource]
 AdapterFactory = Callable[[WorkerConfig], PoseAdapter]
+FaceFactory = Callable[[WorkerConfig], FaceGate | None]
 
 
 def default_engine_factory(engine_config_path: Path | str) -> EngineFactory:
@@ -101,6 +104,32 @@ def default_engine_factory(engine_config_path: Path | str) -> EngineFactory:
             camera_id=cfg.camera_id, roi_polygon=validate_roi_polygon(cfg.roi_polygon)
         )
         return Engine(config, context)
+
+    return _make
+
+
+def default_face_factory(engine_config_path: Path | str, models_dir: Path) -> FaceFactory:
+    """Cổng face thật (F25) theo `face.enabled` sau khi hợp nhất `thresholds` của camera.
+
+    Tắt → `None`. Thiếu model face → cổng không adapter (luôn `NOT_VISIBLE`, WARNING; R8).
+    """
+
+    def _make(cfg: WorkerConfig) -> FaceGate | None:
+        config = EngineConfig.load(engine_config_path, cfg.thresholds)
+        if not config.face.enabled:
+            return None
+        # Nhập muộn: chỉ nạp mediapipe khi thật sự bật face (test worker không cần mediapipe).
+        from postcare.settings import REPO_ROOT
+        from postcare.vision.inference.face_landmarker import open_face_adapter
+        from postcare.vision.models import load_manifest
+
+        entry = load_manifest(REPO_ROOT / "config" / "models.yaml").face
+        detector = None
+        if entry is None:
+            logger.warning("Manifest model không có face: nhánh face luôn NOT_VISIBLE")
+        else:
+            detector = open_face_adapter(models_dir / entry.filename, config)
+        return FaceGate.from_config(config, detector)
 
     return _make
 
@@ -129,6 +158,7 @@ class Worker:
         engine_factory: EngineFactory,
         source_factory: SourceFactory,
         adapter_factory: AdapterFactory,
+        face_factory: FaceFactory | None = None,
         options: WorkerOptions | None = None,
         clock: Callable[[], float] = time.monotonic,
         wall: Callable[[], datetime] = lambda: datetime.now(UTC),
@@ -140,6 +170,7 @@ class Worker:
         self._engine_factory = engine_factory
         self._source_factory = source_factory
         self._adapter_factory = adapter_factory
+        self._face_factory = face_factory
         self._clock = clock
         self._wall = wall
         self._sleep = sleep
@@ -149,6 +180,8 @@ class Worker:
         self.source: FrameSource | None = None
         self.adapter: PoseAdapter | None = None
         self.engine: FrameEngine | None = None
+        self.face: FaceGate | None = None
+        """Cổng face (F25), tạo cùng engine; `None` khi tắt face hoặc tạo lỗi."""
         self._engine_key: tuple[Any, ...] | None = None
         self._engine_failed_key: tuple[Any, ...] | None = None
 
@@ -362,6 +395,10 @@ class Worker:
 
     def _reset_engine(self) -> None:
         self.engine = None
+        if self.face is not None:
+            # Face Landmarker VIDEO cần ts_ms tăng ngặt: engine/nguồn mới → cổng face mới.
+            self.face.close()
+            self.face = None
         self._engine_key = None
         self._state_sent = False
 
@@ -385,7 +422,17 @@ class Worker:
         self.engine = engine
         self._engine_key = cfg.engine_key
         self._state_sent = False
+        self.face = self._make_face(cfg)
         return engine
+
+    def _make_face(self, cfg: WorkerConfig) -> FaceGate | None:
+        if self._face_factory is None:
+            return None
+        try:
+            return self._face_factory(cfg)
+        except Exception as exc:  # F25 R8: face lỗi → chạy tiếp không có face
+            logger.warning("Không tạo được nhánh face (%s): chỉ chạy pose + engine", exc)
+            return None
 
     # ---- xử lý khung ----
     def _to_utc(self, ts_ms: int) -> datetime:
@@ -406,7 +453,7 @@ class Worker:
         self._brightness = mean_brightness(frame.image)
         engine = self._ensure_engine()
         if engine is not None:
-            _, output = process_frame(frame, self.adapter, engine)
+            _, output = process_frame(frame, self.adapter, engine, self.face)
             self._handle_output(frame, output)
         self._maybe_send_frame(frame, self._clock())
 
