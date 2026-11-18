@@ -1,7 +1,7 @@
 """Bước 6–9: rule sự kiện, vận động, khuôn mặt, debounce (event-engine.md mục 3).
 
 `RuleSet` ghép các rule (`rules/body.py` F15, `rules/movement.py` F23, `rules/observation.py` F17;
-F26, F27 thêm sau) rồi lọc
+`rules/face.py` F26; F27 thêm sau) rồi lọc
 bằng một `Debouncer` chung (`engine/debounce.py`). Mức ưu tiên lấy từ catalog
 `postcare/schemas/events.py`.
 """
@@ -10,8 +10,10 @@ from collections.abc import Sequence
 
 from postcare.engine.activity import ActivityReading
 from postcare.engine.debounce import Debouncer
+from postcare.engine.face import FaceReading
 from postcare.engine.pipeline import FrameAssessment
 from postcare.engine.rules.body import BodyRules
+from postcare.engine.rules.face import FaceRules
 from postcare.engine.rules.movement import MovementRules
 from postcare.engine.rules.observation import ObservationRules
 from postcare.engine.state_machine import StateRecord
@@ -30,6 +32,7 @@ class RuleSet:
         self._body = BodyRules(config)
         self._movement = MovementRules(config)
         self._observation = ObservationRules(config)
+        self._face = FaceRules(config)
         self._debouncer = Debouncer(config.debounce.same_code_same_session_s)
 
     def evaluate(
@@ -39,11 +42,13 @@ class RuleSet:
         body_state: BodyState,
         history: Sequence[StateRecord],
         activity: ActivityReading,
+        face: FaceReading,
     ) -> list[EngineEvent]:
         events: list[EngineEvent] = []
         drafts = self._body.evaluate(ts_ms, assessment, body_state, history)
         drafts.extend(self._movement.evaluate(ts_ms, assessment, activity))
         drafts.extend(self._observation.evaluate(ts_ms, assessment, body_state))
+        drafts.extend(self._face.evaluate(ts_ms, assessment, body_state, activity, face))
         for draft in drafts:
             # RESTORED chỉ sinh khi LOST của cùng chuỗi đã phát, nên đi cặp với LOST đó và không
             # qua debounce (review F17): LOST đã được debounce thay cho cả cặp.
@@ -56,7 +61,7 @@ class RuleSet:
             events.append(
                 EngineEvent(
                     code=draft.code,
-                    priority=default_priority(draft.code),
+                    priority=draft.priority or default_priority(draft.code),
                     occurred_at_ms=draft.occurred_at_ms,
                     detected_at_ms=draft.detected_at_ms,
                     confidence=draft.confidence,

@@ -24,6 +24,7 @@ import { CameraStream } from '../../components/CameraStream';
 import { PriorityBadge } from '../../components/Badges';
 import { fmt, vi } from '../../i18n/vi';
 import { formatTime } from '../../utils/time';
+import { FaceSignalsPanel } from './FaceSignalsPanel';
 
 const POLL_MS = 2000; // giả định F07 R5; chỉ khi WebSocket không mở (F21)
 
@@ -140,10 +141,7 @@ export function LiveViewPage() {
                     label={vi.live.rest}
                     value={state ? vi.rest[state.rest_status] : vi.common.none}
                   />
-                  <Row
-                    label={vi.live.face}
-                    value={state ? vi.faceStatus[state.face_status] : vi.common.none}
-                  />
+                  <Row label={vi.live.faceSignals} value={<FaceSignalsPanel state={state} />} />
                   <Row
                     label={vi.live.camera}
                     value={bed.camera ? bed.camera.name : vi.camera.notAssigned}
