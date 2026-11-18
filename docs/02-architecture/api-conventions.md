@@ -133,7 +133,7 @@ Các loại trên chỉ gửi cho kết nối của **vai trò nhân viên**. K�
 - Khi kết nối lại, frontend refetch dữ liệu thay vì giả định không bỏ lỡ gì.
 - Token sai hoặc hết hạn: server đóng kết nối với mã **4401**. Client không thử lại mà chuyển về trang đăng nhập *(giả định; F18)*. Tài khoản bị khóa hoặc được đặt lại mật khẩu (F35): đóng các kết nối đang mở với mã 4401. Đổi vai trò từ nhân viên sang vai trò khác (ví dụ `FAMILY`): đóng luồng nhân viên với mã 4403.
 - Phía web, mã 4403 cũng không thử lại: client đọc lại `/auth/me` và định tuyến theo vai trò mới (F18 R12, *giả định*).
-- Client không đọc kịp (hàng đợi của kết nối đầy): server đóng với mã **1013** (Try Again Later); client kết nối lại theo backoff rồi refetch như mọi lần kết nối lại. Client chậm không chặn client khác hay request ghi *(giả định; F18 R7)*.
+- Client không đọc kịp (hàng đợi của kết nối đầy): server đóng với mã **1013** (Try Again Later); client kết nối lại theo backoff rồi refetch như mọi lần kết nối lại. Backoff phía web: 1 s → tối đa 15 s, có jitter `[d/2, d]`, chỉ đặt lại sau khi kết nối giữ mở ≥ 30 s. Client chậm không chặn client khác hay request ghi *(giả định; F18 R7)*.
 - Giá trị `token=` trong đường dẫn WS bị che thành `***` trong log của uvicorn (access log và dòng `"WebSocket …"` của logger `uvicorn.error`; `api/log_redaction.py`).
 - Hub giữ mỗi kết nối kèm `user_id`, vai trò và bộ lọc `accept(message)` tùy chọn; `close_where(điều kiện, mã)` đóng các kết nối khớp. F36 dùng hai điểm này để lọc `family.*` theo quyền xem và đóng 4403 (QA#31).
 - Trước F36, mọi kết nối của `FAMILY` vào `/api/v1/ws` bị đóng mã **4403** ngay sau khi xác thực (F35 R2).

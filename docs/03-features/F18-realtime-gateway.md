@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F18 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -184,12 +184,18 @@ Không có migration, endpoint mới hay thư viện mới; không cần `make g
 
 `make check` xanh (pytest 1093 passed; vitest 142 passed). Chưa chạy `scripts\dev.ps1 check` (giới hạn bộ nhớ; CI chạy Windows).
 
+**Review (2026-11-18): Đạt.** Sửa theo review:
+
+1. `WsHub._close_matching`: mỗi lần gọi điều kiện bọc `try/except` + log; điều kiện lỗi ở một kết nối không chặn việc đóng các kết nối khác. Test `test_close_where_predicate_error_does_not_stop_others`.
+2. Client chậm qua WebSocket thật (TestClient, `QUEUE_SIZE = 2`, phát dồn trong một nhịp loop) nhận mã đóng 1013. Test `test_ws_slow_client_closed_1013`.
+3. `wsClient.ts`: chỉ đặt lại backoff khi kết nối giữ mở ≥ 30 s (`STABLE_OPEN_MS`), tránh vòng mở-rồi-đóng mỗi 1 s; độ trễ có jitter kiểu equal jitter `[d/2, d]`. Test `does not reset backoff when the connection drops right after opening`, `adds jitter to the backoff delay`, `caps backoff and resets it after the connection stayed open`.
+
 **Cho người sau:** F36 đăng ký kết nối `FAMILY` bằng `hub.register(user_id, role="FAMILY", accept=<lọc theo grant>)` thay cho nhánh đóng 4403 trong `websocket_endpoint`, và dùng `close_where` để đóng 4403 khi hết grant.
 
 ## 11. Definition of Done
 
-- [ ] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
-- [ ] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
-- [ ] Doc liên quan đã cập nhật cùng PR.
-- [ ] Review theo [review.md](../ai/workflows/review.md): Đạt.
+- [x] Mọi AC đã tick, kèm bằng chứng (test hoặc ghi chú kiểm chứng).
+- [x] `make check` xanh; với feature vision đã chạy `make test-vision` hoặc replay.
+- [x] Doc liên quan đã cập nhật cùng PR.
+- [x] Review theo [review.md](../ai/workflows/review.md): Đạt.
 - [ ] `docs/progress/` đã cập nhật ([update-progress.md](../ai/workflows/update-progress.md)).
