@@ -10,7 +10,9 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 
 ## Đang làm
 
-- **Đợt 2 (17/11/2026):** F01 Done (CI run 44123183950 xanh). Đang làm song song: F11 pose adapter (A), F13 đặc trưng cơ thể (A), F02 đăng nhập và phân quyền (B). Mỗi feature: builder trong worktree → code-reviewer → merge → push → CI.
+- **Đợt hiện tại (18/11/2026):** Done 21 feature: F00–F07, F09–F17, F23, F25, F35, F37, cộng hiệu chỉnh ngưỡng trên tập dev ([calibration-2026-11-18.md](../04-guides/calibration-2026-11-18.md), config_hash chốt cho F29 `cb7a5ed7…44ec`). Đang làm: F08 (cấu hình camera, ROI), F18 (realtime gateway). Tiếp theo: F19 → F20, F21, F22, F24; F26 → F27; F28 → F36; F31 R1–R3; F29; F30.
+  - Quy trình: builder trong worktree → code-reviewer → sửa → merge vào `main` → `make check` → push (người dùng cho phép push nhánh feature và `main`).
+  - Hạ tầng: mỗi worktree dùng DB test riêng (`postcare_<x>_test`), `main` dùng `postcare_main_test`. Máy 16 GB: chạy tối đa 2 `make check` cùng lúc; Docker từng treo khi quá tải (khởi động lại Docker Desktop + `wsl --shutdown`).
 - **Lưu ý cho F16:** nhãn trên dữ liệu ngoài chỉ phủ một số mã sự kiện mỗi video (cột notes); F16 phải bỏ qua mã không được gán nhãn khi tính FP *(giả định, datasets.md)*. Script dựng manifest/truth chưa nằm trong repo; quy tắc dựng ghi ở datasets.md §3.5, cần đưa thành lệnh trong F16.
 
 ## Tiếp theo
