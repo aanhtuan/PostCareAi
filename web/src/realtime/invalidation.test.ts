@@ -40,6 +40,8 @@ function setup() {
 }
 
 const msg = (type: string, payload: unknown) => ({ type, payload, sent_at: '' });
+const T1 = '2026-10-12T07:38:00Z';
+const T2 = '2026-10-12T07:39:00Z';
 
 describe('applyMessage', () => {
   it('bed.state updates only that bed in the overview cache', () => {
@@ -106,6 +108,31 @@ describe('F21 realtime cache updates', () => {
     const after = qc.getQueryData<OverviewOut>(['overview'])!.beds;
     expect(after[1].pending_alert_count).toBe(2);
     expect(after[1].max_open_priority).toBe('HIGH');
+  });
+
+  it('repeated alert.created for the same alert bumps the card once', () => {
+    const { qc } = setup();
+    applyMessage(qc, alertCreated(1, 'MEDIUM', 41));
+    applyMessage(qc, alertCreated(1, 'MEDIUM', 41)); // gửi lại (kết nối lại…)
+    expect(qc.getQueryData<OverviewOut>(['overview'])!.beds[0].pending_alert_count).toBe(1);
+    applyMessage(qc, alertCreated(1, 'HIGH', 42));
+    const b = qc.getQueryData<OverviewOut>(['overview'])!.beds[0];
+    expect(b.pending_alert_count).toBe(2);
+    expect(b.max_open_priority).toBe('HIGH');
+  });
+
+  it('bed.state older than the cached state is ignored', () => {
+    const { qc } = setup();
+    applyMessage(qc, msg('bed.state', { bed_id: 1, body_state: 'STANDING', updated_at: T2 }));
+    applyMessage(qc, msg('bed.state', { bed_id: 1, body_state: 'LYING', updated_at: T1 }));
+    expect(qc.getQueryData<OverviewOut>(['overview'])!.beds[0].state).toMatchObject({
+      body_state: 'STANDING',
+    });
+    // Cùng thời điểm hoặc mới hơn vẫn áp dụng.
+    applyMessage(qc, msg('bed.state', { bed_id: 1, body_state: 'SITTING', updated_at: T2 }));
+    expect(qc.getQueryData<OverviewOut>(['overview'])!.beds[0].state).toMatchObject({
+      body_state: 'SITTING',
+    });
   });
 
   it('bursts of messages coalesce into one invalidation per key', () => {

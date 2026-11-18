@@ -4,9 +4,26 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AlertOut, EventOut, OverviewOut, UserOut } from '../../api/types';
 import { vi as viText } from '../../i18n/vi';
-import { applyMessage, flushInvalidations, invalidateAll } from '../../realtime/invalidation';
+import { applyMessage, flushInvalidations } from '../../realtime/invalidation';
+import { RealtimeProvider } from '../../realtime/RealtimeProvider';
 import { mockFetch, renderWithProviders, testQueryClient } from '../../test/render';
 import { OverviewPage } from './OverviewPage';
+
+// RealtimeClient giả: giữ handler để test gọi onReconnected như khi WebSocket kết nối lại.
+type Handlers = {
+  onStatus: (s: 'connecting' | 'open' | 'reconnecting') => void;
+  onReconnected: () => void;
+};
+const wsHandlers = vi.hoisted(() => ({ current: null as Handlers | null }));
+vi.mock('../../realtime/wsClient', () => ({
+  RealtimeClient: class {
+    constructor(_token: string, handlers: Handlers) {
+      wsHandlers.current = handlers;
+    }
+    start() {}
+    stop() {}
+  },
+}));
 
 const nurse: UserOut = {
   id: 1,
@@ -303,15 +320,49 @@ describe('OverviewPage', () => {
     });
 
     it('refetches after reconnect', async () => {
+      // Đi qua đường thật: RealtimeProvider → RealtimeClient.onReconnected → invalidateAll.
       const r = routes({ '/api/v1/overview': { ...overview, beds: [bed(1, 'A01')] } });
-      const { qc } = live(r);
+      mockFetch(r);
+      renderWithProviders(
+        <RealtimeProvider>
+          <OverviewPage />
+        </RealtimeProvider>,
+        nurse,
+      );
       expect(await screen.findByRole('button', { name: /Giường A01/ })).toBeInTheDocument();
+      expect(wsHandlers.current).not.toBeNull();
+      act(() => wsHandlers.current!.onStatus('open'));
       mockFetch({
         ...r,
         '/api/v1/overview': { ...overview, beds: [bed(1, 'A01'), bed(4, 'A04')] },
       });
-      act(() => invalidateAll(qc));
+      act(() => {
+        wsHandlers.current!.onStatus('open');
+        wsHandlers.current!.onReconnected();
+      });
       expect(await screen.findByRole('button', { name: /Giường A04/ })).toBeInTheDocument();
+    });
+
+    it('refetch result older than a bed.state already applied is ignored', async () => {
+      const r = routes({ '/api/v1/overview': { ...overview, beds: [bed(1, 'A01')] } });
+      const { qc } = live(r);
+      const a01 = await screen.findByRole('button', { name: /Giường A01/ });
+      const newer = '2026-10-12T07:40:00Z';
+      push(qc, 'bed.state', {
+        ...overview.beds[0].state,
+        body_state: 'STANDING',
+        updated_at: newer,
+      });
+      expect(await within(a01).findByText('Đứng')).toBeInTheDocument();
+      // Server trả bản chụp cũ hơn (request bắt đầu trước khi bed.state tới): giữ trạng thái mới.
+      await act(async () => {
+        await qc.refetchQueries({ queryKey: ['overview'] });
+        await new Promise((resolve) => setTimeout(resolve, 20)); // cho React vẽ lại
+      });
+      const cached = qc.getQueryData<OverviewOut>(['overview'])!.beds[0].state;
+      expect(cached?.body_state).toBe('STANDING');
+      expect(within(a01).getByText('Đứng')).toBeInTheDocument();
+      expect(within(a01).queryByText('Nằm')).toBeNull();
     });
   });
 });
