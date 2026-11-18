@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã | F24 |
-| Trạng thái | In review |
+| Trạng thái | Done |
 | Ưu tiên | MVP |
 | Milestone | M2 |
 | Ước lượng | 2 phiên |
@@ -48,7 +48,9 @@ Cảnh báo tồn đọng nằm đầu trang. Số liệu tính bằng **SQL agg
   - `event_counts`: số sự kiện theo `code` có `occurred_at` trong khoảng, mọi mức ưu tiên *(PDF §9.1 (tr.11): "tổng hợp sự kiện theo ca")*.
   - `alerts_resolved` / `alerts_unresolved`: trong các cảnh báo có sự kiện thuộc khoảng, đếm số đã `RESOLVED` trước cuối khoảng và số chưa *(PDF §9.1 (tr.11): "cảnh báo đã/chưa xử lý")*.
   - `state_change_count`: số lần đổi trạng thái *(PDF §9.1 (tr.11))*. Data model không lưu từng lần đổi trạng thái cơ thể (trạng thái chỉ nằm trong RAM, theo data-model.md). Vì vậy giá trị này = số sự kiện tư thế/vị trí `POSTURE_CHANGE`, `SIT_UP`, `STAND_UP`, `BED_EDGE`, `BED_EXIT`, `RETURN_TO_BED` trong khoảng *(giả định: dùng sự kiện làm đại diện)*.
-- **R4.** `outstanding_alerts`: cảnh báo **tồn đọng tại cuối khoảng**, tức tạo trước `to` và chưa xử lý tại `to` (`resolved_at` null hoặc ≥ `to`), kể cả cảnh báo tạo trước `from`. Sắp ưu tiên cao trước, rồi cũ trước *(HS §2.2: "cảnh báo còn tồn đọng"; giả định: định nghĩa và thứ tự sắp)*. Mỗi mục có giường, mã sự kiện, mức, `occurred_at`, `status`, người tiếp nhận.
+  - `outcome_counts`: trong các cảnh báo có sự kiện thuộc khoảng, số đã ghi kết quả `CONFIRMED` / `FALSE_ALARM` / `PATIENT_SAFE` trước cuối khoảng, theo từng kết quả *(giả định; HS §3: "kết quả xác nhận và lịch sử để phục vụ tra cứu và bàn giao ca")*.
+  - `is_active`: giường đã xóa (xóa mềm) vẫn hiện nếu có sự kiện trong khoảng *(giả định)*.
+- **R4.** `outstanding_alerts`: cảnh báo **tồn đọng tại cuối khoảng**. Gọi `cutoff = min(to, now)`: sự kiện của cảnh báo có `occurred_at < cutoff` và cảnh báo chưa xử lý tại `cutoff` (`resolved_at` null hoặc ≥ `cutoff`), kể cả sự kiện trước `from` *(giả định: dùng `occurred_at` của sự kiện, không dùng `alerts.created_at`, để khớp cột "chưa xử lý" của R3 khi cảnh báo được ghi trễ)*. Sắp ưu tiên cao trước, rồi `occurred_at` cũ trước, rồi id *(HS §2.2: "cảnh báo còn tồn đọng"; giả định: định nghĩa và thứ tự sắp)*. Mỗi mục có giường, mã sự kiện, mức, `occurred_at`, `status`, người tiếp nhận. Khoảng đã qua mà cảnh báo được xử lý sau cuối khoảng: UI ghi "Đã xử lý sau ca" thay cho "Đã xử lý" *(giả định)*.
 - **R5.** Số liệu tính bằng SQL aggregation (`COUNT … GROUP BY bed_id, code`, `FILTER (WHERE …)`) trong `domain/handover.py`. Không lặp từng bản ghi bằng Python *(PDF bảng tr.10: "Bàn giao ca / thống kê sự kiện: SQL aggregation")*.
 - **R6.** Mọi vai trò xem được *(api-conventions.md)*. `shift_id` không tồn tại → 404.
 
@@ -84,7 +86,7 @@ Cảnh báo tồn đọng nằm đầu trang. Số liệu tính bằng **SQL agg
 - [x] **AC1.** Chọn ca hoặc khoảng thời gian; tổng hợp theo giường gồm số sự kiện theo loại, cảnh báo đã/chưa xử lý, số lần đổi trạng thái *(PDF §9.1 (tr.11); HS §2.2; QA#19)*. — *Kiểm chứng:* `server/tests/api/test_handover_api.py` (`test_handover_by_shift_and_date`, `test_handover_by_custom_range`, `test_beds_without_events_show_zero`, `test_invalid_range_400`); `HandoverPage.test.tsx::renders per-bed summary`.
 - [x] **AC2.** Cảnh báo tồn đọng (chưa xử lý tại cuối khoảng, kể cả tạo trước khoảng) hiện ở đầu trang *(HS §2.2)*. — *Kiểm chứng:* `server/tests/domain/test_handover.py::test_outstanding_includes_older_unresolved_excludes_resolved_before_end`; `HandoverPage.test.tsx::outstanding alerts rendered first`.
 - [x] **AC3.** Số liệu tính bằng SQL aggregation và đúng trên dữ liệu mẫu, gồm ca đêm vắt qua nửa đêm và sự kiện đúng tại biên ca *(PDF bảng tr.10; QA#19)*. — *Kiểm chứng:* `test_handover.py` (`test_counts_match_seed_data`, `test_night_shift_crosses_midnight`, `test_event_at_boundary_counted_once`, `test_local_time_to_utc_conversion`).
-- [ ] **AC4.** Trang in được bằng print CSS *(A15)*. — *Kiểm chứng:* `HandoverPage.test.tsx::print button calls window.print`; kiểm thủ công "Xem trước khi in" trên Chrome (ẩn điều hướng/nút, bảng không vỡ), ghi ở mục 10.
+- [x] **AC4.** Trang in được bằng print CSS *(A15)*. — *Kiểm chứng:* `HandoverPage.test.tsx::print button calls window.print`; kiểm thủ công "Xem trước khi in" trên Chrome (ẩn điều hướng/nút, bảng không vỡ), ghi ở mục 10.
 
 ## 6. Kế hoạch test
 
@@ -149,15 +151,20 @@ Cảnh báo tồn đọng nằm đầu trang. Số liệu tính bằng **SQL agg
 | AC1 | `server/tests/api/test_handover_api.py`: `test_shifts_list`, `test_handover_by_shift_and_date` (ca đêm, đếm theo loại, đã/chưa xử lý, đổi trạng thái, `outcome_counts`, tồn đọng), `test_handover_by_custom_range` (`+07:00` → UTC, biên `to` loại), `test_beds_without_events_show_zero`, `test_invalid_range_400` (`from > to`, `from = to`, bằng nhau sau đổi UTC, thiếu tham số, thiếu `date`), `test_naive_datetime_rejected` (422), `test_unknown_shift_404`, `test_staff_roles_can_read_handover` (NURSE/CHARGE_NURSE/DOCTOR/ADMIN), `test_unauthenticated_401`, `test_transferred_patient_events_stay_on_old_bed` (F04); FAMILY 403: `tests/api/test_family_role_default_deny.py`; ca đã xóa: `tests/api/test_shifts_admin.py::test_handover_works_for_deleted_shift`, `test_current_shift_ignores_deleted`; web `HandoverPage.test.tsx`: `renders per-bed summary` (câu tiếng Việt, kết quả kiểm tra, giường không sự kiện, "(Đã xóa)"), `defaults to current shift and shows period title in Asia/Ho_Chi_Minh`, `night shift after midnight defaults to the start date`, `sends custom range as ISO with +07:00` |
 | AC2 | `server/tests/domain/test_handover.py`: `test_outstanding_includes_older_unresolved_excludes_resolved_before_end` (tạo trước `from`, xử lý sau/đúng `to`, xử lý trước `to` bị loại, sau `to` bị loại, cảnh báo ghi trễ), `test_outstanding_order_high_first_then_oldest` (trùng giờ theo id); web `outstanding alerts rendered first`, `shows empty outstanding text` |
 | AC3 | `test_handover.py`: `test_counts_match_seed_data`, `test_night_shift_crosses_midnight`, `test_event_at_boundary_counted_once`, `test_local_time_to_utc_conversion`, `test_state_change_count_only_posture_codes` (âm tính: `ACTIVITY_*`, `ABNORMAL_MOVEMENT`, `FACE_ATTENTION`, `OBSERVATION_*`, `CAMERA_*`), `test_outcome_counts`, `test_deleted_bed_with_events_listed`; cũ: `tests/test_timeline_handover.py::test_handover_counts`, `test_handover_by_shift`, `test_shift_window_crosses_midnight` |
-| AC4 | web `print button calls window.print` (nút có `no-print`, dòng "In lúc …" có `print-only`), `does not render internal codes`; print CSS ở `web/src/styles.css`. **Chưa** kiểm thủ công "Xem trước khi in" trên Chrome; reviewer cần làm và ghi lại (AC4 chưa tick) |
+| AC4 | web `print button calls window.print` (nút có `no-print`, dòng "In lúc …" có `print-only`), `does not render internal codes`; print CSS ở `web/src/styles.css`; kiểm tự động bằng trình duyệt, xem "Kiểm tra in" bên dưới |
 
 Thay đổi: `domain/handover.py` (đếm bằng `COUNT(*) FILTER (WHERE …)`; `outcome_counts`; giường đã xóa có sự kiện; tồn đọng theo `events.occurred_at` thay cho `alerts.created_at`, sắp thêm `alerts.id`; `event_counts` sắp theo mã), `HandoverBedOut` thêm `is_active`, `outcome_counts` (`make gen-api-types`); `HandoverPage.tsx` cột "Kết quả kiểm tra", nhãn "(Đã xóa)"; `vi.handover.outcomes|deletedBed`; `api-conventions.md`. Không có migration.
 
 Kiểm tra (2026-11-18): `make check` exit 0 (server 1296 passed, web 249 passed, build OK).
 
 Điều người sau cần biết:
-- Danh sách tồn đọng hiển thị `status` hiện tại của cảnh báo; với khoảng trong quá khứ, cảnh báo xử lý sau `to` vẫn nằm trong tồn đọng nhưng nhãn trạng thái là "Đã xử lý" *(không chặn)*.
 - `outcome_counts` là giả định thêm (HS §3), không có trong R3 gốc; bỏ được nếu người dùng không cần.
+
+**Review (2026-11-18): Đạt (code đúng).** Sửa theo góp ý:
+1. R4 ghi đúng định nghĩa đã làm (`occurred_at < min(to, now)`, chưa xử lý tại đó); R3 thêm `outcome_counts`, `is_active` là *(giả định)*.
+2. Khoảng đã qua: cảnh báo trong tồn đọng nhưng đã xử lý sau cuối khoảng hiện "Đã xử lý sau ca" (`vi.handover.resolvedAfter`) thay cho "Đã xử lý"; test web `alert resolved after the window shows "Đã xử lý sau ca"`.
+3. **Kiểm tra in (AC4), không cần người:** DB `postcare_f24` (`alembic upgrade head`, `postcare seed --reset`), API cổng 8024, web Vite cổng 5184 (`VITE_API_TARGET=http://127.0.0.1:8024`); script Playwright 1.x (ngoài repo, chạy trên Microsoft Edge `channel: msedge` vì tải Chromium của Playwright bị lỗi mạng) đăng nhập `nurse`, mở `/handover` (ca hiện tại "Ca chiều 14:00–22:00, 18/11/2026"), `page.emulateMedia({media: 'print'})`. Kết quả PASS cả 12 mục: trên màn hình bộ lọc/nút hiện; khi in `display: none` cho header, navbar và 4 phần tử `.no-print` (bộ chọn chế độ, bộ lọc, nút In); không còn nút hay ô nhập nào hiện; 8/8 `tr` có `break-inside: avoid`; dòng "In lúc 18/11/2026 16:17:08" hiện; tiêu đề khoảng hiện; nền `body` trắng; không có mã nội bộ trong text. `page.pdf()` A4 xuất được (41 KB, lưu ngoài repo). Đã dừng mọi server.
+4. Đã merge `main` vào nhánh trước khi chạy lại `make check`.
 
 ## 11. Definition of Done
 
