@@ -15,7 +15,7 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F05](F05-camera-service.md) | Nguồn video (Camera Service) | M0 | MVP | A | F00 | PDF §10, tr.10; HS §4.2 | Done |
 | [F06](F06-worker-backend-link.md) | Kết nối worker với backend | M0 | MVP | B | F04, F05 | PDF §10; HS §4.2, §6.1 | Done |
 | [F07](F07-live-view.md) | Theo dõi trực tiếp cơ bản | M0 | MVP | C | F06 | PDF §9.1; HS §4.3 | Done |
-| [F08](F08-camera-config-roi.md) | Cấu hình camera và Bed ROI | M0 | MVP | B+C | F07 | PDF §7.2, §9.1; HS §4.1 | Todo |
+| [F08](F08-camera-config-roi.md) | Cấu hình camera và Bed ROI | M0 | MVP | B+C | F07 | PDF §7.2, §9.1; HS §4.1 | Done |
 | [F09](F09-overview-dashboard-skeleton.md) | Dashboard khung (Tổng quan) | M0 | MVP | B+C | F04, F06 | PDF §9.1; HS §4.3 Hình 3 | Done |
 | [F10](F10-observation-schema-engine-core.md) | Schema quan sát chung và khung Event Engine | M1 | MVP | A | F00 | PDF §10; HS §6.1 | Done |
 | [F11](F11-pose-adapter.md) | Pose adapter MediaPipe | M1 | MVP | A | F05, F10 | PDF §6.1; HS §5.2, §5.5 | Done |
@@ -26,7 +26,7 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F16](F16-dev-evaluation-tool.md) | Công cụ đánh giá trên tập phát triển | M1 | MVP | A | F12, F15 | PDF §13; HS §8.1–8.2 | Done |
 | [F17](F17-event-persistence-alerts.md) | Lưu sự kiện và tạo cảnh báo | M2 | MVP | B | F06, F15 | PDF §5, §10; HS §4.2, §6.2 | Done |
 | [F18](F18-realtime-gateway.md) | Realtime gateway (WebSocket) | M2 | MVP | B+C | F17 | PDF §10; HS §6.1 | Done |
-| [F19](F19-alert-lifecycle.md) | Vòng đời cảnh báo và audit | M2 | MVP | B | F17, F02 | PDF §5, §9.2; HS §4.2; QA#16 | Todo |
+| [F19](F19-alert-lifecycle.md) | Vòng đời cảnh báo và audit | M2 | MVP | B | F17, F02 | PDF §5, §9.2; HS §4.2; QA#16 | Done |
 | [F20](F20-alerts-screen.md) | Màn hình Cảnh báo | M2 | MVP | C | F18, F19 | PDF §9.1–9.2; HS §4.3 | Todo |
 | [F21](F21-overview-realtime.md) | Dashboard Tổng quan realtime | M2 | MVP | B+C | F09, F18 | PDF §9.1; HS §4.3 Hình 3 | Todo |
 | [F22](F22-timeline.md) | Timeline / Lịch sử theo dõi | M2 | MVP | B+C | F19 | PDF §9.1, §9.3; HS §4.3, §6.2 | Todo |

@@ -18,6 +18,7 @@ node_modules/
 web/dist/
 web/test-results/
 web/playwright-report/
+*.tsbuildinfo
 
 # Môi trường / bí mật
 .env
