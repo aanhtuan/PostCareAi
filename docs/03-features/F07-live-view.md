@@ -182,7 +182,17 @@ Nguồn: yêu cầu trực tiếp của người dùng muốn sản phẩm giố
 
 ### Acceptance criteria bổ sung
 
-- [ ] AC5: Hai khung display và skeleton xuất phát từ cùng frame/observation; trái giữ display_mode hiện tại; skeleton không chứa pixel gốc. Hai kết nối MJPEG có thể lệch thời gian truyền, không cam kết đồng bộ từng pixel trên trình duyệt.
-- [ ] AC6: Cả hai luồng yêu cầu quyền nhân viên và cùng cơ chế hết hạn; không fallback từ skeleton sang ảnh display.
-- [ ] AC7: Thiếu ROI vẫn thấy pose khi model quan sát được người, không phát state/event, có hướng dẫn cấu hình.
-- [ ] AC8: Hai khung có nhãn tiếng Việt, responsive, ẩn khi camera offline; trạng thái/sự kiện hiện có tiếp tục cập nhật.
+- [x] AC5: Hai khung display và skeleton xuất phát từ cùng frame/observation; trái giữ display_mode hiện tại; skeleton không chứa pixel gốc. Hai kết nối MJPEG có thể lệch thời gian truyền, không cam kết đồng bộ từng pixel trên trình duyệt.
+- [x] AC6: Cả hai luồng yêu cầu quyền nhân viên và cùng cơ chế hết hạn; không fallback từ skeleton sang ảnh display.
+- [x] AC7: Thiếu ROI vẫn thấy pose khi model quan sát được người, không phát state/event, có hướng dẫn cấu hình.
+- [x] AC8: Hai khung có nhãn tiếng Việt, responsive, ẩn khi camera offline; trạng thái/sự kiện hiện có tiếp tục cập nhật.
+
+
+### Review xuất bản (2026-11-19) – Codex: Đạt
+
+- AC5: `test_worker_sends_separate_skeleton_without_changing_display_mode` kiểm tra ảnh skeleton tách biệt và giữ display_mode; kiểm chứng hai stream thật ghi trong session-log ngày 19/11.
+- AC6: `test_skeleton_stream_isolated_and_requires_auth`, `test_skeleton_frame_ingest_keeps_views_separate`; generator dùng chung kiểm tra tài khoản và stale cho từng view, không fallback ảnh display.
+- AC7: `test_no_roi_observes_pose_for_display_without_engine_or_events`; LiveView giữ hướng dẫn cấu hình ROI.
+- AC8: `shows a separate skeleton stream while preserving the privacy mode`, các test offline hiện có; layout SimpleGrid responsive, text trong vi.ts.
+- Rà soát phạm vi: không đổi engine, DB hoặc dependency; không thêm ảnh/video/model/cấu hình local vào Git. Chỉ hợp nhất code F07 và tài liệu đi cùng.
+- `make test-vision` trong clone fresh: 5 passed, 1 skipped (thiếu clip cận mặt), 1364 deselected, 7.89 s. `make check` đầy đủ chạy qua hook trước khi push bản merge; kết quả cuối trong bàn giao xuất bản.

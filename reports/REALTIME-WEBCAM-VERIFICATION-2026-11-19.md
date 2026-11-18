@@ -67,5 +67,6 @@ Góc webcam hiện tại chưa bao phủ trọn giường và phần chân. Vì 
 ## 7. Kiểm tra mã nguồn
 
 - `make check` gần nhất trước phiên này: PASS, gồm backend, frontend và production build.
-- Phiên này chỉ cập nhật tài liệu tiến độ và báo cáo; không thay đổi mã ứng dụng hoặc dependency nên không chạy lại toàn bộ `make check`.
+- Lần xuất bản báo cáo đầu tiên chỉ gồm tài liệu. Theo yêu cầu tiếp theo của người dùng, code live view hai khung từ `feat/F07-dual-live-view` được hợp nhất cùng báo cáo vào `main`; dữ liệu/cấu hình local không đưa lên GitHub.
+- Hook pre-push chạy `make check` trước khi xuất bản; kết quả kiểm tra phần mềm không thay thế nghiệm thu webcam thực tế.
 - Nhật ký chi tiết nằm tại [docs/progress/session-log.md](../docs/progress/session-log.md).

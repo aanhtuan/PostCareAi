@@ -2,6 +2,23 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-19 – Codex – Xuất bản code live view hai khung
+
+- **Phạm vi:** Người dùng yêu cầu push code và merge vào main, không đưa dữ liệu local lên GitHub. Chỉ thao tác clone PostCareAI-fresh và worktree tạm của clone này.
+- **Đã làm:** Rà soát diff F07: worker render display/skeleton từ cùng observation, hai bộ đệm và MJPEG riêng, UI giữ chế độ riêng tư bên trái; kèm test, API types và spec. Hợp nhất báo cáo đã xuất bản trên main, giữ cả hai nhật ký; không thay DB, cấu hình máy, video hoặc model.
+- **Review:** Không phát hiện blocker trong diff phạm vi F07; không đổi rule engine hoặc suy diễn mất landmark thành rời giường. Bằng chứng hai stream thực tế và make check trước đó nằm trong entry mở rộng F07; bộ kiểm tra cuối do hook pre-push chạy.
+- **Kiểm tra xuất bản:** Dừng lượt push cũ trước khi chạy lượt kiểm tra cuối, tránh hai bộ test dùng chung DB. make check phải PASS trước khi Git cập nhật remote; không bỏ hook. make test-vision: 5 passed, 1 skipped (thiếu clip cận mặt), 1364 deselected, 7.89 s. Hash và kết quả make check được xác nhận trong bàn giao cuối.
+- **Bước tiếp theo:** Push feat/F07-dual-live-view và main cùng một lượt atomic; kiểm tra hai hash remote trùng bản merge. Trước lần chỉnh code tiếp theo chạy git fetch origin và kiểm tra trạng thái nhánh.
+- **Blocker nghiệp vụ:** BED_EXIT vẫn chưa nghiệm thu do góc quay, cần người dùng chỉnh webcam và chạy lại kịch bản. Không coi việc push code là nghiệm thu camera.
+
+## 2026-11-19 – Codex – Chuẩn bị xuất bản báo cáo webcam
+
+- **Phạm vi:** Theo yêu cầu người dùng chỉ đưa báo cáo và tiến độ liên quan lên GitHub; tách khỏi các commit code live view hai khung.
+- **Đã làm:** Tạo nhánh `codex/webcam-session-report` từ `origin/main`; bổ sung báo cáo nghiệm thu, entry webcam và task tài liệu. Code trong `feat/F07-dual-live-view` được giữ local.
+- **Kiểm tra:** Rà soát diff chỉ chứa Markdown; hook pre-push bắt buộc chạy `make check`. Các lượt test trước có deadlock do chạy đồng thời trên một DB test; chạy duy nhất một lượt khi xuất bản.
+- **Bước tiếp theo:** Push nhánh báo cáo và hợp nhất vào `main` theo yêu cầu người dùng; xác nhận hash remote. Vẫn cần chỉnh góc webcam và nghiệm thu `BED_EXIT`.
+- **Blocker:** Chưa đủ góc quay để nghiệm thu rời giường; báo cáo ghi rõ BLOCKED.
+
 ## 2026-11-19 01:35 – Codex – Nghiệm thu realtime webcam A01
 
 - **Mục tiêu phiên:** Cấu hình webcam thật, mở phiên theo dõi và kiểm tra chuỗi sự kiện → cảnh báo → điều dưỡng xử lý → timeline trong clone mới.
