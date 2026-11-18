@@ -12,6 +12,7 @@ export function AlertCard({ alert, onDetail }: { alert: AlertOut; onDetail: () =
     <Card
       withBorder
       padding="md"
+      data-priority={alert.event.priority}
       style={high ? { borderColor: 'var(--mantine-color-red-6)', borderWidth: 2 } : undefined}
       bg={alert.status === 'PENDING' ? (high ? 'red.0' : 'orange.0') : undefined}
     >
