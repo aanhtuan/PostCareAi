@@ -48,3 +48,9 @@ class LatestFrameStore:
     def clear(self) -> None:
         with self._lock:
             self._frames.clear()
+
+    def discard(self, camera_id: int) -> None:
+        """Remove only this camera's previous run; preserve all other live streams."""
+        with self._lock:
+            for view in ("display", "skeleton"):
+                self._frames.pop((camera_id, view), None)

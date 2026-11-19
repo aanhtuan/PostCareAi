@@ -10,6 +10,7 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 
 ## Đang làm
 
+
 - **Đợt hiện tại (18/11/2026):** Done 21 feature: F00–F07, F09–F17, F23, F25, F35, F37, cộng hiệu chỉnh ngưỡng trên tập dev ([calibration-2026-11-18.md](../04-guides/calibration-2026-11-18.md), config_hash chốt cho F29 `cb7a5ed7…44ec`). Đang làm: F08 (cấu hình camera, ROI), F18 (realtime gateway). Tiếp theo: F19 → F20, F21, F22, F24; F26 → F27; F28 → F36; F31 R1–R3; F29; F30.
   - Quy trình: builder trong worktree → code-reviewer → sửa → merge vào `main` → `make check` → push (người dùng cho phép push nhánh feature và `main`).
   - Hạ tầng: mỗi worktree dùng DB test riêng (`postcare_<x>_test`), `main` dùng `postcare_main_test`. Máy 16 GB: chạy tối đa 2 `make check` cùng lúc; Docker từng treo khi quá tải (khởi động lại Docker Desktop + `wsl --shutdown`).
@@ -41,6 +42,20 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 - `npm audit` báo 8 lỗ hổng (7 moderate, 1 high) trong devDependency của web (17/11/2026). Xem từng gói, nâng phiên bản nếu không phá build; ghi kết quả vào session-log.
 
 ## Đã xong gần đây
+
+- [x] 2026-11-19: Rà soát phạm vi xuất bản code/hướng dẫn demo video, fetch xác nhận base main ebf4866; giữ media/model/DB/.env/runs ngoài Git. Commit/push/merge đang thực hiện; trạng thái remote cần đối chiếu khi kết thúc.
+
+- **2026-11-19 — Lát cắt F30 video demo — hoàn tất local (yêu cầu người dùng, trước F24; không hoàn thành toàn F30):**
+  - [x] Ghi scope/kế hoạch; nguồn Pexels 8090735 + ROI sẵn có, không thay webcam A01.
+  - [x] API opt-in/ADMIN, worker file thật, EOF marker, stop, phiên độc lập, audit và recovery.
+  - [x] Trang Demo video: hai khung, điều khiển, cảnh báo mở và lịch sử từng lượt; API types/runbook.
+  - [x] Kiểm chứng clip thật BED_EDGE → NURSE tiếp nhận/kết quả/xử lý → timeline; replay và stop.
+  - [x] Make check PASS (1375 pytest, 258 Vitest, build); test-vision 5 passed/1 skipped; tự review và [báo cáo bàn giao](../../reports/VIDEO-DEMO-VERIFICATION-2026-11-19.md).
+
+
+- [x] 2026-11-19: Rà soát video Live View người dùng gửi, ghi bằng chứng và 5 nhóm cập nhật đề xuất tại [báo cáo review](../../reports/LIVE-VIEW-REVIEW-2026-11-19.md). Chưa triển khai các đề xuất; chưa nghiệm thu BED_EXIT.
+
+- [x] 2026-11-19 16:42: Khởi động lại clone fresh trên main ebf4866: DB/API 8002/web 5175/worker webcam A01 hoạt động; health/auth/overview HTTP 200, camera ONLINE và cả hai MJPEG có khung mới. Giữ ROI/phiên/chế độ hiện tại, không reset dữ liệu.
 
 - [x] 2026-11-19: Rà soát và chuẩn bị xuất bản code F07 hai khung cùng test/API types/spec; hợp nhất báo cáo hiện có, giữ dữ liệu/cấu hình local ngoài Git. Push nhánh feature và main cùng một lượt, không bỏ hook.
 

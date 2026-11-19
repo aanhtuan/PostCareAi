@@ -154,6 +154,15 @@ uv --directory server run postcare simulate --help
 make simulate BED=A02 SCENARIO=abnormal-movement SPEED=2
 ```
 
+### Demo bằng clip có sẵn (lát cắt F30)
+
+Đặt clip Pexels 8090735 theo [hướng dẫn demo video](docs/04-guides/demo-runbook.md), bật
+`DEMO_ENABLED=1` trong `.env`, khởi động API/web rồi đăng nhập ADMIN và mở `/demo`.
+Trang tạo thêm giường/camera demo riêng, có hai khung video/skeleton, bắt đầu/dừng/chạy lại,
+cảnh báo và lịch sử từng lượt; không cần reset DB hoặc thay nguồn webcam A01.
+Clip là video diễn viên ghi trước, không phải camera realtime; chưa chứng minh rời giường.
+Chỉ chạy một tiến trình API local. Video/model/dữ liệu máy không được commit.
+
 ## 4. PostgreSQL
 
 Dự án dùng PostgreSQL 16 ([ADR-0004](docs/02-architecture/decisions/ADR-0004-postgresql.md)), chạy bằng Docker trên máy dev (QA#34). Mở Docker Desktop rồi chạy một lần:

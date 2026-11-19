@@ -22,6 +22,7 @@ from postcare.api.v1 import (
     beds,
     cameras,
     catalog,
+    demo,
     health,
     monitoring,
     patients,
@@ -29,12 +30,26 @@ from postcare.api.v1 import (
     stream,
     users,
 )
+from postcare.api.video_demo import VideoDemo
 from postcare.db.session import make_engine, make_session_factory
 from postcare.domain.cameras import mark_offline_cameras
 from postcare.domain.runtime import RuntimeStore
 from postcare.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
+
+
+async def _watch_demo(app: FastAPI) -> None:
+    def tick() -> None:
+        with app.state.session_factory() as db:
+            app.state.video_demo.poll(db, app.state.hub)
+
+    while True:
+        await asyncio.sleep(0.5)
+        try:
+            await asyncio.to_thread(tick)
+        except Exception:
+            logger.exception("Lỗi khi kiểm tra video demo")
 
 
 async def _watch_cameras(app: FastAPI) -> None:
@@ -73,11 +88,25 @@ def create_app(settings: Settings | None = None, *, watch_cameras: bool = True) 
         # Schema do Alembic tạo (`make db-upgrade`), API không tự tạo bảng (F01).
         app.state.hub.bind_loop(asyncio.get_running_loop())
         task = asyncio.create_task(_watch_cameras(app)) if watch_cameras else None
-        yield
-        if task:
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
+        demo_task = (
+            asyncio.create_task(_watch_demo(app))
+            if watch_cameras and settings.demo_enabled
+            else None
+        )
+        try:
+            yield
+        finally:
+            for running in (task, demo_task):
+                if running:
+                    running.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await running
+
+            def stop_demo() -> None:
+                with app.state.session_factory() as db:
+                    app.state.video_demo.shutdown(db, app.state.hub)
+
+            await asyncio.to_thread(stop_demo)
 
     app = FastAPI(
         title="PostCare AI API",
@@ -93,6 +122,7 @@ def create_app(settings: Settings | None = None, *, watch_cameras: bool = True) 
     app.state.store = RuntimeStore()
     app.state.frames = LatestFrameStore()  # F06: khung JPEG mới nhất, chỉ trong RAM
     app.state.hub = WsHub()
+    app.state.video_demo = VideoDemo(settings, app.state.frames)
 
     app.add_middleware(
         CORSMiddleware,
@@ -116,6 +146,7 @@ def create_app(settings: Settings | None = None, *, watch_cameras: bool = True) 
         monitoring.router,
         users.router,
         stream.router,
+        demo.router,
     )
     for r in v1_routers:
         app.include_router(r, prefix="/api/v1")

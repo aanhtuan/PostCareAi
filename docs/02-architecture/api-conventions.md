@@ -107,6 +107,18 @@ Trùng `username` (F35) dùng lại `DUPLICATE_CODE` với `details.field = "use
 | `GET /api/v1/shifts?include_inactive`, `GET /api/v1/handover?shift_id&date` hoặc `?from&to` | F24, F37 | `GET /shifts` trả mảng (không phân trang), mặc định chỉ ca đang dùng, sắp theo `start_time`. Bàn giao ca (ca đã xóa vẫn tra cứu được); "ca hiện tại" của tổng quan chỉ xét ca đang dùng |
 | `GET /api/v1/ws?token=` | F18 | WebSocket |
 
+## Video demo local (F30, yêu cầu người dùng 19/11/2026)
+
+- `GET /api/v1/demo`: mọi nhân viên; trạng thái nguồn allowlist, setup và lượt gần nhất.
+- `POST /api/v1/demo/prepare`: ADMIN; thêm dữ liệu demo và ROI ban đầu trong một transaction.
+- `POST /api/v1/demo/start` body `{ "clip_id": "pexels-8090735" }`: ADMIN; tạo phiên mới,
+  commit/audit rồi chạy worker FILE. Không nhận đường dẫn client. Trả 201, 409 nếu còn lượt mở
+  hoặc thiếu clip; 503 nếu không spawn được worker, phiên lỗi được đóng.
+- `POST /api/v1/demo/stop` body `{ "session_id": 123 }`: ADMIN; dừng process trước khi đóng
+  phiên; sai lượt trả 409. Lượt đã kết thúc trả lại trạng thái, không đóng phiên khác.
+- Endpoint ghi trả 404 khi `DEMO_ENABLED=0` (mặc định). Không thêm bảng; monitoring session
+  và audit giữ lịch sử, handle process trong RAM. Một API process local; xem `demo-runbook.md`.
+
 ## WebSocket
 
 - Một kết nối cho mỗi tab. Server → client: `{ "type": "<loại>", "payload": {...}, "sent_at": "<ISO>" }`.

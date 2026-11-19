@@ -13,6 +13,7 @@ type NavItem = { to: string; label: string; roles?: readonly UserRole[] };
 const NAV: NavItem[] = [
   { to: '/', label: vi.nav.overview },
   { to: '/live', label: vi.nav.live },
+  { to: '/demo', label: vi.demo.title },
   { to: '/alerts', label: vi.nav.alerts },
   { to: '/timeline', label: vi.nav.timeline },
   { to: '/handover', label: vi.nav.handover },

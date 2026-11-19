@@ -17,6 +17,7 @@ type Props = {
   alt: string;
   /** Câu hiện khi camera không hoạt động (mặc định "Mất kết nối camera"). */
   offlineText?: string;
+  offlineHint?: string;
   /** Thử mở lại stream sau lỗi ảnh (giả định 3 s). */
   retryMs?: number;
   view?: 'display' | 'skeleton';
@@ -31,6 +32,7 @@ export function CameraStream({
   roi,
   alt,
   offlineText = vi.cameraStatus.OFFLINE,
+  offlineHint = vi.live.offlineHint,
   retryMs = DEFAULT_RETRY_MS,
   view = 'display',
 }: Props) {
@@ -82,7 +84,7 @@ export function CameraStream({
             {failed ? vi.cameraStatus.OFFLINE : offlineText}
           </Text>
           <Text c="gray.4" size="sm" ta="center">
-            {vi.live.offlineHint}
+            {offlineHint}
           </Text>
         </Stack>
       </Center>

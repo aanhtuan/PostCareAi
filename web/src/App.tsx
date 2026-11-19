@@ -5,6 +5,7 @@ import { RequireRole } from './auth/RequireRole';
 import { useAuth } from './auth/useAuth';
 import { AppLayout } from './components/AppLayout';
 import { AlertsPage } from './pages/Alerts/AlertsPage';
+import { DemoPage } from './pages/Demo/DemoPage';
 import { CameraConfigPage } from './pages/CameraConfig/CameraConfigPage';
 import { HandoverPage } from './pages/Handover/HandoverPage';
 import { LiveViewPage } from './pages/LiveView/LiveViewPage';
@@ -53,6 +54,7 @@ export function App() {
       <Route element={<Protected />}>
         <Route index element={<OverviewPage />} />
         <Route path="live" element={<LiveViewPage />} />
+        <Route path="demo" element={<DemoPage />} />
         <Route path="beds/:bedId/live" element={<LiveViewPage />} />
         <Route path="alerts" element={<AlertsPage />} />
         <Route path="timeline" element={<TimelinePage />} />

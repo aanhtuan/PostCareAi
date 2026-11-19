@@ -110,11 +110,49 @@ Làm cho buổi demo vòng trong chạy **ổn định và lặp lại được*
 
 ## 9. Kế hoạch triển khai
 
-> Planner điền mục này theo [plan-feature.md](../ai/workflows/plan-feature.md) trước khi bắt đầu code.
+### 9.1. Lát cắt video demo do người dùng yêu cầu (19/11/2026)
+
+Nguồn: yêu cầu trực tiếp “lấy cái video trong source làm demo theo hướng đó”; mở rộng R4,
+QA#32, HS §8.3. Đây là lát cắt được người dùng cho phép trước F24, **không nghiệm thu toàn F30**.
+Các AC1–AC6 và phụ thuộc của demo hoàn chỉnh vẫn giữ nguyên.
+
+1. Trang `/demo`: chọn clip có sẵn trong danh mục cố định; nhãn “Video ghi trước đang được
+   phân tích”, nguồn/giấy phép, ROI ước lượng và giới hạn clip. Không nhận đường dẫn từ client.
+2. Chỉ ADMIN chuẩn bị/bắt đầu/dừng. Tính năng chỉ bật qua `DEMO_ENABLED=1`, API một tiến trình.
+   Dùng subprocess Python hiện tại, không shell, cùng worker/pipeline/API nội bộ; không thêm thư viện.
+3. Chuẩn bị thêm khu vực/giường/bệnh nhân/camera FILE dành riêng cho demo; không reset DB,
+   không sửa A01. ROI khởi tạo từ YAML của clip, các lần sau giữ ROI/chế độ đã lưu.
+4. Mỗi lần bắt đầu tạo phiên mới; không lặp ngầm. `--stop-at-end` cho worker file: gửi hết
+   sự kiện đang chờ rồi báo EOF bằng marker metadata trong `runs/video-demo/` trước khi dọn model.
+   API đóng phiên, chuyển FINISHING và camera offline dự kiến; chỉ cho chạy lại sau khi đã reap
+   tiến trình (COMPLETED). Tránh cảnh báo mất camera do thời gian dọn MediaPipe > heartbeat timeout.
+   Dừng/chạy lại có kiểm tra session_id để tab cũ không dừng lượt mới. Shutdown dọn worker;
+   API khởi động lại nhận biết phiên bị gián đoạn và yêu cầu đóng phiên trước khi chạy tiếp.
+5. Hai khung display/skeleton dùng stream hiện có; trạng thái, sự kiện theo phiên và cảnh báo
+   chưa xử lý của giường demo hiển thị riêng. Tái sử dụng tiếp nhận/kết quả/xử lý và timeline.
+6. Test quyền, thiếu clip, trùng start, lỗi khởi động, EOF, stop, phiên độc lập và UI; sinh API
+   types; make check; chạy clip thật và ghi kết quả, không tạo sẵn BED_EXIT.
+
+AC bổ sung cho lát cắt (không thay AC1–AC6):
+
+- [x] V1: Chỉ nguồn allowlist; tắt tính năng/thiếu clip/sai quyền không khởi động worker. Test `tests/api/test_video_demo.py`.
+- [x] V2: Hai lượt chạy có session_id khác; dừng/EOF đóng đúng phiên, giữ dữ liệu A01 và lịch sử. Test lifecycle/isolation; runtime phiên 5 hoàn tất, phiên 6 dừng chủ động.
+- [x] V3: Trang demo có hai khung, quyền điều khiển, cảnh báo mở và liên kết timeline theo phiên. 4 test DemoPage; browser xác nhận hai ảnh MJPEG và điều khiển không tràn ở viewport 930 px.
+- [x] V4: Kiểm chứng clip thật, ghi chính xác sự kiện thực tế và giới hạn; không coi replay là live. Phiên 5 chỉ có BED_EDGE + CAMERA_ONLINE; không BED_EXIT, không CAMERA_OFFLINE ở EOF sau sửa marker.
 
 ## 10. Ghi chú bàn giao
 
-> Ghi kết quả kiểm chứng thủ công, kết quả review, ngày hoàn thành, điều người sau cần biết.
+Lát cắt video local 19/11/2026: Pexels 8090735 dài 7,674 s, ROI ước lượng từ YAML; model full
+theo manifest, không đổi ngưỡng/trọng số. Phiên demo 2 ghi BED_EDGE; tài khoản NURSE tiếp nhận,
+CONFIRMED kèm ghi chú kiểm thử và resolve, timeline có event + ba alert_action. Phiên 5 kiểm
+chứng bản sửa EOF marker; phiên 6 kiểm chứng stop, mỗi lần một session khác. Nhật ký kiểm
+chứng chứa trong `runs/video-demo/` (ignored), ảnh browser `/tmp/postcare-video-demo-running.png`.
+Giường/camera/patient demo riêng, webcam A01 vẫn phiên 1; không reset/seed dữ liệu vận hành.
+Các test mục tiêu đạt 11 backend + 8 frontend (DemoPage/CameraStream). Bản cuối: `make check`
+PASS (1375 pytest, 258 Vitest, format/lint/types/import/API checks/build), `make test-vision`
+5 passed, 1 skipped (thiếu clip cận mặt). Tự review quyền/nguồn/process/session/privacy/diff:
+đạt cho lát cắt local; chưa có review độc lập. Health API/web/proxy và /demo HTTP 200 sau kiểm tra.
+F30 toàn phần giữ Todo vì AC1–AC6 chưa nghiệm thu và F24 chưa Done.
 
 ## 11. Definition of Done
 

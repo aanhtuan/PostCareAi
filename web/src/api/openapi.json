@@ -3593,6 +3593,150 @@
         }
       }
     },
+    "/api/v1/demo": {
+      "get": {
+        "tags": [
+          "demo"
+        ],
+        "summary": "Status",
+        "operationId": "status_api_v1_demo_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoStatusOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/demo/prepare": {
+      "post": {
+        "tags": [
+          "demo"
+        ],
+        "summary": "Prepare",
+        "operationId": "prepare_api_v1_demo_prepare_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoSetupOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/demo/start": {
+      "post": {
+        "tags": [
+          "demo"
+        ],
+        "summary": "Start",
+        "operationId": "start_api_v1_demo_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemoStartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoRunOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/demo/stop": {
+      "post": {
+        "tags": [
+          "demo"
+        ],
+        "summary": "Stop",
+        "operationId": "stop_api_v1_demo_stop_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemoStopIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoRunOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/internal/v1/cameras/{camera_id}/config": {
       "get": {
         "tags": [
@@ -5032,6 +5176,155 @@
         "type": "object",
         "title": "CameraUpdate",
         "description": "`bed_id: null` nghĩa là gỡ camera khỏi giường; không gửi thì giữ nguyên."
+      },
+      "DemoRunOut": {
+        "properties": {
+          "bed_id": {
+            "type": "integer",
+            "title": "Bed Id"
+          },
+          "camera_id": {
+            "type": "integer",
+            "title": "Camera Id"
+          },
+          "patient_id": {
+            "type": "integer",
+            "title": "Patient Id"
+          },
+          "clip_id": {
+            "type": "string",
+            "const": "pexels-8090735",
+            "title": "Clip Id",
+            "default": "pexels-8090735"
+          },
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "RUNNING",
+              "FINISHING",
+              "COMPLETED",
+              "STOPPED",
+              "FAILED",
+              "INTERRUPTED"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bed_id",
+          "camera_id",
+          "patient_id",
+          "session_id",
+          "started_at",
+          "status"
+        ],
+        "title": "DemoRunOut"
+      },
+      "DemoSetupOut": {
+        "properties": {
+          "bed_id": {
+            "type": "integer",
+            "title": "Bed Id"
+          },
+          "camera_id": {
+            "type": "integer",
+            "title": "Camera Id"
+          },
+          "patient_id": {
+            "type": "integer",
+            "title": "Patient Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bed_id",
+          "camera_id",
+          "patient_id"
+        ],
+        "title": "DemoSetupOut"
+      },
+      "DemoStartIn": {
+        "properties": {
+          "clip_id": {
+            "type": "string",
+            "const": "pexels-8090735",
+            "title": "Clip Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "clip_id"
+        ],
+        "title": "DemoStartIn"
+      },
+      "DemoStatusOut": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "clip_id": {
+            "type": "string",
+            "const": "pexels-8090735",
+            "title": "Clip Id",
+            "default": "pexels-8090735"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "setup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DemoSetupOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DemoRunOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "available"
+        ],
+        "title": "DemoStatusOut"
+      },
+      "DemoStopIn": {
+        "properties": {
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "session_id"
+        ],
+        "title": "DemoStopIn"
       },
       "DisplayMode": {
         "type": "string",

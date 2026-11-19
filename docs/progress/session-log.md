@@ -2,6 +2,50 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-19 – Codex – Chuẩn bị xuất bản demo video và hướng dẫn
+
+- **Phạm vi:** Người dùng yêu cầu push thay đổi và hướng dẫn, merge vào main. Chỉ thao tác clone PostCareAI-fresh; giữ video, model, DB, .env và kết quả chạy local ngoài Git.
+- **Đã làm:** Fetch xác nhận origin/main vẫn ebf4866, cùng base với codex/F30-video-demo. Rà soát danh sách code/test/API types, README, runbook, spec, tiến độ và hai báo cáo Markdown liên quan; không có thay đổi mới từ remote cần hòa giải.
+- **Kiểm tra:** Bản triển khai đã đạt make check (1375 pytest, 258 Vitest, build) và test-vision (5 passed, 1 skipped) như entry dưới. Hook pre-commit và pre-push vẫn bắt buộc; không bỏ qua hoặc chạy hai bộ test trên cùng DB.
+- **Đang dở:** Chuẩn bị commit/push. Máy có SSH push, chưa có GitHub MCP hoặc xác thực API để tạo PR; đã hỏi người dùng chọn giữ quy trình PR hay cho phép merge trực tiếp bằng Git.
+- **Bước tiếp theo:** Commit Conventional Commits F30, push nhánh với hook make check; merge theo cách người dùng xác nhận, fetch lại và đối chiếu HEAD/main/origin/main. Nếu chưa có cách tạo PR hoặc cho phép merge trực tiếp, chỉ xuất bản nhánh và giữ main.
+- **Giới hạn:** Đây là xuất bản lát cắt demo đã kiểm chứng, không nghiệm thu F30 toàn phần hoặc BED_EXIT. Dịch vụ local và dữ liệu webcam A01 được giữ nguyên.
+
+## 2026-11-19 – Codex – Tích hợp clip có sẵn vào Demo video
+
+- **Phạm vi:** Người dùng yêu cầu lấy video trong source làm demo theo hướng điều khiển trên web. Chỉ clone PostCareAI-fresh, nhánh codex/F30-video-demo; mở rộng có giới hạn F30 trước F24 theo yêu cầu, không đánh dấu F30 hoàn thành.
+- **Đã làm:** Nguồn allowlist Pexels 8090735 và ROI YAML sẵn có; trang /demo (chuẩn bị/bắt đầu/dừng/chạy lại, display/skeleton, cảnh báo mở và lịch sử từng lượt); API opt-in ADMIN, dữ liệu demo riêng tạo thêm trong một transaction, subprocess worker thật, audit/RBAC, recovery/timeout/shutdown. Mỗi lần chạy có session mới, giữ A01/ROI/chế độ và lịch sử. Sinh API types, cập nhật spec/API/README/runbook/báo cáo; không thêm dependency hoặc bảng DB, không đổi ngưỡng/model.
+- **Kiểm chứng runtime:** Giường 4/camera 2/bệnh nhân 2 mã DEMO-VIDEO-8090735. Phiên 2 tạo BED_EDGE; NURSE Nguyễn Thị Hoa tiếp nhận cảnh báo 40, CONFIRMED với ghi chú kiểm thử, resolve; timeline UI có event và ba alert_action. Phiên 3 phát sinh CAMERA_OFFLINE khi dọn MediaPipe quá lâu; sửa bằng marker EOF trước cleanup, FINISHING chờ reap process. Phiên 5 sau sửa chỉ BED_EDGE + CAMERA_ONLINE, không BED_EXIT/CAMERA_OFFLINE. Phiên 6 STOPPED và ended_at có giá trị. Browser hai MJPEG cạnh nhau, mode control không tràn ở viewport 930 px; ảnh /tmp/postcare-video-demo-running.png và /tmp/postcare-video-demo-timeline.png.
+- **Kiểm tra phần mềm:** 11 test backend mục tiêu và 8 test frontend DemoPage/CameraStream đạt. Make check bản đầu được dừng để sửa vấn đề EOF quan sát được; bản cuối PASS: format/lint/typecheck/import/API types, 1375 pytest (433,85 s), 258 Vitest / 35 file và build web. Make test-vision tuần tự sau đó: 5 passed, 1 skipped (thiếu clip cận mặt), 1375 deselected, 5,55 s. Tự review quyền/nguồn/process/session/privacy/diff đạt cho lát cắt local; chưa review độc lập. Health API/web/proxy/demo HTTP 200 sau kiểm tra, phiên A01 vẫn mở. Cảnh báo kỹ thuật cũ 45 được NURSE ghi FALSE_ALARM và xử lý với ghi chú nguyên nhân, giữ bản ghi.
+- **Dữ liệu local:** Sao lưu DB trước khi tạo thêm demo vào runs/backups/pre-video-demo-20261119.dump; log/JSON/marker nằm runs/video-demo (ignored), clip/model/.env/DB không commit. Đã bật DEMO_ENABLED=1 trong .env local, API 8002/web 5175/worker A01 vẫn chạy. Không seed/reset hoặc xóa lịch sử cũ.
+- **Bước tiếp theo:** Người dùng đăng nhập ADMIN → /demo → Chạy lại từ đầu; điều dưỡng xem/tiếp nhận/ghi kết quả và mở lịch sử. Runbook docs/04-guides/demo-runbook.md, báo cáo reports/VIDEO-DEMO-VERIFICATION-2026-11-19.md. Bản cuối kiểm tra trong runs/video-demo-make-check.log và runs/video-demo-vision-check.log. Không còn bước triển khai local đang dở; chưa commit/push phiên này.
+- **Giới hạn:** Clip 7,674 giây và ROI ước lượng chưa chứng minh BED_EXIT; F30 AC1–AC6 chưa nghiệm thu. Demo chỉ hỗ trợ một API process local; nếu API crash/kill, kiểm tra/dừng worker demo còn lại trước khi đóng phiên gián đoạn. Chưa commit/push thay đổi phiên này.
+
+## 2026-11-19 17:03 – Codex – Rà soát video người dùng gửi
+
+- **Đã làm:** Trích khung video 67,65 giây, đối chiếu LiveView/DisplayModeControl/ROI/render và spec F07/F28/F21. Báo cáo tại reports/LIVE-VIEW-REVIEW-2026-11-19.md; không đưa video hoặc ảnh trích vào Git.
+- **Kết quả:** Clip xác nhận vai trò Điều dưỡng nên không có nút đổi chế độ là đúng. Nhận diện các điểm cần cập nhật: skeleton khi quan sát yếu, cảnh báo mở tách khỏi sự kiện mới nhất (đề xuất mở rộng), giải thích quyền/chế độ, ROI bị vẽ chồng khi bên trái là skeleton, footer dữ liệu mô phỏng cố định.
+- **Kiểm chứng:** Chỉ review hình ảnh/source, không thay code/quyền/ROI hoặc ngưỡng; không chạy lại make check. Clip có cảnh báo mép giường nhưng chưa chứng minh BED_EXIT hay trọn chuỗi tiếp nhận/timeline.
+- **Bước tiếp theo:** Người dùng chọn triển khai cập nhật; cập nhật spec trước khi mở rộng Live View. Với AI, chỉnh camera thấy đủ giường/toàn thân rồi kiểm chứng bằng observation/ground truth; không suy ra rời giường từ mất landmark.
+- **Blocker:** Clip chỉ có skeleton, không có tư thế người thật đồng thời để kết luận độ chính xác.
+
+## 2026-11-19 16:59 – Codex – Kiểm tra quyền chọn chế độ hiển thị
+
+- **Mục tiêu:** Giải thích vì sao người dùng không chọn được chế độ hiển thị sau khởi động lại.
+- **Đối chiếu:** F28, DisplayModeControl.tsx và API PUT display-mode đều chỉ cho ADMIN/CHARGE_NURSE đổi chế độ. NURSE/DOCTOR chỉ xem nhãn hiện tại. Nút chỉ bị disabled khi request lưu đang chờ. Code hai khung vẫn giữ DisplayModeControl; lựa chọn áp dụng khung display, khung skeleton riêng luôn là skeleton.
+- **Quan sát UI:** Tab localhost 5175 được người dùng cung cấp hiện ở /login, form trống; chưa có bằng chứng người dùng đang đăng nhập nurse hay admin. Không tự đổi tài khoản, quyền hoặc chế độ riêng tư.
+- **Kiểm tra:** Chỉ đọc source và UI, không đổi code/dependency hoặc chạy lại test. API và web vẫn lắng nghe 8002/5175.
+- **Bước tiếp theo:** Đăng nhập admin, vào Theo dõi trực tiếp → Giường A01 → Chế độ hiển thị. Nếu ADMIN vẫn không có lựa chọn, cần kiểm tra trang thực tế sau đăng nhập. Không kết luận có lỗi code từ trạng thái chưa đăng nhập.
+
+## 2026-11-19 16:42 – Codex – Khởi động lại dự án sau xuất bản
+
+- **Mục tiêu:** Chạy lại dự án theo yêu cầu người dùng trong clone PostCareAI-fresh, nhánh main (ebf4866); không thao tác clone cũ.
+- **Đã làm:** Xác nhận PostgreSQL postcare-fresh-db đã chạy, pg_isready thành công. Khởi động API 127.0.0.1:8002, Vite 127.0.0.1:5175 (proxy API 8002) và worker camera 1 với webcam 0. Giữ cấu hình hiện tại SKELETON, ROI 5 điểm và phiên 1; không seed/reset hoặc migration DB.
+- **Kiểm chứng runtime:** Health API trực tiếp và qua Vite HTTP 200; trang /live HTTP 200; đăng nhập admin, overview và chi tiết camera HTTP 200. Camera ONLINE. Mỗi view display/skeleton đọc được ít nhất 2 frame JPEG mới qua MJPEG từ proxy web. Chỉ đọc trong RAM, không lưu hình/video.
+- **Kiểm tra phần mềm:** Không đổi code/dependency; không chạy lại make check cho thao tác bật dịch vụ. Hook make check trên ebf4866 đã PASS khi push code trong cùng chat; không dùng kết quả này để kết luận nghiệm thu rời giường.
+- **Đang dở / blocker:** Không chặn chạy web/camera. Worker hiện ghi OBSERVATION_LOST, chưa đủ bằng chứng nghiệm thu hành vi; BED_EXIT vẫn cần góc quay đầy đủ và người dùng chạy kịch bản.
+- **Bước tiếp theo:** Mở http://127.0.0.1:5175/live. Nếu cần khởi động lại, dùng các lệnh trong reports/LOCAL-SETUP.local.md: uv --directory server run uvicorn postcare.api.main:app --host 127.0.0.1 --port 8002; VITE_API_TARGET=http://127.0.0.1:8002 CHOKIDAR_USEPOLLING=1 npm --prefix web run dev -- --host 127.0.0.1 --port 5175 --strictPort; uv --directory server run postcare worker --camera-id 1.
+
 ## 2026-11-19 – Codex – Xuất bản code live view hai khung
 
 - **Phạm vi:** Người dùng yêu cầu push code và merge vào main, không đưa dữ liệu local lên GitHub. Chỉ thao tác clone PostCareAI-fresh và worktree tạm của clone này.

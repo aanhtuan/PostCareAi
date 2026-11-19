@@ -97,7 +97,7 @@ F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được tr�
 | F27 | Trạng thái nghỉ/hoạt động (tham khảo) | M3 | Done |
 | F28 | Chế độ riêng tư khi hiển thị | M4 | Done |
 | F29 | Đánh giá chính thức và chỉ số realtime/workflow | M4 | Todo |
-| F30 | Sẵn sàng demo | M4 | Todo |
+| F30 | Sẵn sàng demo | M4 | Todo (lát cắt video local theo yêu cầu 19/11 đã kiểm chứng; chưa nghiệm thu AC1–AC6) |
 | F31 | Nhiều camera/giường chạy đồng thời (R1–R3 ở M4) | M4 / Sau MVP | Done |
 | F32 | Chuyển tiếp cảnh báo chưa được tiếp nhận | Sau MVP | Todo |
 | F33 | Thông báo di động cho điều dưỡng | Sau MVP | Todo |

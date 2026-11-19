@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     worker_jpeg_max_side: int = 960
     worker_jpeg_quality: int = 70
     worker_max_fps: float = 15.0  # A03: FPS xử lý tối đa (F05 DEFAULT_MAX_FPS)
+    # F30: local video-demo controls; one API process, disabled by default.
+    demo_enabled: bool = False
+    demo_max_run_s: float = 120.0  # Includes model startup; abort a stuck local demo worker.
 
     @property
     def web_origin_list(self) -> list[str]:

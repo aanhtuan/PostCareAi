@@ -815,6 +815,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/demo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Status */
+        get: operations["status_api_v1_demo_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/demo/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prepare */
+        post: operations["prepare_api_v1_demo_prepare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/demo/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start */
+        post: operations["start_api_v1_demo_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/demo/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop */
+        post: operations["stop_api_v1_demo_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v1/cameras/{camera_id}/config": {
         parameters: {
             query?: never;
@@ -1266,6 +1334,70 @@ export interface components {
             source?: string | null;
             /** Bed Id */
             bed_id?: number | null;
+        };
+        /** DemoRunOut */
+        DemoRunOut: {
+            /** Bed Id */
+            bed_id: number;
+            /** Camera Id */
+            camera_id: number;
+            /** Patient Id */
+            patient_id: number;
+            /**
+             * Clip Id
+             * @default pexels-8090735
+             * @constant
+             */
+            clip_id: "pexels-8090735";
+            /** Session Id */
+            session_id: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "RUNNING" | "FINISHING" | "COMPLETED" | "STOPPED" | "FAILED" | "INTERRUPTED";
+        };
+        /** DemoSetupOut */
+        DemoSetupOut: {
+            /** Bed Id */
+            bed_id: number;
+            /** Camera Id */
+            camera_id: number;
+            /** Patient Id */
+            patient_id: number;
+        };
+        /** DemoStartIn */
+        DemoStartIn: {
+            /**
+             * Clip Id
+             * @constant
+             */
+            clip_id: "pexels-8090735";
+        };
+        /** DemoStatusOut */
+        DemoStatusOut: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Clip Id
+             * @default pexels-8090735
+             * @constant
+             */
+            clip_id: "pexels-8090735";
+            /** Available */
+            available: boolean;
+            setup?: components["schemas"]["DemoSetupOut"] | null;
+            run?: components["schemas"]["DemoRunOut"] | null;
+        };
+        /** DemoStopIn */
+        DemoStopIn: {
+            /** Session Id */
+            session_id: number;
         };
         /**
          * DisplayMode
@@ -3923,6 +4055,112 @@ export interface operations {
                 };
                 content: {
                     "multipart/x-mixed-replace; boundary=frame": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    status_api_v1_demo_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoStatusOut"];
+                };
+            };
+        };
+    };
+    prepare_api_v1_demo_prepare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoSetupOut"];
+                };
+            };
+        };
+    };
+    start_api_v1_demo_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemoStartIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_api_v1_demo_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemoStopIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoRunOut"];
                 };
             };
             /** @description Validation Error */

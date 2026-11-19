@@ -173,6 +173,10 @@ def worker(
     ] = DEFAULT_ENGINE_CONFIG,
     api: Annotated[str | None, typer.Option(help="Địa chỉ API, mặc định API_BASE_URL")] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="In log chi tiết")] = False,
+    stop_at_end: Annotated[
+        bool, typer.Option(help="Thoát sau EOF và gửi hết sự kiện (video demo)")
+    ] = False,
+    completion_file: Annotated[Path | None, typer.Option(hidden=True)] = None,
 ) -> None:
     """Worker realtime cho một camera (F06): camera → pose → engine → API nội bộ.
 
@@ -253,7 +257,9 @@ def worker(
     typer.echo(f"Worker camera {camera_id} → {base_url} (pose {entry.name}, {src}). Ctrl+C dừng.")
     code = 0
     try:
-        runner.run()
+        runner.run(stop_at_end=stop_at_end)
+        if stop_at_end and completion_file is not None:
+            completion_file.touch()  # API-owned metadata path; no image/video written.
     except KeyboardInterrupt:
         typer.echo("Đã dừng worker.")
     except (WorkerStopError, ModelNotFoundError) as exc:

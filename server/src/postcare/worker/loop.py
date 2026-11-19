@@ -236,9 +236,19 @@ class Worker:
         return self.source.status.value
 
     # ---- vòng lặp ----
-    def run(self, should_stop: Callable[[], bool] = lambda: False) -> None:
+    def run(
+        self, should_stop: Callable[[], bool] = lambda: False, *, stop_at_end: bool = False
+    ) -> None:
+        eof_at: float | None = None
         while not should_stop():
             self.step()
+            if stop_at_end and self.source is not None and self.source.ended:
+                eof_at = self._clock() if eof_at is None else eof_at
+                if not self._events:
+                    return
+                # Bounded drain: report failure rather than silently losing pending events.
+                if self._clock() - eof_at >= self.options.retry_max_s * 3:
+                    raise WorkerStopError("Không gửi hết sự kiện sau khi video kết thúc")
 
     def step(self) -> None:
         now = self._clock()

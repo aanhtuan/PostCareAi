@@ -15,6 +15,9 @@ import type {
   CameraRoiOut,
   CameraThresholdsOut,
   DisplayMode,
+  DemoStatusOut,
+  DemoRunOut,
+  DemoSetupOut,
   EventOut,
   HandoverOut,
   OverviewOut,
@@ -56,11 +59,17 @@ export function useOverview() {
   });
 }
 
-export type EventFilter = { bed_id?: number; limit?: number; priority?: Priority[] };
+export type EventFilter = {
+  bed_id?: number;
+  session_id?: number;
+  limit?: number;
+  priority?: Priority[];
+};
 
-export function useEvents(filter: EventFilter) {
+export function useEvents(filter: EventFilter, enabled = true) {
   return useQuery({
     queryKey: qk.events(filter),
+    enabled,
     queryFn: () => api<Page<EventOut>>('/events', { query: filter as Record<string, QueryValue> }),
   });
 }
@@ -74,10 +83,44 @@ export type AlertFilter = {
   limit?: number;
 };
 
-export function useAlerts(filter: AlertFilter) {
+export function useAlerts(filter: AlertFilter, enabled = true) {
   return useQuery({
     queryKey: qk.alerts(filter),
+    enabled,
     queryFn: () => api<Page<AlertOut>>('/alerts', { query: filter as Record<string, QueryValue> }),
+  });
+}
+
+export function useVideoDemo() {
+  return useQuery({
+    queryKey: ['video-demo'],
+    queryFn: () => api<DemoStatusOut>('/demo'),
+    refetchInterval: 1000,
+  });
+}
+
+export function useDemoAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (action: { kind: 'prepare' | 'start' | 'stop'; sessionId?: number }) =>
+      api<DemoRunOut | DemoSetupOut>(`/demo/${action.kind}`, {
+        method: 'POST',
+        body:
+          action.kind === 'start'
+            ? { clip_id: 'pexels-8090735' }
+            : action.kind === 'stop'
+              ? { session_id: action.sessionId }
+              : undefined,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['video-demo'] }),
+        qc.invalidateQueries({ queryKey: qk.overview }),
+        qc.invalidateQueries({ queryKey: ['sessions'] }),
+        qc.invalidateQueries({ queryKey: ['beds'] }),
+        qc.invalidateQueries({ queryKey: ['cameras'] }),
+      ]);
+    },
   });
 }
 
