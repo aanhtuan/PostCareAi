@@ -2,6 +2,14 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-19 – Codex – Đã push demo video, còn bước merge main
+
+- **Đã làm:** Push code/test/hướng dẫn bằng SSH lên origin/codex/F30-video-demo: commit code 96de078 và nhật ký kiểm tra 5abe51c. Fetch xác nhận HEAD và nhánh remote cùng 5abe51c446e82e4e1372c58a31af5a5ce329a2d3; main vẫn ebf486622d37a0e065fd5b034368770873bfb09b. Không có video/model/DB/.env/runs trong 29 file thay đổi.
+- **Kiểm tra:** Pre-commit PASS; make check trong cả hai lượt pre-push PASS. Lượt đầu lỗi kết nối SSH exit 141; lượt sau thành công sau khi đặt ServerAliveInterval=30 và ServerAliveCountMax=6 trong Git config local. Không bỏ hook. Test-vision đã PASS 5 passed/1 skipped như entry triển khai.
+- **Runtime:** API health và trang /demo HTTP 200 sau push; không reset DB, thay cấu hình webcam A01 hoặc thao tác clone cũ. Cây làm việc sạch sau commit/push code.
+- **Đang dở / blocker:** Chưa tạo PR hoặc merge main. AGENTS yêu cầu mỗi feature có PR; máy chưa có GitHub MCP hoặc xác thực API/CLI, chỉ có SSH để push. Đã gửi câu hỏi cho người dùng về giữ quy trình PR hay cho phép merge trực tiếp, chưa có câu trả lời.
+- **Bước tiếp theo:** Tạo PR từ codex/F30-video-demo vào main sau khi có xác thực GitHub; hoặc merge trực tiếp bằng Git nếu người dùng cho phép rõ ràng. Trước merge chạy git fetch origin, kiểm tra nhánh remote; sau merge đối chiếu main/origin/main và health. Hướng dẫn tại docs/04-guides/demo-runbook.md, báo cáo tại reports/VIDEO-DEMO-VERIFICATION-2026-11-19.md. F30 toàn phần và BED_EXIT vẫn chưa nghiệm thu.
+
 ## 2026-11-19 – Codex – Chuẩn bị xuất bản demo video và hướng dẫn
 
 - **Phạm vi:** Người dùng yêu cầu push thay đổi và hướng dẫn, merge vào main. Chỉ thao tác clone PostCareAI-fresh; giữ video, model, DB, .env và kết quả chạy local ngoài Git.
