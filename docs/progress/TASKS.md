@@ -43,7 +43,7 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 
 ## Đã xong gần đây
 
-- [x] 2026-11-19: Rà soát phạm vi xuất bản code/hướng dẫn demo video, fetch xác nhận base main ebf4866; giữ media/model/DB/.env/runs ngoài Git. Commit/push/merge đang thực hiện; trạng thái remote cần đối chiếu khi kết thúc.
+- [x] 2026-11-19: Commit 96de078 chứa code/test/hướng dẫn demo video; pre-commit và pre-push make check PASS. Fetch xác nhận base main ebf4866; giữ media/model/DB/.env/runs ngoài Git. Push đầu lỗi SSH exit 141; đã đặt keepalive để thử lại. Merge chờ cách tạo PR hoặc người dùng cho phép merge trực tiếp; trạng thái remote cần đối chiếu khi kết thúc.
 
 - **2026-11-19 — Lát cắt F30 video demo — hoàn tất local (yêu cầu người dùng, trước F24; không hoàn thành toàn F30):**
   - [x] Ghi scope/kế hoạch; nguồn Pexels 8090735 + ROI sẵn có, không thay webcam A01.

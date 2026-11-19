@@ -7,7 +7,8 @@ Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](..
 - **Phạm vi:** Người dùng yêu cầu push thay đổi và hướng dẫn, merge vào main. Chỉ thao tác clone PostCareAI-fresh; giữ video, model, DB, .env và kết quả chạy local ngoài Git.
 - **Đã làm:** Fetch xác nhận origin/main vẫn ebf4866, cùng base với codex/F30-video-demo. Rà soát danh sách code/test/API types, README, runbook, spec, tiến độ và hai báo cáo Markdown liên quan; không có thay đổi mới từ remote cần hòa giải.
 - **Kiểm tra:** Bản triển khai đã đạt make check (1375 pytest, 258 Vitest, build) và test-vision (5 passed, 1 skipped) như entry dưới. Hook pre-commit và pre-push vẫn bắt buộc; không bỏ qua hoặc chạy hai bộ test trên cùng DB.
-- **Đang dở:** Chuẩn bị commit/push. Máy có SSH push, chưa có GitHub MCP hoặc xác thực API để tạo PR; đã hỏi người dùng chọn giữ quy trình PR hay cho phép merge trực tiếp bằng Git.
+- **Xuất bản:** Commit code/test/hướng dẫn 96de078; hook pre-commit PASS, hook pre-push make check PASS. Lượt push đầu chưa gửi được do SSH bị remote đóng trong lúc kiểm tra (exit 141); cấu hình keepalive SSH local để thử lại, không bỏ hook. Danh sách 29 file đã được kiểm tra text/kích thước và mẫu bí mật, không chứa giá trị secret local.
+- **Đang dở:** Push lại sau lỗi kết nối. Máy có SSH push, chưa có GitHub MCP hoặc xác thực API để tạo PR; đã hỏi người dùng chọn giữ quy trình PR hay cho phép merge trực tiếp bằng Git.
 - **Bước tiếp theo:** Commit Conventional Commits F30, push nhánh với hook make check; merge theo cách người dùng xác nhận, fetch lại và đối chiếu HEAD/main/origin/main. Nếu chưa có cách tạo PR hoặc cho phép merge trực tiếp, chỉ xuất bản nhánh và giữ main.
 - **Giới hạn:** Đây là xuất bản lát cắt demo đã kiểm chứng, không nghiệm thu F30 toàn phần hoặc BED_EXIT. Dịch vụ local và dữ liệu webcam A01 được giữ nguyên.
 
