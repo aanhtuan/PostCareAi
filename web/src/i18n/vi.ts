@@ -290,6 +290,9 @@ export const vi = {
     changeDisplayMode: 'Đổi chế độ hiển thị',
     displayModeSaved: 'Đã đổi chế độ hiển thị. Hình ảnh sẽ cập nhật trong vài giây.',
     rawHint: 'Video gốc chỉ dùng trong môi trường thử nghiệm.',
+    displayTitle: 'Hình ảnh theo chế độ riêng tư',
+    skeletonTitle: 'Skeleton và vùng giường',
+    skeletonHint: 'Bộ xương được dựng từ cùng khung hình; không hiển thị pixel ảnh gốc.',
   },
   alerts: {
     title: 'Cảnh báo',

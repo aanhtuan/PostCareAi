@@ -2,6 +2,63 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-19 – Codex – Xuất bản code live view hai khung
+
+- **Phạm vi:** Người dùng yêu cầu push code và merge vào main, không đưa dữ liệu local lên GitHub. Chỉ thao tác clone PostCareAI-fresh và worktree tạm của clone này.
+- **Đã làm:** Rà soát diff F07: worker render display/skeleton từ cùng observation, hai bộ đệm và MJPEG riêng, UI giữ chế độ riêng tư bên trái; kèm test, API types và spec. Hợp nhất báo cáo đã xuất bản trên main, giữ cả hai nhật ký; không thay DB, cấu hình máy, video hoặc model.
+- **Review:** Không phát hiện blocker trong diff phạm vi F07; không đổi rule engine hoặc suy diễn mất landmark thành rời giường. Bằng chứng hai stream thực tế và make check trước đó nằm trong entry mở rộng F07; bộ kiểm tra cuối do hook pre-push chạy.
+- **Kiểm tra xuất bản:** Dừng lượt push cũ trước khi chạy lượt kiểm tra cuối, tránh hai bộ test dùng chung DB. make check phải PASS trước khi Git cập nhật remote; không bỏ hook. make test-vision: 5 passed, 1 skipped (thiếu clip cận mặt), 1364 deselected, 7.89 s. Hash và kết quả make check được xác nhận trong bàn giao cuối.
+- **Bước tiếp theo:** Push feat/F07-dual-live-view và main cùng một lượt atomic; kiểm tra hai hash remote trùng bản merge. Trước lần chỉnh code tiếp theo chạy git fetch origin và kiểm tra trạng thái nhánh.
+- **Blocker nghiệp vụ:** BED_EXIT vẫn chưa nghiệm thu do góc quay, cần người dùng chỉnh webcam và chạy lại kịch bản. Không coi việc push code là nghiệm thu camera.
+
+## 2026-11-19 – Codex – Chuẩn bị xuất bản báo cáo webcam
+
+- **Phạm vi:** Theo yêu cầu người dùng chỉ đưa báo cáo và tiến độ liên quan lên GitHub; tách khỏi các commit code live view hai khung.
+- **Đã làm:** Tạo nhánh `codex/webcam-session-report` từ `origin/main`; bổ sung báo cáo nghiệm thu, entry webcam và task tài liệu. Code trong `feat/F07-dual-live-view` được giữ local.
+- **Kiểm tra:** Rà soát diff chỉ chứa Markdown; hook pre-push bắt buộc chạy `make check`. Các lượt test trước có deadlock do chạy đồng thời trên một DB test; chạy duy nhất một lượt khi xuất bản.
+- **Bước tiếp theo:** Push nhánh báo cáo và hợp nhất vào `main` theo yêu cầu người dùng; xác nhận hash remote. Vẫn cần chỉnh góc webcam và nghiệm thu `BED_EXIT`.
+- **Blocker:** Chưa đủ góc quay để nghiệm thu rời giường; báo cáo ghi rõ BLOCKED.
+
+## 2026-11-19 01:35 – Codex – Nghiệm thu realtime webcam A01
+
+- **Mục tiêu phiên:** Cấu hình webcam thật, mở phiên theo dõi và kiểm tra chuỗi sự kiện → cảnh báo → điều dưỡng xử lý → timeline trong clone mới.
+- **Đã làm:** Đăng nhập ADMIN trên `http://127.0.0.1:5175`, vẽ và lưu Bed ROI 5 điểm cho Camera A01; tạo bệnh nhân thử nghiệm `BN-DEMO-A01`; mở phiên theo dõi A01 lúc 01:29:53. Giữ chế độ riêng tư làm mờ khuôn mặt ở khung trái và skeleton + ROI ở khung phải.
+- **Kết quả kiểm tra:** Webcam online, pose thật cập nhật realtime. Engine phát sự kiện `Bệnh nhân đang ở mép giường` lúc 01:30:33 với chất lượng quan sát tốt; người dùng `Phạm Thu Hà` (tài khoản ADMIN) tiếp nhận cảnh báo, ghi `Xác nhận đúng`, thêm ghi chú kiểm tra và đánh dấu đã xử lý. Timeline hiển thị sự kiện, trạng thái đã xử lý và kết quả xác nhận. Trạng thái `BED_EXIT` chưa đạt: góc webcam chưa bắt đủ toàn thân/chân, sau khi người ra ngoài chỉ chuyển sang `Không đủ dữ liệu quan sát`, không phát cảnh báo rời giường.
+- **Đang dở:** Cần lùi hoặc hạ webcam để thấy trọn giường và toàn thân; sau đó vẽ lại ROI và lặp lại kịch bản nằm → ngồi → mép → đứng → rời vùng giường. Không đánh dấu nghiệm thu BED_EXIT.
+- **Bước tiếp theo:** Chỉnh vị trí webcam, mở lại `/cameras/1/config`, vẽ ROI theo khung mới; chạy lại và kiểm tra cảnh báo ưu tiên cao, rồi cập nhật timeline/runbook.
+- **Blocker / câu hỏi cho người dùng:** Thiếu góc quay đủ rộng để xác nhận an toàn chuỗi rời giường; cần người dùng chỉnh vật lý webcam.
+- **Giả định mới:** Không có.
+
+## 2026-11-19 – Codex – Mở rộng live view hai khung theo yêu cầu người dùng
+
+- **Mục tiêu phiên:** Đưa kiểu demo video cạnh skeleton vào sản phẩm; người dùng xác nhận giữ chế độ riêng tư đã chọn ở trái và thêm skeleton ở phải.
+- **Đã làm:** Nhánh `feat/F07-dual-live-view`. Worker vẫn render `display_mode` hiện tại, đồng thời render JPEG skeleton nền trơn + ROI từ cùng observation; API lưu hai view trong RAM (`display`, `skeleton`) và phát MJPEG theo `view`, cùng auth/stale/revalidation. Khi chưa có ROI, worker vẫn chạy pose cho khung skeleton nhưng không tạo engine/state/event. Live View responsive hai khung, nhãn tiếng Việt và hướng dẫn riêng tư; không thêm thư viện, không migration, không đổi DB.
+- **Kết quả kiểm tra:** Test mục tiêu backend worker/API đạt; 18 test UI LiveView/CameraStream đạt. `make check` PASS lần chạy thứ hai: 1364 pytest passed, 254 Vitest passed, build web đạt; lần chạy đầu có một lỗi stale-frame đơn lẻ nhưng test chạy riêng đạt.
+- **Đang dở:** Không còn phần code; dịch vụ API/worker/web đã restart trong clone mới và browser đã xác nhận hai ảnh thật. Không đổi webcam sang RAW.
+- **Bước tiếp theo:** `make check`; sau đó restart `uv ... --port 8002`, Vite 5175 và worker camera 1; mở `http://127.0.0.1:5175/live`.
+- **Blocker / câu hỏi cho người dùng:** Không có. ROI thật của webcam chưa cấu hình nên skeleton có thể chỉ là nền + pose, và engine vẫn báo chưa đủ dữ liệu.
+- **Giả định mới:** Mở rộng này là yêu cầu người dùng, ghi tại F07 §12; hai luồng không cam kết đồng bộ pixel từng thời điểm trên trình duyệt.
+
+## 2026-11-19 00:31 – Codex – Minh họa skeleton bằng clip stock
+
+- **Mục tiêu phiên:** Người dùng chưa có góc quay đủ giường, yêu cầu dùng một video/ảnh bất kỳ để xem hệ thống hoạt động.
+- **Đã làm:** Tải đúng clip Pexels 8090735 của PNW Production đã liệt kê trong datasets.md (Pexels License) vào data/external/pexels; ghi nguồn/giấy phép/ngày vào data/external/SOURCES.md. Chạy pipeline thật `postcare replay --video <clip> --camera-config config/cameras/pexels-8090735.yaml --out runs/stock-skeleton-demo-20261119 --preview --display-mode SKELETON`. Ghép clip gốc cạnh skeleton thành comparison.mp4, tạo trang minh họa local có nhãn “Stock footage – diễn viên”, trạng thái và sự kiện đồng bộ thời gian. Không sửa app hoặc đặt RAW cho webcam A01.
+- **Kết quả kiểm tra:** Replay PASS: 115 khung/7,674 giây, 1 BED_EDGE (ở mép giường), occurred 1,835 s và detected 3,337 s; không có BED_EXIT. Face errors 0. ROI dùng cấu hình clip có sẵn, được ghi nhãn ước lượng trong YAML; không suy ra độ chính xác chung. Browser http://127.0.0.1:5180/ phát comparison.mp4 không lỗi, 1280x360, readyState 4; hiển thị sự kiện ở mép giường. Ảnh chứng minh /tmp/postcare-stock-demo-page.png. `make test-vision`: 5 passed, 1 skipped (thiếu clip cận mặt), 1360 deselected, 8.57 s. Không chạy lại make check vì không đổi code/dependency; make check gần nhất cùng chat PASS 1360 pytest + 253 Vitest + build.
+- **Đang dở:** Không còn phần minh họa video được yêu cầu. Clip chưa chứng minh pipeline camera realtime hoặc phát hiện rời giường. Demo dùng replay, không gửi sự kiện vào DB vận hành.
+- **Bước tiếp theo:** Mở http://127.0.0.1:5180/, bấm “Xem lại từ đầu”; video gốc ở trái, skeleton + ROI ở phải. Kết quả tại runs/stock-skeleton-demo-20261119/{comparison.mp4,events.jsonl,frames.jsonl,run.json}; khởi động lại trang bằng `python3 -m http.server 5180 --bind 127.0.0.1 --directory runs/stock-skeleton-demo-20261119` từ clone mới. HTTP server exec session 67286 chỉ có ý nghĩa trong chat này; giữ tab demo cho người dùng.
+- **Blocker / câu hỏi cho người dùng:** Không cho video minh họa. Camera thật vẫn cần ROI/phiên đúng thực tế.
+- **Giả định mới:** Không có yêu cầu sản phẩm mới. Trang trong runs là công cụ minh họa local, video và metadata không commit.
+
+## 2026-11-19 00:09 – Codex – Cài và chạy clone mới trên Linux
+
+- **Mục tiêu phiên:** Cài dependency, DB và chạy dự án đầy đủ từ clone mới theo yêu cầu; không thao tác bản cũ.
+- **Đã làm:** `make setup` PASS (uv/npm/hook); tạo `.env` và `.env.postgres` riêng, secret ngẫu nhiên, quyền 600, gitignore. Kiểm kê Docker/cổng trước thao tác; tạo container PostgreSQL 16 `postcare-fresh-db`, volume `postcare-fresh-pgdata`, bind 127.0.0.1:55433, restart unless-stopped; DB `postcare_fresh` và `postcare_fresh_test` riêng. Migration tới 0006 và `make db-seed` thành công: 4 user, 3 ca, 1 khu vực, 3 giường, 1 camera. Chưa có bệnh nhân/phiên/sự kiện; không reset hoặc chạy simulator. Tải đủ 4 model MediaPipe theo manifest, SHA256 khớp.
+- **Kết quả kiểm tra:** API 127.0.0.1:8002 và web 127.0.0.1:5175 chạy (cổng mặc định đã có ứng dụng khác). Health trực tiếp/proxy, HTML, login admin và GET auth/me/overview/beds/cameras HTTP 200. Browser đăng nhập nurse thành công, dashboard 3 giường, “ĐANG CẬP NHẬT TRỰC TIẾP”; ảnh `/tmp/postcare-fresh-dashboard.png`. OpenCV/MediaPipe import và model face khởi tạo PASS. `make test-vision`: 2 passed, 4 skipped vì thiếu video. `make check` PASS (exit 0): format/lint/mypy/tsc, 10 import contract, schema/type API; 1360 pytest passed (779.28 s), 253 Vitest passed (34 file), Vite production build PASS. npm ci báo 14 vulnerability (6 moderate, 8 high), chưa tự nâng dependency.
+- **Đang dở:** Không còn bước cài đặt/check đang dở; chưa có video dev để chạy 4 vision test còn thiếu. Đã phát hiện webcam qua kiểm tra ngoài sandbox (sandbox không hiện /dev/video*), probe thật 640x480 + pose thành công; worker camera 1 chạy ở exec session 10489, UI /live CAMERA HOẠT ĐỘNG và MJPEG tải 640x480. Chưa có ROI/phiên nên worker chỉ phát hình làm mờ và heartbeat, chưa chạy engine sự kiện. Không đánh dấu feature mới Done. Tab mới được giữ cho người dùng.
+- **Bước tiếp theo:** Khi khởi động lại đọc `reports/LOCAL-SETUP.local.md`: `docker start postcare-fresh-db`; API `uv --directory server run uvicorn postcare.api.main:app --host 127.0.0.1 --port 8002`; web Linux `VITE_API_TARGET=http://127.0.0.1:8002 CHOKIDAR_USEPOLLING=1 npm --prefix web run dev -- --host 127.0.0.1 --port 5175 --strictPort`. Nguồn webcam 0 đã có; camera còn cần ROI và phiên theo dõi phù hợp; không mô tả simulator là camera thật.
+- **Blocker / câu hỏi cho người dùng:** Không chặn dùng web/DB/camera stream. Người dùng chọn kết nối webcam; nguồn webcam 0 đã đọc được. Còn cần ROI/phiên phù hợp để theo dõi sự kiện. Tiến trình API exec session 64743, web 49477 (chỉ có ý nghĩa trong chat này).
+- **Giả định mới:** Dùng cổng riêng cho clone mới để tránh trùng dịch vụ hiện hữu; đây là cấu hình local, không đổi yêu cầu sản phẩm.
+
 ## 2026-11-18 (tối) – Claude Code (Opus) – Đã Done 32 feature, demo chạy được
 
 - **Đã làm:** Done và đã push thêm F07, F08, F09, F17–F23, F26–F28, F31. Sửa lỗi an toàn F08 (ghi đè ngưỡng không được tắt luật "không tin một frame"), F35 (đổi vai trò → đóng WS), F19 (race khi resolve), F28 (render lỗi → bỏ khung, không gửi ảnh gốc). Giới hạn vitest `maxWorkers: 2` để tránh hết RAM.

@@ -96,7 +96,9 @@ class FakeApi:
             body = json.loads(request.content)
         elif request.content:
             body = request.content
-        self.calls.append((self.time.t, request.method, path, body))
+        query = request.url.query.decode()
+        recorded_path = path + (f"?{query}" if query else "")
+        self.calls.append((self.time.t, request.method, recorded_path, body))
         if path.endswith("/config"):
             if self.config_status != 200:
                 return httpx.Response(self.config_status, json=_error(self.config_status))

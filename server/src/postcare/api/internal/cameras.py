@@ -1,6 +1,6 @@
 """API nội bộ cho worker / giả lập (ADR-0002). Xác thực bằng header `X-Worker-Token`."""
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -23,7 +23,7 @@ from postcare.domain.dto import (
     HeartbeatIn,
     HeartbeatOut,
 )
-from postcare.domain.errors import validation_error
+from postcare.domain.errors import DomainError, validation_error
 from postcare.domain.events import ingest_event
 from postcare.domain.notifications import Publisher
 from postcare.domain.runtime import RuntimeStore
@@ -78,11 +78,14 @@ def events(
 async def frame(
     camera_id: int,
     request: Request,
+    view: str = Query("display"),
     db: Session = Depends(get_session),
     frames: LatestFrameStore = Depends(get_frames),
     settings: Settings = Depends(get_settings_dep),
 ) -> Response:
     """Khung JPEG xem trực tiếp (F06 R7, R8): chỉ giữ khung mới nhất trong RAM, không ghi đĩa."""
+    if view not in {"display", "skeleton"}:
+        raise DomainError("VALIDATION_ERROR", "Chế độ khung không hợp lệ", 422)
     ctype = request.headers.get("content-type", "").split(";")[0].strip().lower()
     if ctype != "image/jpeg":
         raise validation_error("Khung hình phải là image/jpeg", {"content_type": ctype})
@@ -100,5 +103,5 @@ async def frame(
     if not data.startswith(JPEG_MAGIC):
         raise validation_error("Khung hình không phải JPEG")
     await run_in_threadpool(svc.ensure_worker_camera, db, camera_id)
-    frames.put(camera_id, bytes(data))
+    frames.put(camera_id, bytes(data), view=view)  # type: ignore[arg-type]
     return Response(status_code=204)

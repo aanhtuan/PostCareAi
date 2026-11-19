@@ -3547,6 +3547,16 @@
             }
           },
           {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "display",
+              "title": "View"
+            }
+          },
+          {
             "name": "token",
             "in": "query",
             "required": false,
@@ -3852,6 +3862,16 @@
             "schema": {
               "type": "integer",
               "title": "Camera Id"
+            }
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "display",
+              "title": "View"
             }
           },
           {

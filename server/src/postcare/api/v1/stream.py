@@ -7,8 +7,9 @@ RAW), lấy từ `LatestFrameStore` trong RAM. Không import `vision`, không gh
 import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import datetime
+from typing import Literal
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 
 from postcare.api.deps import (
@@ -43,6 +44,7 @@ async def mjpeg_parts(
     frames: LatestFrameStore,
     camera_id: int,
     *,
+    view: Literal["display", "skeleton"] = "display",
     stale_after_s: float,
     poll_s: float,
     now: Callable[[], datetime] = utcnow,
@@ -62,7 +64,7 @@ async def mjpeg_parts(
             last_check = now()
             if not await still_valid():
                 return
-        frame = frames.get(camera_id)
+        frame = frames.get(camera_id, view=view)
         if frame is None or not _fresh(frame, now(), stale_after_s):
             return
         if frame is not last:  # mỗi `put` tạo đối tượng mới
@@ -111,17 +113,21 @@ def _ensure_camera(request: Request, camera_id: int) -> None:
 def stream_mjpeg(
     camera_id: int,
     request: Request,
+    view: str = Query("display"),
     frames: LatestFrameStore = Depends(get_frames),
     settings: Settings = Depends(get_settings_dep),
 ) -> StreamingResponse:
     """`?token=<jwt>`, chỉ vai trò nhân viên. Chưa có khung hoặc khung cũ → 404, không gửi ảnh."""
+    if view not in {"display", "skeleton"}:
+        raise DomainError("VALIDATION_ERROR", "Chế độ khung không hợp lệ", 422)
     _ensure_camera(request, camera_id)
-    if not _fresh(frames.get(camera_id), utcnow(), settings.stream_stale_frame_s):
+    if not _fresh(frames.get(camera_id, view=view), utcnow(), settings.stream_stale_frame_s):
         raise DomainError("NOT_FOUND", "Chưa có hình ảnh mới từ camera", 404)
     return StreamingResponse(
         mjpeg_parts(
             frames,
             camera_id,
+            view=view,  # type: ignore[arg-type]
             stale_after_s=settings.stream_stale_frame_s,
             poll_s=settings.stream_poll_interval_s,
             still_valid=_viewer_checker(request, request.query_params.get("token", "")),

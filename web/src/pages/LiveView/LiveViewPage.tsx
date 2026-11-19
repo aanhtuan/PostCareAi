@@ -111,14 +111,38 @@ export function LiveViewPage() {
               </Anchor>
               {bed.camera && cameraStatus ? (
                 <>
-                  <CameraStream
-                    cameraId={bed.camera.id}
-                    token={token}
-                    online={cameraStatus === 'ONLINE'}
-                    offlineText={vi.cameraStatus[cameraStatus]}
-                    roi={roi}
-                    alt={fmt(vi.live.streamAlt, { code: bed.code })}
-                  />
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                    <Stack gap={4}>
+                      <Text size="sm" fw={600}>
+                        {vi.live.displayTitle}
+                      </Text>
+                      <CameraStream
+                        cameraId={bed.camera.id}
+                        token={token}
+                        online={cameraStatus === 'ONLINE'}
+                        offlineText={vi.cameraStatus[cameraStatus]}
+                        roi={roi}
+                        alt={fmt(vi.live.streamAlt, { code: bed.code })}
+                      />
+                    </Stack>
+                    <Stack gap={4}>
+                      <Text size="sm" fw={600}>
+                        {vi.live.skeletonTitle}
+                      </Text>
+                      <CameraStream
+                        cameraId={bed.camera.id}
+                        token={token}
+                        online={cameraStatus === 'ONLINE'}
+                        offlineText={vi.cameraStatus[cameraStatus]}
+                        roi={null}
+                        view="skeleton"
+                        alt={vi.live.skeletonTitle}
+                      />
+                    </Stack>
+                  </SimpleGrid>
+                  <Text size="xs" c="dimmed">
+                    {vi.live.skeletonHint}
+                  </Text>
                   {cameraDetail.isSuccess && !roi && (
                     <Text size="sm" c="dimmed">
                       {vi.live.roiNotConfigured}

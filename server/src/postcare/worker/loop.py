@@ -33,6 +33,7 @@ from postcare.engine import Engine
 from postcare.pipeline import FrameEngine, process_frame
 from postcare.schemas.context import EngineContext
 from postcare.schemas.engine_config import EngineConfig
+from postcare.schemas.enums import DisplayMode
 from postcare.schemas.events import EngineEvent, EngineOutput
 from postcare.schemas.observation import PersonPose
 from postcare.schemas.roi import RoiPolygon, validate_roi_polygon
@@ -478,8 +479,9 @@ class Worker:
             self._persons = obs.persons
             self._handle_output(frame, output)
         else:
-            # Chưa có ROI: không chạy pose → BLUR mờ toàn khung, SKELETON chỉ nền trơn.
-            self._persons = ()
+            # Chưa có ROI: vẫn đo pose để khung skeleton hữu ích, nhưng không chạy engine.
+            # Không gửi state/event vì chưa đủ cấu hình vùng giường để kết luận theo dõi.
+            self._persons = self.adapter.observe(frame, self.config.camera_id).persons
         self._maybe_send_frame(frame, self._clock())
 
     def _handle_output(self, frame: Frame, output: EngineOutput) -> None:
@@ -541,7 +543,19 @@ class Worker:
             logger.warning("Không render được khung (%s): bỏ khung, không gửi", exc)
             return
         try:
-            self.api.post_frame(jpeg)
+            skeleton = encode_jpeg(
+                self.renderer.render(
+                    frame.image,
+                    self._persons,
+                    ts_ms=frame.ts_ms,
+                    mode=DisplayMode.SKELETON,
+                    roi=self._roi(cfg),
+                ),
+                max_side=self.options.jpeg_max_side,
+                quality=self.options.jpeg_quality,
+            )
+            self.api.post_frame(jpeg, view="display")
+            self.api.post_frame(skeleton, view="skeleton")
         except WorkerUnauthorizedError as exc:
             raise WorkerStopError(str(exc)) from exc
         except WorkerApiError as exc:

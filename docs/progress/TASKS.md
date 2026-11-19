@@ -10,13 +10,14 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 
 ## Đang làm
 
-**Trạng thái bàn giao (18/11/2026, tối).** `main` = 32 feature Done (F00–F23, F25–F28, F31, F35, F37) + hiệu chỉnh ngưỡng dev. Mọi nhánh dưới đây đã push lên GitHub.
+**Trạng thái bàn giao (cập nhật 20/11/2026, sau khi gộp commit F07 từ máy khác).** `main` = 32 feature Done (F00–F23, F25–F28, F31, F35, F37) + hiệu chỉnh ngưỡng dev. Mọi nhánh dưới đây đã push lên GitHub.
 
 | Feature | Nhánh | Trạng thái | Việc còn lại |
 |---|---|---|---|
 | F24 Bàn giao ca | `feat/F24-handover` | Code xong, review Đạt (đã sửa, có bằng chứng in bằng Playwright), spec Done | Merge vào `main` → `make check` → push; đánh dấu Done ở ROADMAP/README |
 | F29 Đánh giá chính thức | `feat/F29-final-eval` | Đã có `--frozen`, `measure-delivery`, `workflow-report`, báo cáo nháp; commit cuối là WIP | Chạy eval tập **test** với cấu hình đã chốt, hoàn thiện `docs/04-guides/final-evaluation-2026-11-18.md`, `make check`, review |
 | F36 Quyền xem của người nhà | `feat/F36-family-access` | Plan + test (đỏ) + phần code đang viết dở (migration `0007_f36_family_access_grants`, domain, API, WS family stream); commit cuối là WIP, **chưa chạy test** | Làm cho test xanh, UI staff cấp/thu hồi + trang `/family`, kiểm tay, review |
+| F07 mở rộng (từ máy khác, 19/11) | đã merge vào `main` (`ebf4866`) | Live view hai khung: trái theo chế độ riêng tư, phải skeleton + ROI; [báo cáo webcam A01](../../reports/REALTIME-WEBCAM-VERIFICATION-2026-11-19.md) | Webcam thật: mép giường → cảnh báo → tiếp nhận đã chạy; **rời giường BLOCKED do góc quay** — chỉnh webcam thấy trọn giường + toàn thân, vẽ lại ROI, chạy lại kịch bản |
 | F30 Sẵn sàng demo | — | Chưa bắt đầu | Phụ thuộc F24, F31, F36: runbook, `--loop` cho worker phát file, `make demo-seed`, E2E Playwright, chạy trọn 3 lần |
 
 **Tiếp tục trên máy khác (Windows):**
@@ -66,6 +67,16 @@ make setup && make db-upgrade && make seed && make models && make check
 - `npm audit` báo 8 lỗ hổng (7 moderate, 1 high) trong devDependency của web (17/11/2026). Xem từng gói, nâng phiên bản nếu không phá build; ghi kết quả vào session-log.
 
 ## Đã xong gần đây
+
+- [x] 2026-11-19: Rà soát và chuẩn bị xuất bản code F07 hai khung cùng test/API types/spec; hợp nhất báo cáo hiện có, giữ dữ liệu/cấu hình local ngoài Git. Push nhánh feature và main cùng một lượt, không bỏ hook.
+
+- [x] 2026-11-19: Viết [báo cáo nghiệm thu webcam A01](../../reports/REALTIME-WEBCAM-VERIFICATION-2026-11-19.md): ROI, phiên demo, mép giường → cảnh báo → ADMIN tiếp nhận/xác nhận → timeline. Rời giường còn BLOCKED do góc webcam. Báo cáo đã có trên main; lần xuất bản tiếp theo bổ sung code hai khung theo yêu cầu người dùng.
+
+- [x] 2026-11-19: Mở rộng Theo dõi trực tiếp theo yêu cầu người dùng: khung trái giữ chế độ riêng tư hiện tại, khung phải skeleton + vùng giường từ cùng observation; tách bộ đệm/luồng MJPEG, giữ quyền và stale policy, hỗ trợ pose preview khi chưa có ROI nhưng không phát state/event. Test worker/API/UI, `make check` (1364 pytest, 254 Vitest, build) và browser hai stream đều đạt.
+
+- [x] 2026-11-19 00:31: Minh họa clip stock Pexels 8090735 → MediaPipe → skeleton/ROI và engine thật; 115 khung, 1 sự kiện ở mép giường, chưa có rời giường. Mở http://127.0.0.1:5180/ để xem video gốc cạnh skeleton. `make test-vision`: 5 passed, 1 skipped; không thay webcam A01 hoặc source ứng dụng. Chi tiết trong session-log.
+
+- [x] 2026-11-19: Cài và chạy clone Linux mới `/home/atuna/Downloads/PostCareAI-fresh`: dependency/hook, PostgreSQL 16 riêng (`postcare-fresh-db`, cổng 55433), migration 0006, seed nền, 4 model khớp SHA256; API 8002, web 5175, đăng nhập UI nurse và WebSocket thành công. `make test-vision`: 2 passed, 4 skipped (thiếu video); `make check` PASS: 1360 pytest + 253 Vitest + build; webcam USB index 0 và worker đã chạy, /live nhận MJPEG 640x480, còn cần ROI/phiên để phát hiện sự kiện. Hướng dẫn local (không commit): `reports/LOCAL-SETUP.local.md`. Webcam thật đã hoạt động; chưa nghiệm thu hành vi quanh giường.
 
 - [x] 2026-11-17: **F00 Done.** Mypy, import-linter (8 contract), pre-commit/pre-push, CI GitHub Actions (Ubuntu + Windows, run 44107632897 xanh), `config/engine.default.yaml`, msw, `postcare version`/`openapi --check`. Chi tiết: spec F00 mục 10.
 - [x] 2026-11-17: Hợp nhất đề xuất nhóm vào tài liệu (QA#31–QA#37, F35–F37, pitch, DEMO-PLAN, datasets); dữ liệu ngoài 2,5 GB trong `data/external/`.
