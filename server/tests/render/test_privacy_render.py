@@ -199,27 +199,28 @@ def test_blur_holds_last_head_box_within_hold() -> None:
         assert np.array_equal(out[mask], image[mask])
 
 
-@pytest.mark.parametrize("persons", [[], [_body(head=False)]], ids=["no_person", "no_head"])
-def test_blur_falls_back_to_full_frame(persons: list[PersonPose]) -> None:
+def test_blur_keeps_frame_when_no_person() -> None:
     renderer = _renderer()
     renderer.render(_noise(7), [_body()], ts_ms=0, mode=DisplayMode.BLUR, roi=BED_ROI)
     image = _noise(8)
-    out = renderer.render(image, persons, ts_ms=_hold_ms() + 1, mode=DisplayMode.BLUR, roi=BED_ROI)
-    _assert_fully_blurred(image, out)
+    out = renderer.render(image, [], ts_ms=_hold_ms() + 1, mode=DisplayMode.BLUR, roi=BED_ROI)
+    assert np.array_equal(out, image)
 
 
-def test_blur_without_any_head_ever_is_full_frame() -> None:
+def test_blur_without_any_head_ever_keeps_frame() -> None:
     image = _noise(9)
     out = _renderer().render(image, [], ts_ms=0, mode=DisplayMode.BLUR, roi=None)
-    _assert_fully_blurred(image, out)
+    assert np.array_equal(out, image)
 
 
-def test_blur_partial_head_detection_without_memory_is_full_frame() -> None:
-    """Hai người, một người không thấy đầu, chưa nhớ vùng đầu nào → mờ toàn khung (R7)."""
+def test_blur_partial_head_detection_only_blurs_found_head() -> None:
+    """Hai người, chỉ vùng đầu ước lượng được mới bị làm mờ."""
     image = _noise(10)
     persons = [_body(), _body(dx=120, head=False)]
     out = _renderer().render(image, persons, ts_ms=0, mode=DisplayMode.BLUR, roi=None)
-    _assert_fully_blurred(image, out)
+    x0, y0, x1, y1 = _head_bounds(persons[0])
+    assert not np.array_equal(image[y0:y1, x0:x1], out[y0:y1, x0:x1])
+    assert np.array_equal(out[_outside([(x0, y0, x1, y1)])], image[_outside([(x0, y0, x1, y1)])])
 
 
 def test_blur_timestamp_going_back_expires_hold() -> None:
@@ -227,7 +228,7 @@ def test_blur_timestamp_going_back_expires_hold() -> None:
     renderer.render(_noise(11), [_body()], ts_ms=10_000, mode=DisplayMode.BLUR, roi=None)
     image = _noise(12)
     out = renderer.render(image, [], ts_ms=0, mode=DisplayMode.BLUR, roi=None)
-    _assert_fully_blurred(image, out)
+    assert np.array_equal(out, image)
 
 
 def test_blur_does_not_modify_input() -> None:

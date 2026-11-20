@@ -67,6 +67,7 @@ def camera_config(db: Session, camera_id: int) -> CameraConfigOut:
         roi_polygon=camera.roi_polygon,
         thresholds=camera.thresholds or {},
         display_mode=camera.display_mode,
+        observation_profile=camera.observation_profile,
         config_version=camera.config_version,
         active_session_id=session.id if session else None,
         capture_paused=session is not None and session.paused_at is not None,

@@ -39,7 +39,7 @@ Giảm lượng hình ảnh nhận dạng mà người dùng phải xem trên da
 - **R4.** Render diễn ra trong worker (`vision.render`) trước `POST /internal/v1/cameras/{id}/frame`. API và MJPEG chỉ chuyển tiếp JPEG đã render. *(overview.md mục 2, 7)*
 - **R5.** `SKELETON`: khung gửi đi được vẽ trên nền trơn mới tạo, chỉ gồm Bed ROI và skeleton của các người pose phát hiện. **Không** chứa pixel nào lấy từ ảnh gốc. *(PDF §11, §16)*
 - **R6.** `BLUR`: làm mờ (pixelate) vùng đầu của **mọi** người pose phát hiện (tối đa `pose.num_poses`). Vùng đầu lấy từ keypoint pose (hàm của F25), nới theo `privacy.head_box_scale`. Làm mờ **không** phụ thuộc Face Landmarker: mặt quay đi hay `face_status ≠ OK` vẫn mờ. *(PDF bảng tr.10 "OpenCV + landmarks"; giả định: khóa mới `privacy.head_box_scale`, `privacy.pixelate_blocks`)*
-- **R7.** Dự phòng khi không ước lượng được vùng đầu trong frame hiện tại: dùng vùng đầu gần nhất nếu chưa quá `privacy.head_hold_s`; quá thời gian đó thì làm mờ **toàn khung**. *(giả định: ưu tiên riêng tư khi pose mất người; khóa mới `privacy.head_hold_s`)*
+- **R7.** Dự phòng khi không ước lượng được vùng đầu trong frame hiện tại: dùng vùng đầu gần nhất nếu chưa quá `privacy.head_hold_s`; khi không có người hoặc không có vùng đầu thì giữ nguyên khung hình và chỉ làm mờ các vùng đầu ước lượng được. *(theo yêu cầu giao diện 2026-11-21)*
 - **R8.** Chế độ hiển thị **không** ảnh hưởng engine: cùng input cho cùng danh sách sự kiện ở cả ba chế độ. *(PDF §11, §16)*
 - **R9.** `postcare replay` có tùy chọn `--display-mode RAW|BLUR|SKELETON` cho video `--preview` (mặc định `BLUR`). *(giả định: để kiểm chứng R8 và chuẩn bị demo)*
 - **R10.** UI "Theo dõi trực tiếp" hiện tên chế độ: "Video gốc" / "Làm mờ khuôn mặt" / "Chỉ skeleton + ROI" (glossary.md). Chỉ ADMIN và CHARGE_NURSE thấy nút đổi. Text nằm trong `vi.ts`. *(PDF §9.1 (tr.11); glossary.md)*
@@ -62,7 +62,7 @@ Giảm lượng hình ảnh nhận dạng mà người dùng phải xem trên da
 
 - [x] **AC1.** Mỗi camera có 3 chế độ, mặc định `BLUR`. ADMIN và CHARGE_NURSE đổi được (ghi audit, tăng `config_version`, worker áp dụng ≤ 5 giây); NURSE và DOCTOR → 403. *(PDF §11; A08; api-conventions.md)* — *Kiểm chứng:* API test `test_put_display_mode_by_role` (4 vai trò), `test_display_mode_change_writes_audit_and_bumps_version`; test tích hợp worker với `FakeFrameSource` nhận chế độ mới sau một chu kỳ poll.
 - [x] **AC2.** Chế độ `SKELETON`: khung gửi đi không chứa pixel ảnh gốc. *(PDF §11, §16)* — *Kiểm chứng:* test `test_skeleton_render_independent_of_source_pixels`: render cùng pose trên hai ảnh nhiễu ngẫu nhiên khác nhau → hai output giống hệt từng byte.
-- [x] **AC3.** Chế độ `BLUR` làm mờ vùng đầu lấy từ pose, kể cả khi Face Landmarker không thấy mặt; không ước lượng được vùng đầu quá `privacy.head_hold_s` → mờ toàn khung. *(PDF bảng tr.10; HS §6.3)* — *Kiểm chứng:* test `test_blur_uses_pose_head_region_without_face` (vùng đầu khác ảnh gốc, vùng ngoài giữ nguyên), `test_blur_falls_back_to_full_frame`.
+- [x] **AC3.** Chế độ `BLUR` làm mờ vùng đầu lấy từ pose, kể cả khi Face Landmarker không thấy mặt; khi chưa có người hoặc vùng đầu thì vẫn hiển thị khung hình. *(PDF bảng tr.10; HS §6.3; yêu cầu giao diện 2026-11-21)* — *Kiểm chứng:* test `test_blur_uses_pose_head_region_without_face`, `test_blur_keeps_frame_when_no_person`.
 - [x] **AC4.** Replay cùng một video ở 3 chế độ cho cùng danh sách sự kiện. *(PDF §11, §16)* — *Kiểm chứng:* test `test_display_mode_does_not_change_events` (replay từ fixture observation với 3 giá trị `--display-mode`, so sánh `events.jsonl`).
 - [x] **AC5.** "Theo dõi trực tiếp" hiện tên chế độ hiện tại bằng tiếng Việt; chỉ ADMIN và CHARGE_NURSE thấy nút đổi. *(PDF §9.1; glossary.md)* — *Kiểm chứng:* component test `DisplayModeControl.test.tsx` cho 4 vai trò; `vi.test.ts` quét từ cấm.
 
@@ -72,7 +72,7 @@ Giảm lượng hình ảnh nhận dạng mà người dùng phải xem trên da
 |---|---|---|---|
 | AC1 | API + tích hợp | `test_put_display_mode_by_role`, `test_display_mode_change_writes_audit_and_bumps_version`, `test_worker_applies_new_display_mode` | NURSE/DOCTOR/FAMILY → 403; giá trị `"FOO"` → 422 `VALIDATION_ERROR` (cách xử lý body sai chung của API) |
 | AC2 | unit (render) | `test_skeleton_render_independent_of_source_pixels` | — |
-| AC3 | unit (render) | `test_blur_uses_pose_head_region_without_face`, `test_blur_two_people`, `test_blur_falls_back_to_full_frame` | Không có người quá `privacy.head_hold_s` → mờ toàn khung, không trả ảnh gốc |
+| AC3 | unit (render) | `test_blur_uses_pose_head_region_without_face`, `test_blur_two_people`, `test_blur_keeps_frame_when_no_person` | Không có người → giữ nguyên khung hình |
 | AC4 | tích hợp (replay) | `test_display_mode_does_not_change_events` | — |
 | AC5 | component | `DisplayModeControl.test.tsx` | DOCTOR không thấy nút đổi |
 | — | thủ công | Xem MJPEG ở 3 chế độ với camera thật; quay mặt đi khi ở `BLUR` → vẫn mờ | — |
@@ -82,7 +82,7 @@ Giảm lượng hình ảnh nhận dạng mà người dùng phải xem trên da
 - *(giả định A08)* Chế độ mặc định là "Làm mờ khuôn mặt".
 - *(giả định QA#18)* ADMIN và CHARGE_NURSE được đổi chế độ.
 - *(giả định)* Làm mờ bằng pixelate; khóa mới `privacy.head_box_scale`, `privacy.pixelate_blocks`, `privacy.head_hold_s`.
-- *(giả định)* Mất vùng đầu quá `privacy.head_hold_s` → mờ toàn khung.
+- *(giả định)* Mất vùng đầu quá `privacy.head_hold_s` → không có vùng mới để làm mờ, giữ khung hình.
 - *(giả định, quyết định của điều phối, ưu tiên riêng tư)* `privacy.head_box_scale = 2.4` (trước là 1.8): keypoint đầu của pose lệch so với mặt thật khi mặt nghiêng cận cảnh, nên nới rộng vùng mờ. Khóa này không tính vào `config_hash`, không đổi sự kiện.
 - *(giả định)* Tùy chọn `--display-mode` của replay.
 - *(giả định)* Giới hạn: pose chỉ phát hiện tối đa `pose.num_poses` người; người thứ ba trở đi có thể không được làm mờ. Ghi vào runbook (F30): dùng `SKELETON` khi có nhiều người trong khung.
@@ -99,9 +99,9 @@ Khảo sát (2026-11-18): cột `cameras.display_mode` (mặc định `BLUR`), `
 
 1. **Render (R4–R7).** `vision/render.py` (đã có `encode_jpeg`, `draw_debug_overlay`):
    - `resolve_display_mode(value) -> DisplayMode`: thiếu/không hợp lệ → `BLUR` (R1).
-   - `pixelate(region, blocks)`; `render_raw(image)` (bản sao); `render_blur(image, boxes, blocks)` (`boxes=None` → mờ toàn khung); `render_skeleton(shape, persons, roi)` chỉ nhận kích thước khung, vẽ trên nền trơn mới (R5: không thể dùng pixel gốc).
-   - `PrivacyRenderer(privacy, min_visibility)` có trạng thái giữ vùng đầu: mọi người phát hiện đều có vùng đầu → dùng và nhớ (`ts_ms`); có người thiếu vùng đầu hoặc không có người → hợp với vùng đầu đã nhớ nếu chưa quá `head_hold_s` (tính bằng `ts_ms` của khung, không đọc đồng hồ), quá thì mờ toàn khung (R7). `ts_ms` lùi (nguồn mở lại) → coi như hết hạn. `render(image, persons, ts_ms, mode, roi)`.
-2. **Worker (R1, R3, R4, R8).** `WorkerConfig.display_mode`: validator trước khi parse, giá trị thiếu/lạ → `BLUR` + WARNING. Worker giữ `persons` của khung vừa xử lý (không có engine vì chưa có ROI → không người, BLUR mờ toàn khung, SKELETON nền trơn) và gọi `PrivacyRenderer.render` trước `encode_jpeg`. Tham số `renderer` (mặc định đọc `config/engine.default.yaml`). `engine_key` bỏ `config_version` (ROI, ngưỡng, phiên, giường đã nằm trong khóa), để đổi chế độ hiển thị không tạo lại engine (R8) *(giả định)*.
+   - `pixelate(region, blocks)`; `render_raw(image)` (bản sao); `render_blur(image, boxes, blocks)` (`boxes=None` → giữ nguyên khung); `render_skeleton(shape, persons, roi)` chỉ nhận kích thước khung, vẽ trên nền trơn mới (R5: không thể dùng pixel gốc).
+   - `PrivacyRenderer(privacy, min_visibility)` có trạng thái giữ vùng đầu: vùng đầu phát hiện được → dùng và nhớ (`ts_ms`); khi không có vùng mới → dùng vùng đầu đã nhớ nếu chưa quá `head_hold_s`, sau đó giữ khung hình. `ts_ms` lùi (nguồn mở lại) → coi như hết hạn. `render(image, persons, ts_ms, mode, roi)`.
+2. **Worker (R1, R3, R4, R8).** `WorkerConfig.display_mode`: validator trước khi parse, giá trị thiếu/lạ → `BLUR` + WARNING. Worker giữ `persons` của khung vừa xử lý và gọi `PrivacyRenderer.render` trước `encode_jpeg`. Tham số `renderer` (mặc định đọc `config/engine.default.yaml`). `engine_key` bỏ `config_version` (ROI, ngưỡng, phiên, giường đã nằm trong khóa), để đổi chế độ hiển thị không tạo lại engine (R8) *(giả định)*.
 3. **API (R2).** `PUT /api/v1/cameras/{id}/display-mode` `{display_mode}` → `CameraOut`; guard `require_roles(ADMIN, CHARGE_NURSE)`; `camera_config.update_display_mode`: khóa dòng, đổi → `config_version += 1` + audit `camera.update_display_mode` `{display_mode, config_version}` cùng transaction; giá trị y hệt → không tăng, không audit (như ROI). Camera không tồn tại → 404. Giá trị lạ → 422 `VALIDATION_ERROR` (cách mọi endpoint xử lý body sai; mục 6 ghi 400 là lệch với `api/errors.py`, sửa theo code). `make gen-api-types`.
 4. **Replay (R8, R9).** `replay_video(..., display_mode=BLUR)`: `_Preview` render privacy rồi vẽ lớp debug; `run.json` thêm `display_mode`. CLI `--display-mode RAW|BLUR|SKELETON` (mặc định `BLUR`; giá trị lạ → lỗi typer).
 5. **Web (R10).** `web/src/pages/LiveView/DisplayModeControl.tsx`: nhãn chế độ hiện tại (từ `useCameraDetail`), ADMIN/CHARGE_NURSE thấy `SegmentedControl` đổi chế độ (`useSaveDisplayMode`, invalidate `cameras`); lỗi → thông báo chung. Text `vi.displayMode.*`, `vi.live.displayMode*` trong `vi.ts`.
@@ -122,8 +122,8 @@ Rủi ro: pixelate 12 khối trên vùng đầu lớn vẫn có thể nhận ra 
 **2026-11-18, builder (trạng thái In review).** Nhánh `feat/F28-privacy-modes`.
 
 Đã làm:
-- `vision/render.py`: `resolve_display_mode` (thiếu/lạ → `BLUR`), `pixelate`, `render_raw`, `render_blur`, `render_skeleton(shape, persons, roi)` (chỉ nhận kích thước khung), `PrivacyRenderer` (giữ vùng đầu theo `ts_ms`, `privacy.head_hold_s`; có người thiếu vùng đầu hoặc không có người → hợp với vùng đã nhớ, hết hạn → mờ toàn khung; `ts_ms` lùi → hết hạn).
-- Worker: `WorkerConfig.display_mode` dự phòng `BLUR` + WARNING; render trước `encode_jpeg`; `Worker(renderer=…)`, `default_renderer(engine_config)` trong `postcare worker`. Chưa có ROI → không chạy pose → BLUR mờ toàn khung, SKELETON nền trơn. `engine_key` bỏ `config_version`: đổi chế độ hiển thị không tạo lại engine (giả định; ROI/ngưỡng/phiên/giường vẫn trong khóa).
+- `vision/render.py`: `resolve_display_mode` (thiếu/lạ → `BLUR`), `pixelate`, `render_raw`, `render_blur`, `render_skeleton(shape, persons, roi)` (chỉ nhận kích thước khung), `PrivacyRenderer` (giữ vùng đầu theo `ts_ms`, `privacy.head_hold_s`; không có vùng đầu → giữ khung hình).
+- Worker: `WorkerConfig.display_mode` dự phòng `BLUR` + WARNING; render trước `encode_jpeg`; `Worker(renderer=…)`, `default_renderer(engine_config)` trong `postcare worker`; `engine_key` bỏ `config_version`.
 - API `PUT /api/v1/cameras/{id}/display-mode` (`require_roles(ADMIN, CHARGE_NURSE)`, `camera_config.update_display_mode`, khóa dòng, audit `camera.update_display_mode`, giá trị y hệt → không tăng version/không audit, camera ngừng dùng → 404). `make gen-api-types`.
 - Replay `--display-mode RAW|BLUR|SKELETON` (mặc định `BLUR`; với `--from-observations` → lỗi), `run.json.display_mode`.
 - Web: `DisplayModeControl.tsx` trong "Theo dõi trực tiếp" (nhãn cho mọi vai trò; `SegmentedControl` cho ADMIN/CHARGE_NURSE; nhắc "Video gốc chỉ dùng trong môi trường thử nghiệm"), `useSaveDisplayMode`, text `vi.displayMode`, `vi.live.displayMode*`.
@@ -132,7 +132,7 @@ Rủi ro: pixelate 12 khối trên vùng đầu lớn vẫn có thể nhận ra 
 Bằng chứng AC:
 - AC1: `tests/api/test_camera_display_mode.py` (`test_put_display_mode_by_role` 4 vai trò, FAMILY 403, 401, `test_display_mode_change_writes_audit_and_bumps_version` + config nội bộ trả chế độ mới, giá trị lạ 422, 404, mặc định `BLUR`); `tests/worker/test_worker_display_mode.py::test_worker_applies_new_display_mode` (áp dụng ≤ 5 s, engine không tạo lại), `test_worker_invalid_or_missing_display_mode_uses_blur`.
 - AC2: `tests/render/test_privacy_render.py::test_skeleton_render_independent_of_source_pixels` (hai ảnh nhiễu + ảnh màu đánh dấu → output và JPEG giống từng byte, không có màu nguồn), `test_skeleton_only_needs_frame_shape`; `test_skeleton_frames_do_not_depend_on_source_pixels` (worker: mọi JPEG SKELETON giống hệt dù khung nguồn khác nhau).
-- AC3: `test_blur_uses_pose_head_region_without_face` (chỉ thấy tai, không Face Landmarker; ≤ blocks² màu trong vùng đầu, ngoài vùng giữ nguyên), `test_blur_two_people`, `test_blur_holds_last_head_box_within_hold`, `test_blur_falls_back_to_full_frame` (không người / không thấy đầu), `test_blur_partial_head_detection_without_memory_is_full_frame`, `test_blur_timestamp_going_back_expires_hold`.
+- AC3: `test_blur_uses_pose_head_region_without_face` (chỉ thấy tai, không Face Landmarker; ≤ blocks² màu trong vùng đầu, ngoài vùng giữ nguyên), `test_blur_two_people`, `test_blur_holds_last_head_box_within_hold`, `test_blur_keeps_frame_when_no_person`, `test_blur_partial_head_detection_only_blurs_found_head`, `test_blur_timestamp_going_back_expires_hold`.
 - AC4: `tests/replay/test_display_mode_events.py::test_display_mode_does_not_change_events` (3 chế độ, `events.jsonl` và `frames.jsonl` giống nhau); CLI nhận/ từ chối `--display-mode`.
 - AC5: `web/src/pages/LiveView/DisplayModeControl.test.tsx` (3 nhãn tiếng Việt, không hiện mã; ADMIN/CHARGE_NURSE thấy nút; NURSE/DOCTOR không; đổi gửi PUT); `vi.test.ts` xanh.
 

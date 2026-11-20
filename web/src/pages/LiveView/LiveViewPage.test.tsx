@@ -44,6 +44,7 @@ function camera(status: 'ONLINE' | 'OFFLINE' | 'UNKNOWN', roi: number[][] | null
     source_type: 'FILE',
     source: 'clip.mp4',
     display_mode: 'RAW',
+    observation_profile: 'BED_MONITORING',
     status,
     last_seen_at: T,
     config_version: 1,
@@ -100,6 +101,7 @@ describe('LiveViewPage', () => {
         source_type: 'WEBCAM',
         source: '2',
         bed_id: 1,
+        observation_profile: 'BED_MONITORING',
       });
       return Response.json({ id: 3, config_version: 1 }, { status: 201 });
     });
@@ -225,6 +227,12 @@ describe('LiveViewPage', () => {
     expect(await screen.findByText(vi.live.roiNotConfigured)).toBeInTheDocument();
     expect(screen.getByText(vi.live.askAdminForRoi)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: vi.live.drawRoi })).toBeNull();
+  });
+
+  it('allows a no-ROI observation profile to stream without a bed region', async () => {
+    setup(bed(), { ...camera('ONLINE', null), observation_profile: 'ABNORMAL_MOVEMENT' });
+    expect(await screen.findByRole('img', { name: 'Giường A01' })).toBeInTheDocument();
+    expect(screen.queryByText(vi.live.roiNotConfigured)).toBeNull();
   });
 
   it.each([{ roi: null }, { roi: ROI }])(

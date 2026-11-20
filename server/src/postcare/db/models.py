@@ -37,6 +37,7 @@ from postcare.schemas.enums import (
     CameraSourceType,
     CameraStatus,
     DisplayMode,
+    ObservationProfile,
     ObservationQuality,
     Priority,
     UserRole,
@@ -132,6 +133,11 @@ class Camera(Base):
         pg_enum(DisplayMode, "display_mode"),
         default=DisplayMode.BLUR,
         server_default=DisplayMode.BLUR.value,
+    )
+    observation_profile: Mapped[ObservationProfile] = mapped_column(
+        pg_enum(ObservationProfile, "observation_profile"),
+        default=ObservationProfile.BED_MONITORING,
+        server_default=ObservationProfile.BED_MONITORING.value,
     )
     config_version: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
     status: Mapped[CameraStatus] = mapped_column(

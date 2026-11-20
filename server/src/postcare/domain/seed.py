@@ -34,6 +34,7 @@ from postcare.schemas.enums import (
     AlertOutcome,
     AlertStatus,
     CameraSourceType,
+    ObservationProfile,
     ObservationQuality,
     UserRole,
 )
@@ -58,8 +59,18 @@ SEED_SHIFTS: list[tuple[str, time, time]] = [
 ]
 
 
-def _webcam(name: str, bed: Bed) -> Camera:
-    return Camera(name=name, bed_id=bed.id, source_type=CameraSourceType.WEBCAM, source="0")
+def _webcam(
+    name: str,
+    bed: Bed,
+    profile: ObservationProfile = ObservationProfile.BED_MONITORING,
+) -> Camera:
+    return Camera(
+        name=name,
+        bed_id=bed.id,
+        source_type=CameraSourceType.WEBCAM,
+        source="0",
+        observation_profile=profile,
+    )
 
 
 def _needs_camera(db: Session, bed: Bed, name: str) -> bool:
@@ -134,7 +145,12 @@ def seed_demo(db: Session) -> None:
     for code in BED_CODES[1:]:
         bed = beds[code]
         if _needs_camera(db, bed, f"Camera {code}"):
-            db.add(_webcam(f"Camera {code}", bed))
+            profile = (
+                ObservationProfile.ABNORMAL_MOVEMENT
+                if code == "A02"
+                else ObservationProfile.FACE_SIGNALS
+            )
+            db.add(_webcam(f"Camera {code}", bed, profile))
     db.flush()
     for cam in db.scalars(select(Camera).where(Camera.roi_polygon.is_(None))):
         cam.roi_polygon = DEMO_ROI

@@ -95,6 +95,7 @@ const cameras: CameraOut[] = [
     source_type: 'WEBCAM',
     source: '0',
     display_mode: 'BLUR',
+    observation_profile: 'BED_MONITORING',
     status: 'ONLINE',
     last_seen_at: null,
     config_version: 1,

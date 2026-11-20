@@ -34,6 +34,7 @@ const camera = {
   source_type: 'FILE',
   source: 'clip.mp4',
   display_mode: 'RAW',
+  observation_profile: 'BED_MONITORING',
   status: 'ONLINE',
   last_seen_at: null,
   config_version: 2,

@@ -9,7 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from postcare.schemas.enums import CameraSourceType, DisplayMode
+from postcare.schemas.enums import CameraSourceType, DisplayMode, ObservationProfile
 from postcare.vision.render import DEFAULT_DISPLAY_MODE, resolve_display_mode
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,7 @@ class WorkerConfig(BaseModel):
     roi_polygon: list[list[float]] | None
     thresholds: dict[str, Any] = Field(default_factory=dict)
     display_mode: DisplayMode = DEFAULT_DISPLAY_MODE
+    observation_profile: ObservationProfile = ObservationProfile.BED_MONITORING
     """Thiếu hoặc không hợp lệ → `BLUR` (F28 R1)."""
     config_version: int
     active_session_id: int | None
@@ -59,4 +60,4 @@ class WorkerConfig(BaseModel):
         """
         roi = json.dumps(self.roi_polygon)
         thresholds = json.dumps(self.thresholds, sort_keys=True)
-        return (self.active_session_id, self.bed_id, roi, thresholds)
+        return (self.active_session_id, self.bed_id, self.observation_profile, roi, thresholds)

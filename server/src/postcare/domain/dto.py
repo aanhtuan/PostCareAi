@@ -30,6 +30,7 @@ from postcare.schemas.enums import (
     CameraStatus,
     DisplayMode,
     FaceStatus,
+    ObservationProfile,
     ObservationQuality,
     Priority,
     RestStatus,
@@ -259,6 +260,7 @@ class CameraOut(BaseModel):
     source_type: CameraSourceType
     source: str
     display_mode: DisplayMode
+    observation_profile: ObservationProfile
     status: CameraStatus
     last_seen_at: datetime | None
     config_version: int
@@ -422,6 +424,7 @@ class CameraCreate(StrictIn):
     # Kiểm tra theo `source_type` ở domain (F03 R5) để trả 400 kèm `details.field`.
     source: Annotated[str, StringConstraints(max_length=1000)]
     bed_id: int | None = None
+    observation_profile: ObservationProfile = ObservationProfile.BED_MONITORING
 
 
 class CameraUpdate(StrictIn):
@@ -431,6 +434,7 @@ class CameraUpdate(StrictIn):
     source_type: CameraSourceType | None = None
     source: Annotated[str, StringConstraints(max_length=1000)] | None = None
     bed_id: int | None = None
+    observation_profile: ObservationProfile | None = None
 
 
 def session_out(s: MonitoringSession) -> SessionOut:
@@ -503,6 +507,7 @@ def camera_out(c: Camera) -> CameraOut:
         source_type=c.source_type,
         source=c.source,
         display_mode=c.display_mode,
+        observation_profile=c.observation_profile,
         status=c.status,
         last_seen_at=c.last_seen_at,
         config_version=c.config_version,
@@ -808,6 +813,7 @@ class CameraConfigOut(BaseModel):
     roi_polygon: list[list[float]] | None
     thresholds: dict[str, Any]
     display_mode: DisplayMode
+    observation_profile: ObservationProfile
     config_version: int
     active_session_id: int | None
     # Phiên đang mở của giường đang tạm dừng thu hình: worker dừng đọc khung (F04 R22; F36 R18).

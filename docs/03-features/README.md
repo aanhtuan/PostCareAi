@@ -45,3 +45,4 @@ Mỗi feature có một spec theo [_TEMPLATE.md](_TEMPLATE.md). Mỗi feature d�
 | [F35](F35-user-management.md) | Quản lý người dùng trên UI | M0 | MVP | B+C | F02 | Yêu cầu người dùng (2026-11-17); QA#36 | Done |
 | [F36](F36-family-access.md) | Quyền xem của người nhà theo phiên | M4 | MVP | B+C | F02, F04, F18, F22, F28, F35 | Yêu cầu người dùng (2026-11-17); QA#31 | In progress |
 | [F37](F37-area-shift-management.md) | Quản lý khu vực và ca trực | M0 | MVP | B+C | F03 | Yêu cầu người dùng (2026-11-17); QA#36 | Done |
+| [F38](F38-observation-profiles.md) | Hồ sơ quan sát camera | Sau MVP | MVP mở rộng | A+B+C | F07, F15, F23, F25, F26, F28 | Yêu cầu người dùng (2026-11-21); ADR-0009 | In progress |

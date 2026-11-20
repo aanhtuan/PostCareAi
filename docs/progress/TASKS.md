@@ -18,6 +18,7 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 | F29 Đánh giá chính thức | `feat/F29-final-eval` | Đã có `--frozen`, `measure-delivery`, `workflow-report`, báo cáo nháp; commit cuối là WIP | Chạy eval tập **test** với cấu hình đã chốt, hoàn thiện `docs/04-guides/final-evaluation-2026-11-18.md`, `make check`, review |
 | F36 Quyền xem của người nhà | `feat/F36-family-access` | Plan + test (đỏ) + phần code đang viết dở (migration `0007_f36_family_access_grants`, domain, API, WS family stream); commit cuối là WIP, **chưa chạy test** | Làm cho test xanh, UI staff cấp/thu hồi + trang `/family`, kiểm tay, review |
 | F07 mở rộng (từ máy khác, 19/11) | đã merge vào `main` (`ebf4866`) | Live view hai khung: trái theo chế độ riêng tư, phải skeleton + ROI; [báo cáo webcam A01](../../reports/REALTIME-WEBCAM-VERIFICATION-2026-11-19.md) | Webcam thật: mép giường → cảnh báo → tiếp nhận đã chạy; **rời giường BLOCKED do góc quay** — chỉnh webcam thấy trọn giường + toàn thân, vẽ lại ROI, chạy lại kịch bản |
+| F38 Hồ sơ quan sát camera | `feat/F38-observation-profiles` | Đang triển khai | API/DB, seed ba hồ sơ, worker không ROI cho hai hồ sơ, UI chọn hồ sơ, fallback toast đã có; cần review và chạy kiểm tra cuối |
 | F30 Sẵn sàng demo | `main` (một phần) | Đã có `--loop` cho worker phát file (20/11) | Phụ thuộc F24, F31, F36: runbook, `make demo-seed`, E2E Playwright, chạy trọn 3 lần |
 
 **Tiếp tục trên máy khác (Windows):**
@@ -69,6 +70,8 @@ make setup && make db-upgrade && make seed && make models && make check
 ## Đã xong gần đây
 
 - [x] 2026-11-21: F07 hiển thị một khung camera theo chế độ có dấu tick, cột thông tin rộng hơn với bảng quan sát hiện trực tiếp và nhật ký cao tối đa 300 px. Kiểm tra bố cục bằng Playwright.
+
+- [x] 2026-11-21: F38 thêm ba hồ sơ quan sát camera, migration 0007, seed A01/A02/A03, worker toàn khung hình cho hồ sơ không ROI, chọn hồ sơ trong quản trị, ẩn trình vẽ ROI ở hồ sơ không cần ROI và polling toast khi WebSocket gián đoạn. Kiểm tra nhanh backend 46 test, frontend 41 test, typecheck/lint, replay URFD 28 khung.
 
 - [x] 2026-11-21: F07/F20 thu gọn trạng thái, chia hai cột quan sát/nhật ký, mở chi tiết từ Live View và toast. `make check` và Playwright đạt.
 

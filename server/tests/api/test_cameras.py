@@ -1,6 +1,8 @@
 """F03 AC1, AC2: camera (nguồn theo loại, 1 camera / giường, config_version)."""
 
+from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -35,6 +37,7 @@ def test_admin_crud_cameras(client: TestClient, login, db: Session) -> None:
     cam = r.json()
     assert cam["bed_id"] == bed_id and cam["bed_code"] == "B01"
     assert cam["source_type"] == "URL" and cam["config_version"] == 1 and cam["is_active"] is True
+    assert cam["observation_profile"] == "BED_MONITORING"
 
     r = client.patch(f"{CAMERAS}/{cam['id']}", json={"name": "Camera giường B01"}, headers=admin)
     assert r.status_code == 200 and r.json()["name"] == "Camera giường B01"
@@ -164,6 +167,57 @@ def test_camera_update_bumps_config_version(
     r = client.patch(f"{CAMERAS}/1", json=patch, headers=admin)
     assert r.status_code == 200, r.text
     assert r.json()["config_version"] == before + (1 if bumps else 0)
+
+
+def test_camera_profile_updates_config_and_worker_config(client: TestClient, login) -> None:
+    admin = login("admin")
+    before = client.get(f"{CAMERAS}/1", headers=admin).json()["config_version"]
+    r = client.patch(
+        f"{CAMERAS}/1",
+        json={"observation_profile": "ABNORMAL_MOVEMENT"},
+        headers=admin,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["observation_profile"] == "ABNORMAL_MOVEMENT"
+    assert r.json()["config_version"] == before + 1
+    config = client.get(
+        "/internal/v1/cameras/1/config",
+        headers={"X-Worker-Token": "test-worker-token-at-least-32-bytes!"},
+    )
+    assert config.status_code == 200
+    assert config.json()["observation_profile"] == "ABNORMAL_MOVEMENT"
+
+
+def test_non_bed_profile_accepts_event_without_session(client: TestClient, login) -> None:
+    admin = login("admin")
+    camera = client.post(
+        CAMERAS,
+        json={
+            "name": "Camera phòng khách",
+            "source_type": "FILE",
+            "source": "data/home.mp4",
+            "observation_profile": "ABNORMAL_MOVEMENT",
+        },
+        headers=admin,
+    )
+    assert camera.status_code == 201, camera.text
+    now = datetime.now(UTC).isoformat()
+    event = client.post(
+        "/internal/v1/events",
+        headers={"X-Worker-Token": "test-worker-token-at-least-32-bytes!"},
+        json={
+            "event_uid": str(uuid4()),
+            "camera_id": camera.json()["id"],
+            "code": "ABNORMAL_MOVEMENT",
+            "priority": "HIGH",
+            "occurred_at": now,
+            "detected_at": now,
+            "confidence": 0.9,
+            "observation_quality": "GOOD",
+            "explanation": {"rule_id": "test"},
+        },
+    )
+    assert event.status_code == 201, event.text
 
 
 def test_camera_move_to_free_bed(client: TestClient, login) -> None:

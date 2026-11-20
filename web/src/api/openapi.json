@@ -4518,6 +4518,9 @@
           "display_mode": {
             "$ref": "#/components/schemas/DisplayMode"
           },
+          "observation_profile": {
+            "$ref": "#/components/schemas/ObservationProfile"
+          },
           "config_version": {
             "type": "integer",
             "title": "Config Version"
@@ -4548,6 +4551,7 @@
           "roi_polygon",
           "thresholds",
           "display_mode",
+          "observation_profile",
           "config_version",
           "active_session_id"
         ],
@@ -4579,6 +4583,10 @@
               }
             ],
             "title": "Bed Id"
+          },
+          "observation_profile": {
+            "$ref": "#/components/schemas/ObservationProfile",
+            "default": "BED_MONITORING"
           }
         },
         "additionalProperties": false,
@@ -4631,6 +4639,9 @@
           },
           "display_mode": {
             "$ref": "#/components/schemas/DisplayMode"
+          },
+          "observation_profile": {
+            "$ref": "#/components/schemas/ObservationProfile"
           },
           "status": {
             "$ref": "#/components/schemas/CameraStatus"
@@ -4702,6 +4713,7 @@
           "source_type",
           "source",
           "display_mode",
+          "observation_profile",
           "status",
           "last_seen_at",
           "config_version",
@@ -4766,6 +4778,9 @@
           "display_mode": {
             "$ref": "#/components/schemas/DisplayMode"
           },
+          "observation_profile": {
+            "$ref": "#/components/schemas/ObservationProfile"
+          },
           "status": {
             "$ref": "#/components/schemas/CameraStatus"
           },
@@ -4799,6 +4814,7 @@
           "source_type",
           "source",
           "display_mode",
+          "observation_profile",
           "status",
           "last_seen_at",
           "config_version",
@@ -5053,6 +5069,16 @@
               }
             ],
             "title": "Bed Id"
+          },
+          "observation_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObservationProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -5547,6 +5573,15 @@
           "user"
         ],
         "title": "LoginOut"
+      },
+      "ObservationProfile": {
+        "type": "string",
+        "enum": [
+          "BED_MONITORING",
+          "ABNORMAL_MOVEMENT",
+          "FACE_SIGNALS"
+        ],
+        "title": "ObservationProfile"
       },
       "ObservationQuality": {
         "type": "string",

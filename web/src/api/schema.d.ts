@@ -1089,6 +1089,7 @@ export interface components {
                 [key: string]: unknown;
             };
             display_mode: components["schemas"]["DisplayMode"];
+            observation_profile: components["schemas"]["ObservationProfile"];
             /** Config Version */
             config_version: number;
             /** Active Session Id */
@@ -1108,6 +1109,8 @@ export interface components {
             source: string;
             /** Bed Id */
             bed_id?: number | null;
+            /** @default BED_MONITORING */
+            observation_profile: components["schemas"]["ObservationProfile"];
         };
         /**
          * CameraDetailOut
@@ -1126,6 +1129,7 @@ export interface components {
             /** Source */
             source: string;
             display_mode: components["schemas"]["DisplayMode"];
+            observation_profile: components["schemas"]["ObservationProfile"];
             status: components["schemas"]["CameraStatus"];
             /** Last Seen At */
             last_seen_at: string | null;
@@ -1168,6 +1172,7 @@ export interface components {
             /** Source */
             source: string;
             display_mode: components["schemas"]["DisplayMode"];
+            observation_profile: components["schemas"]["ObservationProfile"];
             status: components["schemas"]["CameraStatus"];
             /** Last Seen At */
             last_seen_at: string | null;
@@ -1276,6 +1281,7 @@ export interface components {
             source?: string | null;
             /** Bed Id */
             bed_id?: number | null;
+            observation_profile?: components["schemas"]["ObservationProfile"] | null;
         };
         /**
          * DisplayMode
@@ -1480,6 +1486,11 @@ export interface components {
             token_type: "bearer";
             user: components["schemas"]["UserOut"];
         };
+        /**
+         * ObservationProfile
+         * @enum {string}
+         */
+        ObservationProfile: "BED_MONITORING" | "ABNORMAL_MOVEMENT" | "FACE_SIGNALS";
         /**
          * ObservationQuality
          * @enum {string}

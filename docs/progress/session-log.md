@@ -2,6 +2,29 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-21 – Codex – Tách hồ sơ và chọn clip khuôn mặt
+
+- **Đã làm:** Sửa worker để hồ sơ `ABNORMAL_MOVEMENT` và `FACE_SIGNALS` luôn dùng toàn khung hình, kể cả khi camera còn ROI giường cũ. Bổ sung test hồi quy. Bổ sung mô tả mục đích từng hồ sơ ở form và cột quản lý camera. Giới hạn fallback toast tối đa 3 cảnh báo mỗi lần polling để tránh spam.
+- **Kiểm tra:** Worker profile test đạt 7 ca, frontend typecheck/lint và 33 test Live View/Management đạt. Clip `pexels-6130032.mp4` có 137 khung với nhiều `FaceStatus.OK`; `pexels-6130226.mp4` có 106 khung nhưng ít khuôn mặt rõ. Cả hai không tự phát `FACE_ATTENTION`, nên demo cảnh báo khuôn mặt dùng simulator `face-attention`, đã tạo event id 37 qua API A03.
+- **Nghiên cứu:** DynEmo phù hợp tham khảo vì có camera cận toàn mặt và camera tổng quan. BP4D/DISFA phù hợp đánh giá tín hiệu khuôn mặt trong môi trường nghiên cứu, cần kiểm tra quyền truy cập.
+- **Bước tiếp theo:** Review PR #2, chạy demo A02/A03 theo hướng dẫn, gộp vào `main` sau CI.
+
+## 2026-11-21 – Codex – Kiểm chứng demo F38 và cảnh báo
+
+- **Đã làm:** Khởi động lại worker A01 với mã mới. Webcam index 0 đang trả độ sáng khoảng 6,3 nên khung hình thực tế tối và pose báo `NO_PERSON`. Chạy `postcare simulate --bed A01 --scenario bed-exit --speed 4` tạo chuỗi `SIT_UP`, `BED_EDGE`, `STAND_UP`, `BED_EXIT` và cảnh báo PENDING. Chạy worker A02 hồ sơ `ABNORMAL_MOVEMENT` với GMDCSA24 Subject 1 Fall/12 qua `--video` và `--loop`, hệ thống phát `ABNORMAL_MOVEMENT` HIGH qua API. Fallback toast đã được đổi để hiện cả cảnh báo PENDING lúc tải đầu.
+- **Kiểm tra:** BLUR không có người giữ nguyên khung hình; Live View hồ sơ không ROI vẫn phát stream. Build web, mypy, ruff, 27 test web và 21 test render/API đạt. PR [#2](https://github.com/aanhtuan/PostCareAi/pull/2) đang mở.
+- **Đang dở:** Người dùng cần chọn A02 để xem clip ngã hoặc đổi webcam A01 sang nguồn sáng/nguồn video. Chưa chạy `make check` đầy đủ theo giới hạn thời gian.
+- **Bước tiếp theo:** Dùng runbook ở phản hồi cuối, review và gộp PR #2 khi CI phù hợp.
+- **Rủi ro:** `ABNORMAL_MOVEMENT` mô tả chuyển động bất thường cần kiểm tra, không kết luận té ngã. Webcam hiện tại có tín hiệu rất tối.
+
+## 2026-11-21 – Codex – Hồ sơ quan sát camera F38
+
+- **Đã làm:** Tiếp tục trên nhánh `feat/F38-observation-profiles` sau khi F07 đã gộp vào `main`. Thêm `ObservationProfile` và migration 0007, trả hồ sơ qua API camera/worker, ghi audit riêng khi đổi hồ sơ, seed A01 theo dõi giường, A02 chuyển động bất thường, A03 tín hiệu khuôn mặt. Worker giữ ROI cho theo dõi giường, dùng toàn khung hình và lọc sự kiện cho hai hồ sơ còn lại. UI quản trị có lựa chọn hồ sơ, trang cấu hình bỏ trình vẽ ROI khi không cần, Live View hiện hồ sơ, cảnh báo có polling dự phòng khi WebSocket gián đoạn. Không đổi privacy render BLUR.
+- **Kiểm tra:** `ruff check`, `ruff format --check`, `mypy`, TypeScript và ESLint đạt. Backend chọn lọc 46 test đạt sau khi tạo DB test, frontend 41 test đạt. BLUR không có người giữ nguyên khung hình, Live View cho hồ sơ không ROI không còn chặn stream. Replay URFD `fall-21-cam0-rgb.mp4` chạy 28 khung, GMDCSA24 ADL/07 chạy 113 khung. Worker hồ sơ chuyển động bất thường chạy GMDCSA24 Subject 1 Fall/12 và phát `ABNORMAL_MOVEMENT` HIGH qua API. Chưa chạy `make check` đầy đủ theo yêu cầu giới hạn thời gian.
+- **Đang dở:** Review F38 và gộp PR. Không commit video/model.
+- **Bước tiếp theo:** Review PR [#2](https://github.com/aanhtuan/PostCareAi/pull/2), sau đó mới gộp vào `main`.
+- **Blocker / rủi ro:** Hồ sơ không ROI hiện tái sử dụng ROI toàn khung hình rồi lọc mã sự kiện. Khi cần chọn mục tiêu giữa nhiều người trong cùng khung cần nâng cấp pipeline.
+
 ## 2026-11-21 – Codex – Tăng khả năng đọc cột thông tin Live View
 
 - **Đã làm:** Thêm dấu tick chế độ đang chọn. Thu khung camera khoảng 20% để mở rộng cột thông tin; tăng cỡ chữ và hiển thị bảng vận động, nghỉ/hoạt động, khuôn mặt thay cho khối phải bấm mở. Kéo cao nhật ký tới tối đa 300 px.

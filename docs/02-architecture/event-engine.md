@@ -267,7 +267,7 @@ privacy:                           # chỉ ảnh hưởng hiển thị, KHÔNG t
   head_hold_s: 1.0
 ```
 
-Khóa `privacy.*` (F28, `vision.render.PrivacyRenderer`; không override theo camera, F08): `head_box_scale` nới vùng đầu ước lượng từ keypoint pose (cùng hàm `head_region` với F25); `pixelate_blocks` là số khối theo cạnh dài khi pixelate (vùng đầu, hoặc toàn khung); `head_hold_s` là thời gian giữ vùng đầu gần nhất khi khung hiện tại không ước lượng được vùng đầu của mọi người, quá thời gian đó thì mờ toàn khung. Chế độ hiển thị không đi vào engine: cùng input cho cùng sự kiện ở cả ba chế độ.
+Khóa `privacy.*` (F28, `vision.render.PrivacyRenderer`; không override theo camera, F08): `head_box_scale` nới vùng đầu ước lượng từ keypoint pose (cùng hàm `head_region` với F25); `pixelate_blocks` là số khối theo cạnh dài khi pixelate vùng đầu; `head_hold_s` là thời gian giữ vùng đầu gần nhất khi khung hiện tại không ước lượng được vùng đầu. Khi không có vùng đầu, khung hình được giữ nguyên. Chế độ hiển thị không đi vào engine: cùng input cho cùng sự kiện ở cả ba chế độ.
 
 `EngineConfig.load(path, overrides)` (`postcare/schemas/engine_config.py`) đọc file này, hợp nhất sâu override (dict từ `cameras.thresholds` hoặc file `config/cameras/<setup>.yaml`) rồi validate ở chế độ strict. Khóa lạ, sai kiểu, thiếu khóa → `EngineConfigError` nêu đường dẫn khóa (ví dụ `posture.sitting_enter_deg`).
 
