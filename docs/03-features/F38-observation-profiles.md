@@ -48,6 +48,7 @@ Thêm enum `ObservationProfile` trong `postcare.schemas` với `BED_MONITORING`,
 - `BED_MONITORING` giữ pipeline hiện tại và từ chối chạy engine nếu thiếu ROI.
 - `ABNORMAL_MOVEMENT` tạo engine với ROI toàn khung hình, kể cả khi dữ liệu camera còn ROI cũ, và chỉ phát `ABNORMAL_MOVEMENT`. Cần kiểm tra nhiều người và chất lượng quan sát trước khi phát sự kiện. Camera không gắn giường vẫn có thể ghi sự kiện với `bed_id` và `session_id` rỗng. Event code vẫn là `ABNORMAL_MOVEMENT`.
 - `FACE_SIGNALS` giữ pose/face gate, phát `FACE_ATTENTION` theo rule hiện tại và dùng toàn khung hình, kể cả khi dữ liệu camera còn ROI cũ. Khung BLUR vẫn hiển thị khung mới nhất khi không có người. Không thay đổi privacy render F28.
+- Hai hồ sơ không gắn giường: khi engine chưa có người mục tiêu, nhánh face đọc người có vùng đầu lớn nhất. Ví dụ: ngồi sát webcam, hông ra ngoài khung và toạ độ bị kẹp ở mép dưới nên không chọn được mục tiêu từ ROI toàn khung. `BED_MONITORING` không dùng cách này, để không đọc mặt người ngoài vùng giường. *(giả định, báo lỗi của người dùng 2026-11-21)*
 
 ### 3.3 Cảnh báo realtime
 

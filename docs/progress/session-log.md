@@ -2,6 +2,24 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-21 – Claude Code (Opus) – Sửa face báo "Không thấy khuôn mặt" khi ngồi sát webcam
+
+- **Đã làm:**
+  - Tìm ra nguyên nhân. MediaPipe kẹp toạ độ hông về [0, 1], nên khi ngồi sát webcam hông nằm đúng mép dưới khung.
+  - `point_in_polygon` coi điểm trên mép là nằm ngoài, nên engine không có người mục tiêu và nhánh face trả `NOT_VISIBLE`.
+  - Sửa: thêm `process_frame(face_fallback=...)` và `FaceGate.most_prominent`. Hồ sơ không gắn giường nay đọc mặt người có vùng đầu lớn nhất. `BED_MONITORING` giữ nguyên cách cũ.
+  - Ghi vào F38 §3.2.
+  - Sửa luôn 2 lỗi mypy có sẵn trong `worker/loop.py`.
+- **Kiểm tra:**
+  - `tests/face/test_face_fallback.py` có 4 ca, gồm ca âm tính cho theo dõi giường.
+  - Test face, worker, replay, engine đều đạt.
+  - `ruff` và `mypy` đạt.
+  - Chưa chạy `make check` đầy đủ theo yêu cầu chỉ test nhanh.
+- **Bước tiếp theo:**
+  - Chạy lại worker webcam: `make worker CAMERA=2 LOOP=1`.
+  - Kiểm tra trên trang Theo dõi trực tiếp, ngồi sát với mắt mở to.
+- **Blocker:** Không.
+
 ## 2026-11-21 – Claude Code (Opus) – Pull F38, skeleton trên video làm mờ, sửa test
 
 - **Đã làm:** Pull `main` từ máy khác (F07 kết nối camera + live view mới, F38 hồ sơ quan sát, migration `0007`). Chế độ BLUR vẽ skeleton phần thân đè lên video (không chấm điểm mặt). Sửa 6 test backend và 3 test web chưa cập nhật theo F38. `.gitignore` bỏ qua `data*.zip`.

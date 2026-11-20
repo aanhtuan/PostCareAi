@@ -36,16 +36,25 @@ def process_frame(
     adapter: PoseAdapter,
     engine: Engine | FrameEngine,
     face: FaceGate | None = None,
+    *,
+    face_fallback: bool = False,
 ) -> tuple[FrameObservation, EngineOutput]:
     """Chạy adapter pose trên một khung, nhánh face (nếu có), rồi đưa quan sát vào engine.
 
     `camera_id` lấy từ `engine.context`. `face` là `None` khi `face.enabled = false` (F25 R9):
     khi đó `obs.face` luôn `None`. Nhánh face chạy trên người mục tiêu mà engine sắp chọn
     (`Engine.peek_target`) và không bao giờ raise (F25 R8), nên pose/engine không bị gián đoạn.
+
+    `face_fallback` (hồ sơ không gắn giường, F38): engine chưa có mục tiêu (cận cảnh webcam, hông
+    ngoài khung) → nhánh face dùng người có vùng đầu lớn nhất. Theo dõi giường để `False`, để không
+    đọc mặt người ngoài vùng giường.
     """
     obs = adapter.observe(frame, engine.context.camera_id)
     if face is not None:
-        face_obs = face.observe(frame, engine.peek_target(obs))
+        target = engine.peek_target(obs)
+        if target is None and face_fallback:
+            target = face.most_prominent(obs.persons, (frame.width, frame.height))
+        face_obs = face.observe(frame, target)
         if face_obs is not None:
             obs = obs.model_copy(update={"face": face_obs})
     return obs, engine.process(obs)

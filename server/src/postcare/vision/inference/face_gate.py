@@ -18,7 +18,7 @@ Module này không import mediapipe.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 
 from postcare.schemas.engine_config import EngineConfig
 from postcare.schemas.enums import FaceStatus
@@ -91,6 +91,19 @@ class FaceGate:
         except Exception as exc:  # R8: mọi lỗi face (kể cả keypoint NaN) bị cô lập
             self._error(frame, f"{type(exc).__name__}: {exc}")
             return _obs(FaceStatus.NOT_VISIBLE)
+
+    def most_prominent(
+        self, persons: Sequence[PersonPose], image_size: tuple[int, int]
+    ) -> PersonPose | None:
+        """Người có vùng đầu lớn nhất (khi engine chưa có mục tiêu); không có ai → None."""
+        best: tuple[float, PersonPose] | None = None
+        for person in persons:
+            box = estimate_head_box(
+                person, image_size, min_visibility=self._min_vis, scale=self._scale
+            )
+            if box is not None and (best is None or box.side > best[0]):
+                best = (box.side, person)
+        return None if best is None else best[1]
 
     def _observe_target(self, frame: Frame, target: PersonPose) -> FaceObservation:
         box = estimate_head_box(

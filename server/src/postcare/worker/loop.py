@@ -267,7 +267,7 @@ class Worker:
             self._load_config(now)
         self._flush_events(self._clock())
         cfg = self.config
-        if cfg.capture_paused:
+        if cfg is not None and cfg.capture_paused:
             if self.source is not None:
                 logger.info("Phiên đang tạm dừng thu hình: dừng đọc khung, chỉ gửi heartbeat")
                 self._close_source()
@@ -486,14 +486,26 @@ class Worker:
         self._brightness = mean_brightness(frame.image)
         engine = self._ensure_engine()
         if engine is not None:
-            obs, output = process_frame(frame, self.adapter, engine, self.face)
+            obs, output = process_frame(
+                frame,
+                self.adapter,
+                engine,
+                self.face,
+                face_fallback=self._face_fallback(),
+            )
             self._persons = obs.persons
             self._handle_output(frame, output)
         else:
             # Chưa có ROI: vẫn đo pose để khung skeleton hữu ích, nhưng không chạy engine.
             # Không gửi state/event vì chưa đủ cấu hình vùng giường để kết luận theo dõi.
+            assert self.config is not None
             self._persons = self.adapter.observe(frame, self.config.camera_id).persons
         self._maybe_send_frame(frame, self._clock())
+
+    def _face_fallback(self) -> bool:
+        """Hồ sơ không gắn giường: nhánh face đọc người rõ mặt nhất khi engine chưa có mục tiêu."""
+        cfg = self.config
+        return cfg is not None and cfg.observation_profile != ObservationProfile.BED_MONITORING
 
     def _handle_output(self, frame: Frame, output: EngineOutput) -> None:
         cfg = self.config
