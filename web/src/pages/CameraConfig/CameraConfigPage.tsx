@@ -2,7 +2,7 @@
 // lại). Lưu ROI hoặc ngưỡng → API tăng config_version → worker tải lại ≤5 s (F06; A02).
 import { Alert, Button, Card, Grid, Group, Loader, Stack, Text, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 
 import { ApiError } from '../../api/client';
 import {
@@ -34,6 +34,7 @@ function errorMessage(err: unknown): string {
 
 export function CameraConfigPage() {
   const cameraId = Number(useParams().cameraId);
+  const [params] = useSearchParams();
   const { token } = useAuth();
   const camera = useCameraDetail(cameraId, RUNTIME_POLL_MS);
   const thresholds = useCameraThresholds(cameraId);
@@ -44,6 +45,8 @@ export function CameraConfigPage() {
   if (!camera.data) return <Alert color="red">{vi.common.loadError}</Alert>;
   const cam = camera.data;
   const online = cam.status === 'ONLINE';
+  const livePath = params.get('from') === 'live' && cam.bed_id ? `/beds/${cam.bed_id}/live` : null;
+  const title = livePath ? (cam.roi_polygon ? vi.live.editRoi : vi.live.drawRoi) : t.title;
 
   const onError = (err: unknown) =>
     notifications.show({ color: 'red', message: errorMessage(err) });
@@ -52,7 +55,7 @@ export function CameraConfigPage() {
     <Stack>
       <Group justify="space-between">
         <Stack gap={0}>
-          <Title order={2}>{t.title}</Title>
+          <Title order={2}>{title}</Title>
           <Text c="dimmed">
             {fmt(t.subtitle, {
               name: cam.name,
@@ -60,21 +63,21 @@ export function CameraConfigPage() {
             })}
           </Text>
         </Stack>
-        <Button component={Link} to="/management" variant="default">
-          {t.back}
+        <Button component={Link} to={livePath ?? '/management'} variant="default">
+          {livePath ? t.backToLive : t.back}
         </Button>
       </Group>
-      {!online && (
-        <Alert color="orange" variant="light">
-          {t.offline}
-        </Alert>
-      )}
       <Grid>
         <Grid.Col span={{ base: 12, lg: 8 }}>
           <Card withBorder>
             <Title order={4} mb="xs">
               {t.roi.title}
             </Title>
+            {online && cam.display_mode === 'SKELETON' && (
+              <Alert mb="sm" color="blue" variant="light">
+                {t.roi.useBlurredImage}
+              </Alert>
+            )}
             <RoiEditor
               cameraId={cam.id}
               token={token}

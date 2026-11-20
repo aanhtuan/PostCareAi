@@ -2,6 +2,14 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-20 – Codex – Triển khai lối vào vùng giường và mở rộng hai khung live
+
+- **Đã làm:** Đặt **Vẽ vùng giường** nổi bật trên Theo dõi trực tiếp cho quản trị viên; thêm **Sửa vùng giường** khi đã lưu. Dùng lại trình vẽ F08 và quay về đúng giường. Đưa chi tiết trạng thái xuống dưới để hai khung dùng toàn chiều rộng vùng nội dung.
+- **Kiểm tra:** `make check` xanh trên PostgreSQL test riêng (1368 test Python, 261 test web, build đạt). Playwright với camera giả lập đã vẽ và lưu bốn góc, quay lại đúng giường, kiểm tra overlay khi resize. Hai khung đạt 491 px ở 1280×720 và 534 px ở 1366×768, xếp dọc ở viewport 640 px và 390 px. Vite cục bộ đã phục vụ bản Live View mới.
+- **Đang dở / blocker:** Còn kiểm tra vùng trên khung iPhone thật theo vị trí mặt nệm của người dùng.
+- **Bước tiếp theo:** Trên trang A01 khi `make worker CAMERA=1` đang chạy, bấm **Vẽ vùng giường**, đánh dấu mặt nệm, lưu và quay lại kiểm tra đường viền.
+
+
 ## 2026-11-20 – Codex – F07 kết nối camera từ Theo dõi trực tiếp
 
 - **Đã làm:** Trên `feat/F07-camera-connect`, thêm nút “Kết nối camera” cho quản trị viên. Form F03 dùng lại cho đúng giường và giữ ràng buộc phiên đang mở. Worker báo phiên bản nguồn trên JPEG; live view đợi cả hai khung mới và hướng dẫn khởi động worker khi thiếu heartbeat. Clip ghi đè bằng `--video` tiếp tục phát được.

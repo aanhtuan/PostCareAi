@@ -2,6 +2,7 @@
 // trong worker, F28), Bed ROI vẽ đè, chế độ hiển thị, trạng thái camera và phiên. Trạng thái cập nhật realtime qua WebSocket (F21 AC5: `bed.state`,
 // `event.created`, `camera.status`); polling 2 s chỉ là đường dự phòng khi mất WebSocket.
 import {
+  Alert,
   Anchor,
   Badge,
   Button,
@@ -102,7 +103,7 @@ export function LiveViewPage() {
         />
       </Group>
       {bed && (
-        <SimpleGrid cols={{ base: 1, md: 2 }}>
+        <Stack>
           <Card withBorder>
             <Stack gap="xs">
               <Group justify="space-between">
@@ -125,6 +126,16 @@ export function LiveViewPage() {
                       onClick={() => setEditBed(bed.bed_id)}
                     >
                       {vi.live.connectCamera}
+                    </Button>
+                  )}
+                  {isAdmin && bed.camera && roi && (
+                    <Button
+                      component={Link}
+                      to={`/cameras/${bed.camera.id}/config?from=live`}
+                      size="xs"
+                      variant="light"
+                    >
+                      {vi.live.editRoi}
                     </Button>
                   )}
                 </Group>
@@ -183,7 +194,29 @@ export function LiveViewPage() {
               </Anchor>
               {bed.camera && cameraStatus ? (
                 <>
-                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                  {cameraDetail.isSuccess && !roi && (
+                    <Alert color="yellow" variant="light">
+                      <Group justify="space-between" gap="xs">
+                        <div>
+                          <Text fw={600} size="sm">
+                            {vi.live.roiNotConfigured}
+                          </Text>
+                          <Text size="sm">
+                            {isAdmin ? vi.live.drawRoiHint : vi.live.askAdminForRoi}
+                          </Text>
+                        </div>
+                        {isAdmin && (
+                          <Button
+                            component={Link}
+                            to={`/cameras/${bed.camera.id}/config?from=live`}
+                          >
+                            {vi.live.drawRoi}
+                          </Button>
+                        )}
+                      </Group>
+                    </Alert>
+                  )}
+                  <SimpleGrid type="container" cols={{ base: 1, '640px': 2 }} spacing="sm">
                     <Stack gap={4}>
                       <Text size="sm" fw={600}>
                         {vi.live.displayTitle}
@@ -215,11 +248,6 @@ export function LiveViewPage() {
                   <Text size="xs" c="dimmed">
                     {vi.live.skeletonHint}
                   </Text>
-                  {cameraDetail.isSuccess && !roi && (
-                    <Text size="sm" c="dimmed">
-                      {vi.live.roiNotConfigured}
-                    </Text>
-                  )}
                   {cameraDetail.data && (
                     <DisplayModeControl
                       cameraId={bed.camera.id}
@@ -228,7 +256,7 @@ export function LiveViewPage() {
                   )}
                 </>
               ) : (
-                <Center bg="gray.1" style={{ aspectRatio: '16 / 9', borderRadius: 8 }}>
+                <Center bg="gray.1" mih={180} style={{ borderRadius: 8 }}>
                   <Text c="dimmed">{statusText}</Text>
                 </Center>
               )}
@@ -284,7 +312,7 @@ export function LiveViewPage() {
               </Card>
             </Stack>
           </Card>
-        </SimpleGrid>
+        </Stack>
       )}
     </Stack>
   );

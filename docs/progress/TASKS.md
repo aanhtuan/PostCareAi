@@ -68,6 +68,8 @@ make setup && make db-upgrade && make seed && make models && make check
 
 ## Đã xong gần đây
 
+- [x] 2026-11-20: F07/F08 đưa thao tác vẽ vùng giường vào Theo dõi trực tiếp và mở rộng hai khung hình trên laptop. `make check` và kiểm tra trình duyệt với nguồn giả lập đạt.
+
 - [x] 2026-11-20: F07 thêm nút “Kết nối camera” trên Theo dõi trực tiếp cho quản trị viên và hướng dẫn iPhone qua Wi-Fi/USB. Kiểm chứng iPhone thật còn chờ thiết bị.
 
 - [x] 2026-11-19: Rà soát và chuẩn bị xuất bản code F07 hai khung cùng test/API types/spec; hợp nhất báo cáo hiện có, giữ dữ liệu/cấu hình local ngoài Git. Push nhánh feature và main cùng một lượt, không bỏ hook.

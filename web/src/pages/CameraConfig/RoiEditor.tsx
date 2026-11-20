@@ -61,6 +61,7 @@ export function RoiEditor({
 
   const reason = validatePolygon(points);
   const showImage = online && !failed;
+  const canEdit = showImage || !!initial?.length;
 
   function toNormalized(e: MouseEvent): [number, number] | null {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -72,6 +73,7 @@ export function RoiEditor({
   }
 
   function onCanvasClick(e: MouseEvent) {
+    if (!canEdit) return;
     if (suppressClick.current) {
       suppressClick.current = false;
       return;
@@ -84,7 +86,7 @@ export function RoiEditor({
 
   function onMouseMove(e: MouseEvent) {
     const d = drag.current;
-    if (!d) return;
+    if (!d || !canEdit) return;
     const p = toNormalized(e);
     if (!p) return;
     d.moved = true;
@@ -121,7 +123,7 @@ export function RoiEditor({
           position: 'relative',
           width: '100%',
           lineHeight: 0,
-          cursor: 'crosshair',
+          cursor: canEdit ? 'crosshair' : 'default',
           userSelect: 'none',
           borderRadius: 8,
           overflow: 'hidden',
@@ -137,10 +139,15 @@ export function RoiEditor({
             onError={() => setFailed(true)}
           />
         ) : (
-          <Center bg="dark.7" style={{ aspectRatio: '16 / 9', width: '100%' }}>
-            <Text c="white" fw={700}>
-              {vi.cameraStatus.OFFLINE}
-            </Text>
+          <Center bg="dark.7" p="sm" style={{ aspectRatio: '16 / 9', width: '100%' }}>
+            <Stack gap={4} ta="center">
+              <Text c="white" fw={700}>
+                {vi.cameraStatus.OFFLINE}
+              </Text>
+              <Text c="gray.3" size="sm">
+                {canEdit ? t.editSavedOffline : t.waitForImage}
+              </Text>
+            </Stack>
           </Center>
         )}
         <svg
@@ -177,6 +184,7 @@ export function RoiEditor({
             type="button"
             aria-label={fmt(t.point, { n: i + 1 })}
             aria-pressed={selected === i}
+            disabled={!canEdit}
             onMouseDown={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -236,12 +244,16 @@ export function RoiEditor({
           >
             {t.clear}
           </Button>
-          <Button onClick={() => onSave(points)} disabled={reason !== null} loading={saving}>
+          <Button
+            onClick={() => onSave(points)}
+            disabled={!canEdit || reason !== null}
+            loading={saving}
+          >
             {t.save}
           </Button>
         </Group>
       </Group>
-      {reason && (
+      {canEdit && reason && (
         <Alert color="orange" variant="light" py="xs">
           {t.reasons[reason]}
         </Alert>

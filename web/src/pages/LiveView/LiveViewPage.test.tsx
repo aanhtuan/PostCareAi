@@ -217,7 +217,20 @@ describe('LiveViewPage', () => {
   it('LiveViewPage notes when the bed region is not configured', async () => {
     setup(bed(), camera('ONLINE', null));
     expect(await screen.findByText(vi.live.roiNotConfigured)).toBeInTheDocument();
+    expect(screen.getByText(vi.live.askAdminForRoi)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: vi.live.drawRoi })).toBeNull();
   });
+
+  it.each([{ roi: null }, { roi: ROI }])(
+    'links an admin to the assigned camera region ($roi)',
+    async ({ roi }) => {
+      setup(bed(), camera('ONLINE', roi), admin);
+      const link = await screen.findByRole('link', {
+        name: roi ? vi.live.editRoi : vi.live.drawRoi,
+      });
+      expect(link).toHaveAttribute('href', '/cameras/1/config?from=live');
+    },
+  );
 
   it('LiveViewPage shows no internal codes', async () => {
     const { container } = setup(bed());

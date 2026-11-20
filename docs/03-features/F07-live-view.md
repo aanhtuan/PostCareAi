@@ -218,3 +218,21 @@ Nguồn: yêu cầu người dùng trong phiên 20/11, F03 R2/R7/R14, F05 R2, QA
 
 - `make check` xanh với PostgreSQL test riêng. Pytest: 1368 đạt, 6 test vision không được chọn. Vitest: 257 đạt. Web build thành công.
 - Đối chiếu quyền ghi và audit với F03. Giao diện chờ cả hai khung của cấu hình đã lưu, worker phát clip ghi đè không xác nhận kết nối. Dùng lại các ngưỡng heartbeat và giới hạn tuổi khung của API.
+
+## 14. Lối vào vùng giường và bố cục hai khung trên laptop (2026-11-20)
+
+Trạng thái mở rộng: **Done**. Nguồn: yêu cầu người dùng 20/11, F07 R6–R7 và F08 R8 (QA#15, QA#26). F07 và F08 nền đã Done.
+
+### Kế hoạch triển khai
+
+1. Trong `web/src/pages/LiveView/LiveViewPage.tsx`, khi giường có camera, cho quản trị viên mở **Vẽ vùng giường** hoặc **Sửa vùng giường** theo cấu hình đã lưu. Mở đúng camera và vùng vẽ F08. Trong `CameraConfigPage.tsx`, cho phép quay lại Theo dõi trực tiếp của đúng giường khi đi từ lối này. Vai trò xem có hướng dẫn liên hệ quản trị viên khi vùng giường còn thiếu. Mọi nhãn trong `vi.ts`.
+2. Dùng lại `RoiEditor` và `useSaveRoi`. Hướng dẫn chờ hình trực tiếp, bấm các góc mặt nệm theo vòng quanh, kéo chỉnh điểm, bấm **Lưu vùng giường**. Khi mất hình, giải thích cần kết nối lại để canh vùng đầu tiên trên hình, giữ khả năng sửa vùng đã lưu theo F08. Sau khi lưu, kiểm tra vùng xuất hiện đúng trên live view. ROI được lưu thủ công theo camera (QA#15); luồng đề xuất dùng lại xác thực và audit F08, giữ API và DB hiện tại.
+3. Cho cụm hai khung dùng toàn bộ chiều rộng vùng nội dung. Hai khung cân nhau trên laptop, giữ tỷ lệ và hiển thị đủ ảnh; xếp dọc nếu vùng nội dung hẹp. Chuyển chi tiết trạng thái và sự kiện gần nhất xuống dưới, giữ trạng thái kết nối và thao tác camera cạnh mã giường *(giả định về bố cục)*.
+4. Kiểm tra `LiveViewPage.test.tsx` và `CameraConfigPage.test.tsx` cho lối vào đúng camera, quyền, nhãn theo ROI và đường quay lại đúng giường. Kiểm tra trình duyệt ở 1280×720, 1366×768 và viewport hẹp; thao tác lưu vùng, so overlay với mặt nệm và xác nhận không cuộn ngang. Dùng iPhone A01 qua DroidCam với giường mô phỏng, kiểm tra lại vùng khi đổi góc. Chạy `make check` sau khi triển khai.
+
+### Kiểm chứng
+
+- [x] Quản trị viên thấy **Vẽ vùng giường** cạnh thông báo thiếu vùng và **Sửa vùng giường** sau khi lưu. Điều dưỡng chỉ thấy hướng dẫn. Trang cấu hình giữ đường quay lại đúng giường theo camera; lối vào từ Quản lý giường vẫn quay lại Quản lý giường.
+- [x] Khi camera chưa có hình, không tạo vùng đầu tiên trên nền trống. Vùng đã lưu vẫn sửa được theo F08. Trình vẽ nhắc chuyển sang **Làm mờ khuôn mặt** để thấy mặt nệm nếu camera đang chỉ hiển thị skeleton.
+- [x] Playwright trên bản build với camera giả lập vẽ bốn góc, lưu, quay lại đúng giường và kiểm tra overlay theo kích thước ảnh sau resize. Mỗi khung đo được 491 px ở 1280×720 và 534 px ở 1366×768; hai khung xếp dọc ở 640 px và 390 px, không cuộn ngang. Còn nghiệm thu lưu vùng giường với iPhone thật trên giường mô phỏng.
+- [x] Review Codex đạt. `make check` xanh với 1368 test Python, 261 test web và build. Thao tác lưu dùng lại API F08 và quyền quản trị hiện có.
