@@ -7,6 +7,7 @@ import { formatTime } from '../utils/time';
 
 export type AlertToast = {
   id: string;
+  alertId: number;
   title: string;
   message: string;
   color: string;
@@ -30,6 +31,7 @@ export function createAlertNotifier(deps: {
     const high = alert.event.priority === 'HIGH';
     deps.show({
       id: `alert-${alert.id}`,
+      alertId: alert.id,
       title: fmt(vi.alerts.newNotification, {
         bed: alert.bed?.code ?? '—',
         title: vi.alertTitle[alert.event.priority],

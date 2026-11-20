@@ -48,7 +48,7 @@ export function FaceSignalsPanel({
       {active.length > 0 ? (
         <Group gap={4}>
           {active.map((key) => (
-            <Badge key={key} color="orange" variant="light">
+            <Badge key={key} color="orange" variant="light" c="var(--mantine-color-text)">
               {vi.faceSignal[key]}
             </Badge>
           ))}

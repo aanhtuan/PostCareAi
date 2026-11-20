@@ -1,5 +1,6 @@
 import { Group, Loader, MultiSelect, Select, Stack, Text, TextInput, Title } from '@mantine/core';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 import { useAlerts, useBeds, type AlertFilter } from '../../api/hooks';
 import { ALERT_STATUSES, PRIORITIES, type AlertStatus, type Priority } from '../../api/types';
@@ -18,6 +19,10 @@ export function AlertsPage() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [detailId, setDetailId] = useState<number | null>(null);
+  const [params, setParams] = useSearchParams();
+  const requestedId = Number(params.get('alert'));
+  const linkedAlert =
+    Number.isSafeInteger(requestedId) && requestedId > 0 ? requestedId : undefined;
 
   const filter: AlertFilter = {
     status: status.length ? status : undefined,
@@ -100,7 +105,18 @@ export function AlertsPage() {
           ))}
         </Stack>
       )}
-      <AlertDetailModal alert={detail} onClose={() => setDetailId(null)} />
+      <AlertDetailModal
+        alert={detail}
+        alertId={linkedAlert}
+        onClose={() => {
+          setDetailId(null);
+          if (linkedAlert !== undefined) {
+            const next = new URLSearchParams(params);
+            next.delete('alert');
+            setParams(next, { replace: true });
+          }
+        }}
+      />
     </Stack>
   );
 }

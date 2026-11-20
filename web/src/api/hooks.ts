@@ -58,10 +58,12 @@ export function useOverview() {
 
 export type EventFilter = { bed_id?: number; limit?: number; priority?: Priority[] };
 
-export function useEvents(filter: EventFilter) {
+export function useEvents(filter: EventFilter, pollMs?: number) {
+  const ws = useRealtimeStatus();
   return useQuery({
     queryKey: qk.events(filter),
     queryFn: () => api<Page<EventOut>>('/events', { query: filter as Record<string, QueryValue> }),
+    refetchInterval: pollMs === undefined ? false : fallbackInterval(ws, pollMs),
   });
 }
 
@@ -78,6 +80,14 @@ export function useAlerts(filter: AlertFilter) {
   return useQuery({
     queryKey: qk.alerts(filter),
     queryFn: () => api<Page<AlertOut>>('/alerts', { query: filter as Record<string, QueryValue> }),
+  });
+}
+
+export function useAlertDetail(alertId: number | undefined) {
+  return useQuery({
+    queryKey: ['alerts', 'detail', alertId],
+    queryFn: () => api<AlertOut>(`/alerts/${alertId}`),
+    enabled: alertId !== undefined,
   });
 }
 

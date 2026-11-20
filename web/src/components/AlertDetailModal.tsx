@@ -1,7 +1,8 @@
-import { Anchor, Group, Modal, Stack, Table, Text } from '@mantine/core';
+import { Alert, Anchor, Group, Loader, Modal, Stack, Table, Text } from '@mantine/core';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
+import { useAlertDetail } from '../api/hooks';
 import type { AlertOut, UserRef } from '../api/types';
 import { fmt, vi } from '../i18n/vi';
 import { formatDateTime } from '../utils/time';
@@ -13,14 +14,28 @@ function person(user: UserRef | null | undefined, at: string | null | undefined)
 }
 
 export function AlertDetailModal({
-  alert,
+  alert: listedAlert,
+  alertId,
   onClose,
 }: {
-  alert: AlertOut | null;
+  alert?: AlertOut | null;
+  alertId?: number;
   onClose: () => void;
 }) {
+  const detail = useAlertDetail(alertId);
+  const alert = alertId === undefined ? listedAlert : detail.data;
+  const loading = alertId !== undefined && detail.isPending;
   return (
-    <Modal opened={alert !== null} onClose={onClose} title={vi.alerts.detailTitle} size="lg">
+    <Modal
+      opened={alertId !== undefined || !!alert}
+      onClose={onClose}
+      title={vi.alerts.detailTitle}
+      size="lg"
+    >
+      {loading && <Loader />}
+      {alertId !== undefined && detail.isError && (
+        <Alert color="red">{vi.alerts.detailLoadError}</Alert>
+      )}
       {alert && (
         <Stack>
           <Text fw={600}>{vi.event[alert.event.code]}</Text>

@@ -236,3 +236,27 @@ Trạng thái mở rộng: **Done**. Nguồn: yêu cầu người dùng 20/11, F
 - [x] Khi camera chưa có hình, không tạo vùng đầu tiên trên nền trống. Vùng đã lưu vẫn sửa được theo F08. Trình vẽ nhắc chuyển sang **Làm mờ khuôn mặt** để thấy mặt nệm nếu camera đang chỉ hiển thị skeleton.
 - [x] Playwright trên bản build với camera giả lập vẽ bốn góc, lưu, quay lại đúng giường và kiểm tra overlay theo kích thước ảnh sau resize. Mỗi khung đo được 491 px ở 1280×720 và 534 px ở 1366×768; hai khung xếp dọc ở 640 px và 390 px, không cuộn ngang. Còn nghiệm thu lưu vùng giường với iPhone thật trên giường mô phỏng.
 - [x] Review Codex đạt. `make check` xanh với 1368 test Python, 261 test web và build. Thao tác lưu dùng lại API F08 và quyền quản trị hiện có.
+
+## 15. Trạng thái gọn và nhật ký cạnh khung quan sát (2026-11-20)
+
+Trạng thái mở rộng: **Done**. Nguồn: yêu cầu người dùng, F07, F17/F20/F22 và QA#29. Giữ nguyên kho metadata vận hành của F17 và cách trình bày riêng tư F28.
+
+### Hiện trạng đã đối chiếu
+
+- PostgreSQL lưu sự kiện theo giường, camera và phiên nếu có, thời điểm, loại, ưu tiên, chất lượng, độ tin cậy và lý do kỹ thuật. Cảnh báo liên kết sự kiện và có trạng thái, người/thời điểm tiếp nhận, kết quả, ghi chú, người/thời điểm xử lý. Lịch sử ghép sự kiện và thao tác từ audit. Khung live và trạng thái hiện tại chỉ ở RAM; QA#29 quy định không lưu ảnh hoặc video vận hành.
+- **Cảnh báo → Xem chi tiết** hiển thị metadata và liên kết theo dõi/lịch sử. Toast không có thao tác mở chi tiết. Live view chỉ lấy một sự kiện gần nhất và hiển thị dưới dạng văn bản. DB A01 tại lúc rà soát có 2 sự kiện, 1 cảnh báo. Sự kiện camera hoạt động lại 23:26:28 là nhật ký, cảnh báo mất kết nối trước đó đang chờ tiếp nhận.
+
+### Kế hoạch triển khai
+
+1. Trong `LiveViewPage.tsx`, gom **trạng thái camera**, **trạng thái quan sát + lý do** và **giờ cập nhật quan sát** thành dải ngắn cạnh video. Sắp gọn phần đầu trang để hai khung vẫn giữ chiều rộng hiện tại và thấy được trạng thái chính trong cùng viewport laptop. Khi không đủ dữ liệu quan sát, chỉ hiện lý do cụ thể một lần. Dùng chi tiết thu gọn cho vận động, nghỉ/hoạt động và khuôn mặt; giữ riêng các giá trị hoặc tín hiệu đang có. Phân biệt mất kết nối, chưa có vùng giường, chưa có dữ liệu và không thấy người trong vùng bằng tín hiệu hiện có, không đổi rule engine.
+2. Ngay dưới hai khung chia hai cột theo chiều rộng vùng nội dung. Trái **Quan sát hiện tại**, phải **Nhật ký gần đây**. Dùng `useEvents` cho khoảng 4 sự kiện mới theo giường *(giả định)*, mỗi dòng có giờ, tên và mức/nhãn trạng thái nếu có. Giới hạn chiều cao danh sách desktop để cập nhật không đẩy video khỏi tầm nhìn; xếp dọc khi hẹp. Giữ link **Lịch sử theo dõi** đã lọc đúng giường/phiên. Thời gian sự kiện tách khỏi giờ cập nhật trạng thái.
+3. Cho bấm dòng nhật ký để xem tóm tắt sự kiện tại chỗ. Dòng có cảnh báo tải chi tiết từ API F19 và dùng lại `AlertDetailModal`. Thêm thao tác **Xem chi tiết** vào toast để mở đúng cảnh báo theo ID; quyền và quy trình tiếp nhận hiện có theo F19/F20. Dùng lại nhãn và màu mức độ, không thêm API hay bảng dữ liệu. Mọi nhãn trong `vi.ts`.
+4. Dùng màu theo ý nghĩa: trung tính cho trạng thái chưa có/nhật ký, xanh cho kết nối hoạt động, hổ phách cho thiếu quan sát/cần chú ý, đỏ mang tính vận hành khi mất kết nối hoặc cảnh báo ưu tiên cao. Luôn kèm nhãn chữ. Chỉ làm nổi chuyển trạng thái có ý nghĩa, tránh nháy màu theo nhịp cập nhật giờ. Màu và độ tương phản kiểm tra cùng UI sau khi triển khai.
+5. Test live view với dữ liệu đủ/thiếu, camera offline, không có sự kiện, sự kiện chỉ thuộc nhật ký và sự kiện có cảnh báo; test mở đúng cảnh báo từ toast, không mở nhầm giường khi đổi lựa chọn. Kiểm tra ở 1280×720, 1366×768 và màn hình hẹp, cuộn danh sách và xem chi tiết, kiểm chứng hai video và thông tin chính cùng tầm nhìn khi bắt đầu. Chạy `make check` sau khi triển khai.
+
+### Kiểm chứng triển khai
+
+- [x] `LiveViewPage.test.tsx` kiểm tra trạng thái thay đổi, lý do quan sát xuất hiện một lần, chi tiết thu gọn, trạng thái cũ được ẩn khi camera offline, và mở đúng sự kiện/cảnh báo.
+- [x] `AlertsPage.test.tsx` kiểm tra mở từ toast theo đúng ID khi cảnh báo chưa nằm trong danh sách. Playwright kiểm tra lại luồng toast và nhật ký trên bản build với dữ liệu giả lập, kể cả sau khi đổi giường.
+- [x] Playwright đo mỗi video rộng 491 px ở 1280×720, 534 px ở 1366×768. Hai video và phần đầu nhật ký cùng trong viewport; nhật ký cuộn độc lập. Ở 390 px các cột xếp dọc. Nhãn thiếu quan sát dùng chữ rõ trên nền hổ phách (đo tương phản 18,76:1 với giao diện sáng).
+- [x] Review Codex đạt. `make check` xanh (1368 test Python, 265 test web và build); lặp kiểm tra format, lint, typecheck, import và API types sau lần chỉnh màu cuối.

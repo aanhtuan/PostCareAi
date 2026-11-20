@@ -287,7 +287,7 @@ describe('LiveViewPage', () => {
     function live(b: Bed, events: EventOut[] = []) {
       const routes: Record<string, unknown> = {
         '/api/v1/overview': { current_shift: null, beds: [b] },
-        '/api/v1/cameras/1': camera('ONLINE', ROI),
+        '/api/v1/cameras/1': camera(b.camera?.status ?? 'UNKNOWN', ROI),
         '/api/v1/events': { items: events, total: events.length },
       };
       const fetchFn = mockFetch(routes);
@@ -340,6 +340,64 @@ describe('LiveViewPage', () => {
       expect(await screen.findByText(vi.bodyState.NO_OBSERVATION)).toBeInTheDocument();
       expect(screen.getByText(vi.live.noState)).toBeInTheDocument();
       expect(screen.queryByText('Nằm')).toBeNull();
+    });
+
+    it('keeps a single observation reason visible and folds unavailable signals', async () => {
+      live(
+        bed({
+          state: state({
+            body_state: 'NO_OBSERVATION',
+            observation_quality: 'NO_PERSON',
+            activity_level: 'UNKNOWN',
+          }),
+        }),
+      );
+      expect(await screen.findByText(vi.quality.NO_PERSON)).toBeInTheDocument();
+      expect(screen.getAllByText(vi.quality.NO_PERSON)).toHaveLength(1);
+      const details = screen.getByRole('button', { name: vi.live.observationDetails });
+      expect(details).toHaveAttribute('aria-expanded', 'false');
+      fireEvent.click(details);
+      await waitFor(() =>
+        expect(screen.getByText(`${vi.live.activity} · ${vi.activity.UNKNOWN}`)).toBeVisible(),
+      );
+    });
+
+    it('does not show the previous body state during a camera disconnection', async () => {
+      live(bed({ state: state(), camera: { id: 1, name: 'Camera A01', status: 'OFFLINE' } }));
+      expect(await screen.findByText(vi.bodyState.NO_OBSERVATION)).toBeInTheDocument();
+      expect(screen.queryByText('Nằm')).toBeNull();
+      expect(screen.queryByText(vi.quality.GOOD)).toBeNull();
+    });
+
+    it('opens an event summary and fetches alert details by alert id', async () => {
+      const cameraEvent = ev({ code: 'CAMERA_ONLINE', priority: 'LOG' });
+      const edge = ev({
+        id: 31,
+        code: 'BED_EDGE',
+        priority: 'MEDIUM',
+        alert_id: 82,
+        alert_status: 'PENDING',
+      });
+      const { routes } = live(bed({ state: state() }), [cameraEvent, edge]);
+      const fetchFn = mockFetch({
+        ...routes,
+        '/api/v1/alerts/82': {
+          id: 82,
+          status: 'PENDING',
+          event: edge,
+          bed: { id: 1, code: 'A01' },
+        },
+      });
+      const eventButton = await screen.findByRole('button', { name: /Camera hoạt động lại/ });
+      fireEvent.click(eventButton);
+      expect(eventButton).toHaveAttribute('aria-expanded', 'true');
+      fireEvent.click(screen.getByRole('button', { name: /Bệnh nhân đang ở mép giường/ }));
+      expect(
+        await screen.findByRole('dialog', { name: vi.alerts.detailTitle }),
+      ).toBeInTheDocument();
+      await waitFor(() =>
+        expect(fetchFn).toHaveBeenCalledWith('/api/v1/alerts/82', expect.anything()),
+      );
     });
 
     it('no polling while WebSocket open', async () => {

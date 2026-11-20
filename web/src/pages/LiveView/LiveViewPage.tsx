@@ -3,7 +3,6 @@
 // `event.created`, `camera.status`); polling 2 s chỉ là đường dự phòng khi mất WebSocket.
 import {
   Alert,
-  Anchor,
   Badge,
   Button,
   Card,
@@ -13,24 +12,22 @@ import {
   Select,
   SimpleGrid,
   Stack,
-  Table,
   Text,
   Title,
 } from '@mantine/core';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
-import { useCameraDetail, useEvents, useOverview } from '../../api/hooks';
+import { useCameraDetail, useOverview } from '../../api/hooks';
 import type { CameraStatus } from '../../api/types';
 import { useAuth } from '../../auth/useAuth';
 import { CameraStream } from '../../components/CameraStream';
-import { PriorityBadge } from '../../components/Badges';
-import { RestStatusBadge } from '../../components/RestStatusBadge';
 import { fmt, vi } from '../../i18n/vi';
 import { formatTime } from '../../utils/time';
 import { CameraForm } from '../Management/CameraForm';
 import { DisplayModeControl } from './DisplayModeControl';
-import { FaceSignalsPanel } from './FaceSignalsPanel';
+import { LiveJournal } from './LiveJournal';
+import { ObservationDetails } from './ObservationDetails';
 
 const POLL_MS = 2000; // giả định F07 R5; chỉ khi WebSocket không mở (F21)
 
@@ -61,7 +58,6 @@ export function LiveViewPage() {
     POLL_MS,
     connecting !== null,
   );
-  const latest = useEvents({ bed_id: selectedId, limit: 1 });
   const detail = cameraDetail.data;
   const ready =
     connecting &&
@@ -73,13 +69,22 @@ export function LiveViewPage() {
   const waiting = connecting && !ready;
 
   if (overview.isPending) return <Loader />;
-  const state = bed?.state ?? null;
-  const event = latest.data?.items[0];
   // Ưu tiên trạng thái từ chi tiết camera (mới hơn), rồi tới tổng quan.
   const cameraStatus: CameraStatus | null = bed?.camera
     ? (cameraDetail.data?.status ?? bed.camera.status)
     : null;
   const roi = cameraDetail.data?.roi_polygon ?? null;
+  const paused = !!bed?.session?.paused_at;
+  const canObserve = cameraStatus === 'ONLINE' && !waiting && !paused && (!detail || !!roi);
+  const state = canObserve ? (bed?.state ?? null) : null;
+  const observationReason = paused
+    ? vi.capture.pausedShort
+    : canObserve
+      ? state
+        ? vi.quality[state.observation_quality]
+        : vi.live.noState
+      : undefined;
+  const bodyState = state?.body_state ?? 'NO_OBSERVATION';
   const statusText = waiting
     ? vi.live.waitingForCamera
     : cameraStatus
@@ -114,6 +119,7 @@ export function LiveViewPage() {
                   <Badge
                     color={waiting ? 'yellow' : cameraStatus ? STATUS_COLOR[cameraStatus] : 'gray'}
                     variant="light"
+                    c="var(--mantine-color-text)"
                     role="status"
                   >
                     {statusText}
@@ -184,14 +190,30 @@ export function LiveViewPage() {
                   {vi.live.noSession}
                 </Text>
               )}
-              {/* F22 R7: từ thẻ giường → trang này → Lịch sử theo dõi của giường/phiên. */}
-              <Anchor
-                size="sm"
-                component={Link}
-                to={`/timeline?bed=${bed.bed_id}${bed.session ? `&session=${bed.session.id}` : ''}`}
+              <Group
+                justify="space-between"
+                gap={6}
+                bg="var(--mantine-color-default-hover)"
+                p="xs"
+                style={{ borderRadius: 'var(--mantine-radius-sm)' }}
               >
-                {vi.alerts.openTimeline}
-              </Anchor>
+                <Group gap="xs" role="status">
+                  <Badge
+                    color={bodyState === 'NO_OBSERVATION' ? (state ? 'yellow' : 'gray') : 'teal'}
+                    variant="light"
+                    c="var(--mantine-color-text)"
+                    tt="none"
+                  >
+                    {vi.bodyState[bodyState]}
+                  </Badge>
+                  {observationReason && <Text size="sm">{observationReason}</Text>}
+                </Group>
+                {state && (
+                  <Text size="xs" c="dimmed">
+                    {fmt(vi.live.updatedAt, { time: formatTime(state.updated_at) })}
+                  </Text>
+                )}
+              </Group>
               {bed.camera && cameraStatus ? (
                 <>
                   {cameraDetail.isSuccess && !roi && (
@@ -245,15 +267,6 @@ export function LiveViewPage() {
                       />
                     </Stack>
                   </SimpleGrid>
-                  <Text size="xs" c="dimmed">
-                    {vi.live.skeletonHint}
-                  </Text>
-                  {cameraDetail.data && (
-                    <DisplayModeControl
-                      cameraId={bed.camera.id}
-                      mode={cameraDetail.data.display_mode}
-                    />
-                  )}
                 </>
               ) : (
                 <Center bg="gray.1" mih={180} style={{ borderRadius: 8 }}>
@@ -262,71 +275,26 @@ export function LiveViewPage() {
               )}
             </Stack>
           </Card>
-          <Card withBorder>
-            <Stack gap="sm">
-              <Text size="xl" fw={700}>
-                {vi.bodyState[state?.body_state ?? 'NO_OBSERVATION']}
-              </Text>
-              {!state && <Text c="dimmed">{vi.live.noState}</Text>}
-              <Table withRowBorders={false} verticalSpacing={4}>
-                <Table.Tbody>
-                  <Row
-                    label={vi.bedCard.quality}
-                    value={state ? vi.quality[state.observation_quality] : vi.common.none}
-                  />
-                  <Row
-                    label={vi.live.activity}
-                    value={state ? vi.activity[state.activity_level] : vi.common.none}
-                  />
-                  <Row
-                    label={vi.live.rest}
-                    value={state ? <RestStatusBadge status={state.rest_status} /> : vi.common.none}
-                  />
-                  <Row label={vi.live.faceSignals} value={<FaceSignalsPanel state={state} />} />
-                  <Row
-                    label={vi.live.camera}
-                    value={bed.camera ? bed.camera.name : vi.camera.notAssigned}
-                  />
-                  {state && (
-                    <Row
-                      label={vi.common.time}
-                      value={fmt(vi.live.updatedAt, { time: formatTime(state.updated_at) })}
-                    />
-                  )}
-                </Table.Tbody>
-              </Table>
-              <Card withBorder bg="gray.0">
-                <Text size="sm" c="dimmed">
-                  {vi.live.latestEvent}
+          <SimpleGrid
+            type="container"
+            cols={{ base: 1, '640px': 2 }}
+            spacing="sm"
+            style={{ alignItems: 'start' }}
+          >
+            <ObservationDetails cameraName={bed.camera?.name} state={state}>
+              {bed.camera && detail && (
+                <DisplayModeControl cameraId={bed.camera.id} mode={detail.display_mode} />
+              )}
+              {bed.camera && (
+                <Text size="xs" c="dimmed">
+                  {vi.live.skeletonHint}
                 </Text>
-                {event ? (
-                  <Group gap="xs">
-                    <Text fw={600}>
-                      {formatTime(event.occurred_at)} - {vi.event[event.code]}
-                    </Text>
-                    <PriorityBadge priority={event.priority} />
-                  </Group>
-                ) : (
-                  <Text>{vi.live.noEvent}</Text>
-                )}
-              </Card>
-            </Stack>
-          </Card>
+              )}
+            </ObservationDetails>
+            <LiveJournal key={bed.bed_id} bedId={bed.bed_id} sessionId={bed.session?.id} />
+          </SimpleGrid>
         </Stack>
       )}
     </Stack>
-  );
-}
-
-function Row({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <Table.Tr>
-      <Table.Td w={170}>
-        <Text c="dimmed" size="sm">
-          {label}
-        </Text>
-      </Table.Td>
-      <Table.Td>{value}</Table.Td>
-    </Table.Tr>
   );
 }

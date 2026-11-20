@@ -68,6 +68,8 @@ make setup && make db-upgrade && make seed && make models && make check
 
 ## Đã xong gần đây
 
+- [x] 2026-11-21: F07/F20 thu gọn trạng thái, chia hai cột quan sát/nhật ký, mở chi tiết từ Live View và toast. `make check` và Playwright đạt.
+
 - [x] 2026-11-20: F07/F08 đưa thao tác vẽ vùng giường vào Theo dõi trực tiếp và mở rộng hai khung hình trên laptop. `make check` và kiểm tra trình duyệt với nguồn giả lập đạt.
 
 - [x] 2026-11-20: F07 thêm nút “Kết nối camera” trên Theo dõi trực tiếp cho quản trị viên và hướng dẫn iPhone qua Wi-Fi/USB. Kiểm chứng iPhone thật còn chờ thiết bị.

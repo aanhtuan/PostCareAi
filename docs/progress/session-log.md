@@ -2,6 +2,14 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-21 – Codex – Triển khai trạng thái và nhật ký trên Live View
+
+- **Đã làm:** Đưa trạng thái và lý do lên cạnh hai khung, thu gọn tín hiệu phụ, thêm cột nhật ký gần đây cuộn riêng. Sự kiện mở tóm tắt tại chỗ; cảnh báo mở chi tiết theo ID từ nhật ký hoặc toast. Giữ quyền hiện có và dữ liệu vận hành theo QA#29.
+- **Kiểm tra:** `make check` xanh trên PostgreSQL test riêng (1368 test Python, 265 test web và build), kiểm tra tĩnh lặp sau chỉnh màu đạt. Playwright ở 1280×720, 1366×768 và 390 px với dữ liệu giả lập kiểm tra hai video, cuộn nhật ký, đổi giường, mở sự kiện và cảnh báo đúng ID. Vite cục bộ đang phục vụ giao diện mới.
+- **Đang dở / blocker:** Chưa phát và xử lý cảnh báo mới bằng camera thật trong phiên này.
+- **Bước tiếp theo:** Tải lại `/beds/1/live` để xem trạng thái và nhật ký A01. Dùng **Lịch sử theo dõi** để xem thêm bản ghi.
+
+
 ## 2026-11-20 – Codex – Triển khai lối vào vùng giường và mở rộng hai khung live
 
 - **Đã làm:** Đặt **Vẽ vùng giường** nổi bật trên Theo dõi trực tiếp cho quản trị viên; thêm **Sửa vùng giường** khi đã lưu. Dùng lại trình vẽ F08 và quay về đúng giường. Đưa chi tiết trạng thái xuống dưới để hai khung dùng toàn chiều rộng vùng nội dung.

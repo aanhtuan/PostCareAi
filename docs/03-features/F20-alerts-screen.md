@@ -66,6 +66,8 @@
 
 ## 4. Thiết kế liên quan
 
+- **Bổ sung luồng mở chi tiết:** thông báo nổi có liên kết **Xem chi tiết** tới trang Cảnh báo theo ID. Trang tải bản ghi qua `GET /api/v1/alerts/{id}` ngay cả khi bộ lọc/danh sách chưa có bản ghi. Nhật ký Live View dùng lại `AlertDetailModal` cho sự kiện có cảnh báo. Xem [kế hoạch và kiểm chứng F07](F07-live-view.md#15-trạng-thái-gọn-và-nhật-ký-cạnh-khung-quan-sát-2026-11-20).
+
 - **Module / file (theo code thực tế):**
   - `web/src/pages/Alerts/AlertsPage.tsx` (gồm bộ lọc).
   - `web/src/components/AlertCard.tsx`, `AlertDetailModal.tsx`, `AlertActions.tsx`, `Badges.tsx`: dùng chung với F21, F22 *(giả định: đặt ở `components/` để tái sử dụng)*.

@@ -12,7 +12,7 @@ const REST_COLOR: Record<RestStatus, string> = {
 
 export function RestStatusBadge({ status }: { status: RestStatus }) {
   return (
-    <Badge color={REST_COLOR[status]} variant="light" tt="none">
+    <Badge color={REST_COLOR[status]} variant="light" c="var(--mantine-color-text)" tt="none">
       {vi.rest[status]}
     </Badge>
   );
