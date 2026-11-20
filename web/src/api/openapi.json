@@ -3875,6 +3875,23 @@
             }
           },
           {
+            "name": "x-camera-config-version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Camera-Config-Version"
+            }
+          },
+          {
             "name": "x-worker-token",
             "in": "header",
             "required": false,
@@ -4647,6 +4664,16 @@
                 "type": "null"
               }
             ]
+          },
+          "worker_active": {
+            "type": "boolean",
+            "title": "Worker Active",
+            "default": false
+          },
+          "has_current_frames": {
+            "type": "boolean",
+            "title": "Has Current Frames",
+            "default": false
           },
           "roi_polygon": {
             "anyOf": [

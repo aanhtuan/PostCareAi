@@ -7,7 +7,7 @@ const PRIORITY_COLOR: Record<Priority, string> = {
   LOG: 'gray',
   INFO: 'blue',
   MEDIUM: 'orange',
-  HIGH: 'red',
+  HIGH: 'red.9',
 };
 
 const STATUS_COLOR: Record<AlertStatus, string> = {
@@ -17,8 +17,13 @@ const STATUS_COLOR: Record<AlertStatus, string> = {
 };
 
 export function PriorityBadge({ priority }: { priority: Priority }) {
+  const high = priority === 'HIGH';
   return (
-    <Badge color={PRIORITY_COLOR[priority]} variant={priority === 'HIGH' ? 'filled' : 'light'}>
+    <Badge
+      color={PRIORITY_COLOR[priority]}
+      variant={high ? 'filled' : 'light'}
+      c={high ? 'white' : 'var(--mantine-color-text)'}
+    >
       {vi.priority[priority]}
     </Badge>
   );
@@ -26,7 +31,7 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
 
 export function AlertStatusBadge({ status }: { status: AlertStatus }) {
   return (
-    <Badge color={STATUS_COLOR[status]} variant="light">
+    <Badge color={STATUS_COLOR[status]} variant="light" c="var(--mantine-color-text)">
       {vi.alertStatus[status]}
     </Badge>
   );

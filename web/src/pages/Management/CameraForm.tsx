@@ -13,14 +13,20 @@ import {
 import { fmt, vi } from '../../i18n/vi';
 import { CatalogFormModal } from './CatalogFormModal';
 
-type Props = { camera: CameraOut | null; onClose: () => void };
+type Props = {
+  camera: CameraOut | null;
+  onClose: () => void;
+  connect?: { bedId: number; bedCode: string; onSaved: (camera: CameraOut) => void };
+};
 
 const NO_BED = '';
 
-export function CameraForm({ camera, onClose }: Props) {
-  const save = useSaveCatalogItem<CameraCreate>('cameras');
+export function CameraForm({ camera, onClose, connect }: Props) {
+  const save = useSaveCatalogItem<CameraCreate, CameraOut>('cameras');
   const beds = useBeds();
-  const [name, setName] = useState(camera?.name ?? '');
+  const [name, setName] = useState(
+    camera?.name ?? (connect ? fmt(vi.live.cameraName, { code: connect.bedCode }) : ''),
+  );
   const [sourceType, setSourceType] = useState<CameraSourceType>(camera?.source_type ?? 'WEBCAM');
   const [source, setSource] = useState(camera?.source ?? '');
   const [bedId, setBedId] = useState<string>(camera?.bed_id ? String(camera.bed_id) : NO_BED);
@@ -41,13 +47,14 @@ export function CameraForm({ camera, onClose }: Props) {
       name: name.trim(),
       source_type: sourceType,
       source: source.trim(),
-      bed_id: bedId === NO_BED ? null : Number(bedId),
+      bed_id: connect?.bedId ?? (bedId === NO_BED ? null : Number(bedId)),
     };
     save.mutate(
       { id: camera?.id, body },
       {
-        onSuccess: () => {
-          notifications.show({ color: 'teal', message: vi.catalog.savedDone });
+        onSuccess: (saved) => {
+          if (connect) connect.onSaved(saved);
+          else notifications.show({ color: 'teal', message: vi.catalog.savedDone });
           onClose();
         },
       },
@@ -57,11 +64,18 @@ export function CameraForm({ camera, onClose }: Props) {
   return (
     <CatalogFormModal
       opened
-      title={camera ? fmt(vi.catalog.editCamera, { name: camera.name }) : vi.catalog.addCamera}
+      title={
+        connect
+          ? fmt(vi.live.connectTitle, { code: connect.bedCode })
+          : camera
+            ? fmt(vi.catalog.editCamera, { name: camera.name })
+            : vi.catalog.addCamera
+      }
       onClose={onClose}
       onSubmit={submit}
       saving={save.isPending}
       error={save.error}
+      submitLabel={connect ? vi.live.saveAndConnect : undefined}
     >
       <TextInput
         label={vi.camera.name}
@@ -87,13 +101,15 @@ export function CameraForm({ camera, onClose }: Props) {
         onChange={(e) => setSource(e.currentTarget.value)}
         error={touched && !source.trim() ? vi.catalog.required : undefined}
       />
-      <Select
-        label={vi.common.bed}
-        allowDeselect={false}
-        data={bedOptions}
-        value={bedId}
-        onChange={(v) => setBedId(v ?? NO_BED)}
-      />
+      {!connect && (
+        <Select
+          label={vi.common.bed}
+          allowDeselect={false}
+          data={bedOptions}
+          value={bedId}
+          onChange={(v) => setBedId(v ?? NO_BED)}
+        />
+      )}
     </CatalogFormModal>
   );
 }

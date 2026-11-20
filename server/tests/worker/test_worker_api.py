@@ -8,6 +8,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import update
 from sqlalchemy.orm import Session
@@ -28,7 +29,9 @@ from tests.worker.helpers import ROI, FakeTime
 ENGINE_DEFAULT = REPO_ROOT / "config" / "engine.default.yaml"
 
 
-def _make_worker(client: TestClient, video: Path) -> tuple[Worker, FakeTime]:
+def _make_worker(
+    client: TestClient, video: Path, *, source_overridden: bool = False
+) -> tuple[Worker, FakeTime]:
     t = FakeTime()
 
     def source_factory(cfg: WorkerConfig) -> FileSource:
@@ -39,7 +42,7 @@ def _make_worker(client: TestClient, video: Path) -> tuple[Worker, FakeTime]:
         engine_factory=default_engine_factory(ENGINE_DEFAULT),
         source_factory=source_factory,
         adapter_factory=lambda cfg: FakePoseAdapter({}),
-        options=WorkerOptions(),
+        options=WorkerOptions(source_overridden=source_overridden),
         clock=t.monotonic,
         wall=t.wall,
         sleep=t.sleep,
@@ -62,6 +65,7 @@ def _set_roi(db: Session) -> None:
     db.commit()
 
 
+@pytest.mark.parametrize("source_overridden", [False, True])
 def test_worker_online_then_offline(
     app: Any,
     client: TestClient,
@@ -69,10 +73,11 @@ def test_worker_online_then_offline(
     publisher: InMemoryPublisher,
     open_session: dict[str, Any],
     tmp_path: Path,
+    source_overridden: bool,
 ) -> None:
     _set_roi(db)
     video = write_video(tmp_path / "clip.avi", n_frames=90, fps=15.0, size=(64, 48))
-    worker, t = _make_worker(client, video)
+    worker, t = _make_worker(client, video, source_overridden=source_overridden)
     _run(worker, t, 4.0)
     db.expire_all()
     cam = db.get(Camera, 1)
@@ -82,8 +87,9 @@ def test_worker_online_then_offline(
     state = app.state.store.get_bed_state(1)
     assert state is not None and state.body_state == "NO_OBSERVATION"
     assert app.state.frames.get(1) is not None
-    runtime = client.get("/api/v1/cameras/1", headers=_nurse(client)).json()["runtime"]
-    assert runtime["source_status"] == "ONLINE"
+    detail = client.get("/api/v1/cameras/1", headers=_nurse(client)).json()
+    assert detail["runtime"]["source_status"] == "ONLINE"
+    assert detail["has_current_frames"] is not source_overridden
 
     worker.close()
     changed = mark_offline_cameras(

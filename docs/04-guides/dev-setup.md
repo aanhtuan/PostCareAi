@@ -88,7 +88,7 @@ Các lần sau chỉ cần `docker start postcare-db`. Dữ liệu nằm trong v
 
 ## 5. Dùng điện thoại làm camera
 
-HS §4.2 có nhắc DroidCam; IP Webcam (Android) là một lựa chọn tương tự.
+HS §4.2 có nhắc DroidCam. Với Android, có thể dùng DroidCam hoặc IP Webcam theo các bước sau. Với iPhone, xem hai hướng dẫn bên dưới.
 
 1. Cài app trên điện thoại; điện thoại và laptop chung mạng Wi-Fi.
 2. Mở app, ghi lại địa chỉ hiển thị. *(Giả định A14)* Thường có dạng:
@@ -99,8 +99,21 @@ HS §4.2 có nhắc DroidCam; IP Webcam (Android) là một lựa chọn tương
    - Loại nguồn đoán theo `--source`: số nguyên → webcam (`--source 0`); `http://`, `https://`, `rtsp://` → URL; còn lại → file video (`--source D:/PostCareAi/data/raw/clip.mp4`).
    - Với file, `probe` đọc nhanh hết mức (không phát theo tốc độ thực) và dừng khi hết file.
    - Đang `probe` mà tắt app điện thoại: dòng `Trạng thái: OFFLINE` hiện ra, lệnh tự kết nối lại sau 1, 2, 4… tối đa 10 s.
-4. Khai báo camera trong màn hình "Quản lý giường": loại nguồn `URL`, địa chỉ ở bước 2.
-5. Cách khác: dùng DroidCam client trên máy tính để tạo webcam ảo, rồi khai báo loại `WEBCAM` với index tương ứng.
+4. Đăng nhập quản trị viên, vào **Theo dõi trực tiếp**, chọn giường, bấm **Kết nối camera** và chọn **Địa chỉ stream (URL)**. Dán địa chỉ ở bước 2, rồi bấm **Lưu và kết nối**. Giường đã có camera sẽ dùng lại bản ghi hiện tại. Trước khi đổi nguồn, giường cần ở trạng thái chưa có phiên theo dõi đang mở.
+5. Nếu chưa tải model, chạy `make models`. Chạy `make worker CAMERA=<id>` trên máy kết nối camera theo số ID trong thông báo. Worker đang chạy bản mới sẽ tự tải cấu hình. Nếu worker đang phát clip qua `VIDEO=...` hoặc chạy bản cũ, dừng rồi chạy lại lệnh trên. Khi khung camera có hình, bấm **Vẽ vùng giường** hoặc **Sửa vùng giường** ở cột thông tin trên **Theo dõi trực tiếp**. Bấm lần lượt các góc mặt nệm theo vòng quanh, lưu rồi quay lại giường để xem đường viền. Kiểm tra lại vùng mỗi khi vị trí hoặc góc quay thay đổi.
+
+### iPhone qua Wi-Fi nội bộ trên Fedora
+
+1. Kết nối iPhone và máy chạy worker vào cùng mạng nội bộ cho phép hai thiết bị liên lạc. Mở [IP Camera Lite](https://apps.apple.com/vn/app/ip-camera-lite/id1013455241), cấp quyền camera và mạng nội bộ nếu được hỏi, bật **IP Camera Server** và lấy URL **RTSP** của luồng. Bản Lite có watermark. Giữ app mở khi thử.
+2. Từ thư mục gốc, kiểm tra bằng `uv --directory server run postcare probe --source '<URL RTSP của iPhone>' --seconds 30`. Nếu có hình, nhập cùng URL vào **Địa chỉ stream (URL)** theo bước 4 ở trên.
+3. Dùng mạng thử nghiệm riêng và người đóng vai, tắt ghi hình trong app. Tránh nhập URL chứa mật khẩu hoặc token vì cấu hình nguồn hiện được hiển thị trong danh mục và lưu trong audit. Nếu app yêu cầu nhúng mật khẩu vào URL, dùng DroidCam qua Wi-Fi theo phương án webcam ảo bên dưới, chọn IP của iPhone trong client.
+
+### iPhone qua cáp USB trên Fedora
+
+1. Cài [DroidCam Webcam & OBS Camera](https://apps.apple.com/vn/app/droidcam-webcam-obs-camera/id1510258102) trên iPhone. Trên Fedora, làm theo [hướng dẫn DroidCam cho Linux](https://www.droidcam.app/linux/) để cài bản Linux Client và `v4l2loopback` từ RPM Fusion. Chạy `sudo dnf install usbmuxd v4l-utils` để cài công cụ nhận iPhone qua USB và liệt kê webcam. Sau khi cài module, nếu chưa nạp module thì chạy `sudo modprobe v4l2loopback exclusive_caps=1 card_label=DroidCam devices=1`.
+2. Cắm cáp có truyền dữ liệu, mở khóa iPhone, chọn **Tin cậy** nếu được hỏi và mở DroidCam. Trong Linux Client, chọn **Add → DroidCam → Refresh Device List**, chọn iPhone qua USB và kiểm tra hình. Nếu chưa thấy iPhone, kiểm tra dịch vụ bằng `systemctl status usbmuxd`, chạy `sudo systemctl start usbmuxd` nếu dịch vụ chưa chạy. Xem [thiết lập iOS qua USB của DroidCam](https://droidcam.app/help/#ios-usb-setup).
+3. Khi Linux Client đã có hình, chạy `v4l2-ctl --list-devices` để thấy camera ảo và đường dẫn, ví dụ `/dev/video2`. Kiểm tra với `uv --directory server run postcare probe --source 2 --seconds 10`, thay `2` bằng số thiết bị thực tế. Dừng probe trước khi worker mở thiết bị.
+4. Trong **Theo dõi trực tiếp → Kết nối camera**, chọn **Webcam**, nhập số vừa thử và bấm **Lưu và kết nối**. Giữ DroidCam mở trong lúc theo dõi.
 
 Cài đặt điện thoại nên có:
 - luôn cắm sạc;

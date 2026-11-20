@@ -85,6 +85,8 @@ class WorkerOptions:
     """Mỗi lần chờ không quá giá trị này để Ctrl+C phản hồi nhanh."""
     loop: bool = False
     """Phát lại nguồn file từ đầu khi hết (`--loop`, dùng cho demo). Engine tạo mới mỗi vòng."""
+    source_overridden: bool = False
+    """Worker dùng `--video` thay cho nguồn đã lưu của camera."""
 
 
 @dataclass
@@ -560,8 +562,9 @@ class Worker:
                 max_side=self.options.jpeg_max_side,
                 quality=self.options.jpeg_quality,
             )
-            self.api.post_frame(jpeg, view="display")
-            self.api.post_frame(skeleton, view="skeleton")
+            version = None if self.options.source_overridden else cfg.config_version
+            self.api.post_frame(jpeg, config_version=version)
+            self.api.post_frame(skeleton, config_version=version, view="skeleton")
         except WorkerUnauthorizedError as exc:
             raise WorkerStopError(str(exc)) from exc
         except WorkerApiError as exc:

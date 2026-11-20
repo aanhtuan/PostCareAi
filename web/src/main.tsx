@@ -30,9 +30,9 @@ if (!root) throw new Error('Thiếu #root');
 createRoot(root).render(
   <StrictMode>
     <MantineProvider theme={theme}>
-      <Notifications position="top-right" />
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
+          <Notifications position="top-right" />
           <AuthProvider>
             <App />
           </AuthProvider>

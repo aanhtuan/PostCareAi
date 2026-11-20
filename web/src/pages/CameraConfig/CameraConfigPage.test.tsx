@@ -44,9 +44,9 @@ const camera = {
 
 const DEFAULTS = { posture: { lying_enter_deg: 25 } };
 
-function setup(role: UserRole) {
+function setup(role: UserRole, fromLive = false) {
   const fetchFn = mockFetch({
-    '/api/v1/cameras/1': camera,
+    '/api/v1/cameras/1': fromLive ? { ...camera, bed_id: 4, bed_code: 'A04' } : camera,
     '/api/v1/cameras/1/thresholds': {
       defaults: DEFAULTS,
       overrides: {},
@@ -69,7 +69,7 @@ function setup(role: UserRole) {
       <Route path="/" element={<div>overview-page</div>} />
     </Routes>,
     user(role),
-    '/cameras/1/config',
+    fromLive ? '/cameras/1/config?from=live' : '/cameras/1/config',
   );
   return fetchFn;
 }
@@ -80,6 +80,18 @@ describe('CameraConfigPage', () => {
     expect(await screen.findByRole('heading', { name: vi.cameraConfig.title })).toBeInTheDocument();
     expect(await screen.findByText(fmt(vi.cameraConfig.roi.points, { n: 4 }))).toBeInTheDocument();
     expect(screen.getByText(vi.cameraConfig.imageQuality.noData)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: vi.cameraConfig.back })).toHaveAttribute(
+      'href',
+      '/management',
+    );
+  });
+
+  it('returns to the camera bed when opened from live view', async () => {
+    setup('ADMIN', true);
+    expect(await screen.findByRole('link', { name: vi.cameraConfig.backToLive })).toHaveAttribute(
+      'href',
+      '/beds/4/live',
+    );
   });
 
   it('saving the ROI sends PUT with normalized polygon', async () => {

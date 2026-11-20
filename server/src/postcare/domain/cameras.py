@@ -51,9 +51,9 @@ def _camera(db: Session, camera_id: int) -> Camera:
     return camera
 
 
-def ensure_worker_camera(db: Session, camera_id: int) -> None:
-    """Camera tồn tại và còn dùng, nếu không → 404 (F06 R2, R8)."""
-    _camera(db, camera_id)
+def worker_camera_config_version(db: Session, camera_id: int) -> int:
+    """Phiên bản cấu hình của camera đang dùng, hoặc 404 (F06 R2, R8)."""
+    return _camera(db, camera_id).config_version
 
 
 def camera_config(db: Session, camera_id: int) -> CameraConfigOut:

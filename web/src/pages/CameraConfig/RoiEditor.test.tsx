@@ -157,4 +157,14 @@ describe('RoiEditor', () => {
     clickAt(canvas, 200, 100);
     expect(screen.getByText(fmt(vi.cameraConfig.roi.points, { n: 4 }))).toBeInTheDocument();
   });
+
+  it('waits for a camera image before creating a first region', () => {
+    const { canvas } = setup({ online: false });
+    clickAt(canvas, 200, 100);
+    expect(screen.getByText(vi.cameraConfig.roi.waitForImage)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: fmt(vi.cameraConfig.roi.point, { n: 1 }) }),
+    ).toBeNull();
+    expect(saveButton()).toBeDisabled();
+  });
 });

@@ -1,5 +1,5 @@
 // F20 AC1, AC3, AC4: danh sách, bộ lọc, realtime, âm thanh, không hiện mã nội bộ.
-import { Notifications } from '@mantine/notifications';
+import { Notifications, notifications } from '@mantine/notifications';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -93,6 +93,7 @@ function createdPayload(alert: AlertOut): { alert: AlertOut; event: EventOut } {
 }
 
 beforeEach(() => {
+  notifications.clean();
   sound.play.mockReset();
   ws.handlers = null;
 });
@@ -262,6 +263,20 @@ describe('AlertsPage', () => {
     store.items = [created];
     push('alert.created', createdPayload(created));
     expect(await screen.findByText('Giường A07 - Cảnh báo ưu tiên cao')).toBeInTheDocument();
+  });
+
+  it('opens the exact alert from the toast even when it is absent from the list', async () => {
+    serve([]);
+    const alert = makeAlert(82, { bed: { id: 7, code: 'A07' } });
+    server.use(http.get('*/api/v1/alerts/82', () => HttpResponse.json(alert)));
+    renderPage();
+    await screen.findByText(vi.alerts.empty);
+    push('alert.created', createdPayload(alert));
+    const link = await screen.findByRole('link', { name: vi.alerts.detail });
+    expect(link).toHaveAttribute('href', '/alerts?alert=82');
+    await userEvent.setup().click(link);
+    const dialog = await screen.findByRole('dialog', { name: vi.alerts.detailTitle });
+    expect(await within(dialog).findByText('A07')).toBeInTheDocument();
   });
 
   it('alert.updated refreshes card status without reload', async () => {

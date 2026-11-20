@@ -16,6 +16,10 @@ from postcare.db.types import utcnow
 class LatestFrame:
     data: bytes
     received_at: datetime
+    config_version: int | None = None
+
+    def is_fresh(self, now: datetime, stale_after_s: float) -> bool:
+        return (now - self.received_at).total_seconds() <= stale_after_s
 
 
 class LatestFrameStore:
@@ -30,10 +34,21 @@ class LatestFrameStore:
         received_at: datetime | None = None,
         *,
         view: Literal["display", "skeleton"] = "display",
+        config_version: int | None = None,
     ) -> None:
-        frame = LatestFrame(data=data, received_at=received_at or utcnow())
+        frame = LatestFrame(data, received_at or utcnow(), config_version)
+        key = (camera_id, view)
         with self._lock:
-            self._frames[(camera_id, view)] = frame
+            # POST cũ có thể hoàn tất sau POST đã qua kiểm tra với cấu hình mới.
+            previous = self._frames.get(key)
+            if (
+                previous is not None
+                and previous.config_version is not None
+                and config_version is not None
+                and config_version < previous.config_version
+            ):
+                return
+            self._frames[key] = frame
 
     def get(
         self, camera_id: int, *, view: Literal["display", "skeleton"] = "display"

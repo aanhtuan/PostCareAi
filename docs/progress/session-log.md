@@ -2,6 +2,81 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-21 – Codex – Tăng khả năng đọc cột thông tin Live View
+
+- **Đã làm:** Thêm dấu tick chế độ đang chọn. Thu khung camera khoảng 20% để mở rộng cột thông tin; tăng cỡ chữ và hiển thị bảng vận động, nghỉ/hoạt động, khuôn mặt thay cho khối phải bấm mở. Kéo cao nhật ký tới tối đa 300 px.
+- **Kiểm tra:** Playwright thử dấu tick Làm mờ khuôn mặt, đổi chế độ, bảng quan sát và mở chi tiết cảnh báo. Ở 1280×720 và 1366×768, camera và dòng nhật ký đầu cùng tầm nhìn. Ở 390 px hiển thị dọc.
+- **Bước tiếp theo:** Chạy pre-push rồi mở PR F07 vào `main`.
+
+## 2026-11-21 – Codex – Một khung camera và cột thông tin
+
+- **Đã làm:** Theo phản hồi người dùng trong lúc chuẩn bị push, chuyển F07 sang một khung camera bên trái và một cột trạng thái/nhật ký bên phải. Chọn Skeleton thay hình trong cùng khung. Giữ thao tác camera, vùng giường và chi tiết cảnh báo.
+- **Kiểm tra:** Playwright với dữ liệu giả lập ở 1280×720, 1366×768 và 390 px, thử đổi chế độ, cuộn nhật ký, đổi giường, mở đúng chi tiết từ nhật ký và toast.
+- **Bước tiếp theo:** Push `feat/F07-camera-connect` qua hook `pre-push` và mở PR vào `main`.
+
+## 2026-11-21 – Codex – Triển khai trạng thái và nhật ký trên Live View
+
+- **Đã làm:** Đưa trạng thái và lý do lên cạnh hai khung, thu gọn tín hiệu phụ, thêm cột nhật ký gần đây cuộn riêng. Sự kiện mở tóm tắt tại chỗ; cảnh báo mở chi tiết theo ID từ nhật ký hoặc toast. Giữ quyền hiện có và dữ liệu vận hành theo QA#29.
+- **Kiểm tra:** `make check` xanh trên PostgreSQL test riêng (1368 test Python, 265 test web và build), kiểm tra tĩnh lặp sau chỉnh màu đạt. Playwright ở 1280×720, 1366×768 và 390 px với dữ liệu giả lập kiểm tra hai video, cuộn nhật ký, đổi giường, mở sự kiện và cảnh báo đúng ID. Vite cục bộ đang phục vụ giao diện mới.
+- **Đang dở / blocker:** Chưa phát và xử lý cảnh báo mới bằng camera thật trong phiên này.
+- **Bước tiếp theo:** Tải lại `/beds/1/live` để xem trạng thái và nhật ký A01. Dùng **Lịch sử theo dõi** để xem thêm bản ghi.
+
+## 2026-11-20 – Codex – Rà soát lưu cảnh báo và lập kế hoạch nhật ký live
+
+- **Đã làm:** Đối chiếu F17/F20/F22 với DB và UI. A01 có 2 sự kiện, 1 cảnh báo; dòng camera hoạt động lại 23:26:28 thuộc nhật ký, cảnh báo mất kết nối riêng vẫn chờ tiếp nhận. Chi tiết cảnh báo đã mở được ở Cảnh báo; toast và dòng live hiện chỉ hiển thị. Khung media live chỉ ở RAM theo QA#29.
+- **Đang dở / blocker:** Kế hoạch F07 mục 15 chờ người dùng chốt. Chưa sửa giao diện hoặc dữ liệu.
+- **Bước tiếp theo:** Nếu triển khai, dùng `useEvents` cho nhật ký theo giường, tái sử dụng chi tiết cảnh báo F20, thu gọn trạng thái quanh hai khung, rồi chạy `make check` và kiểm tra 1280×720, 1366×768.
+
+## 2026-11-20 – Codex – Triển khai lối vào vùng giường và mở rộng hai khung live
+
+- **Đã làm:** Đặt **Vẽ vùng giường** nổi bật trên Theo dõi trực tiếp cho quản trị viên; thêm **Sửa vùng giường** khi đã lưu. Dùng lại trình vẽ F08 và quay về đúng giường. Đưa chi tiết trạng thái xuống dưới để hai khung dùng toàn chiều rộng vùng nội dung.
+- **Kiểm tra:** `make check` xanh trên PostgreSQL test riêng (1368 test Python, 261 test web, build đạt). Playwright với camera giả lập đã vẽ và lưu bốn góc, quay lại đúng giường, kiểm tra overlay khi resize. Hai khung đạt 491 px ở 1280×720 và 534 px ở 1366×768, xếp dọc ở viewport 640 px và 390 px. Vite cục bộ đã phục vụ bản Live View mới.
+- **Đang dở / blocker:** Còn kiểm tra vùng trên khung iPhone thật theo vị trí mặt nệm của người dùng.
+- **Bước tiếp theo:** Trên trang A01 khi `make worker CAMERA=1` đang chạy, bấm **Vẽ vùng giường**, đánh dấu mặt nệm, lưu và quay lại kiểm tra đường viền.
+
+## 2026-11-20 – Codex – Lập kế hoạch thao tác vùng giường và hai khung live
+
+- **Đã làm:** Xác nhận F08 đã có trình vẽ thủ công và API lưu vùng giường, lối vào hiện nằm ở Quản lý giường. Đối chiếu F07 thấy hai khung cùng nằm trong một nửa bố cục; worker vẫn gửi hình và skeleton khi chưa có vùng giường, nhưng chưa tính trạng thái hoặc sự kiện.
+- **Đang dở / blocker:** Đã ghi kế hoạch F07 mục 14, chờ người dùng chốt trước khi sửa giao diện.
+- **Bước tiếp theo:** Nếu triển khai, dùng lại route Cấu hình camera và `RoiEditor`, mở rộng cụm hai khung trên Live View, rồi chạy `make check` và thử lưu vùng giường A01 trên trình duyệt với DroidCam.
+
+## 2026-11-20 – Codex – Hướng dẫn thử iPhone qua Wi-Fi
+
+- **Kiểm tra:** Web `localhost:5173` và API health `localhost:8000` đều trả 200. Chưa phát hiện worker hoặc thư mục model mặc định trong repo. Đã đối chiếu khả năng phát RTSP của IP Camera Lite trên App Store.
+- **Bước tiếp theo:** Lấy URL RTSP từ iPhone, nhập trong **Theo dõi trực tiếp → Giường A01 → Kết nối camera**, rồi chạy `make models` và `make worker CAMERA=1` từ thư mục dự án. Phần kiểm chứng luồng còn chờ iPhone bật server. Không có thay đổi code.
+- **Điều chỉnh theo người dùng:** Thử DroidCam trên iPhone qua Wi-Fi trước. Dùng `postcare probe --source 'http://<IP-iPhone>:4747/video' --seconds 10`, đổi cổng nếu app hiển thị cổng khác. Nếu bản iOS đang dùng không phát trực tiếp ở URL đó, kết nối qua DroidCam Linux Client bằng Wi-Fi và chọn webcam ảo trong PostCare. Chưa kiểm chứng iPhone thật.
+- **Chẩn đoán lượt thử:** Người dùng chạy probe với IP ví dụ và nhận `No route to host`. Fedora có tuyến qua Wi-Fi đến địa chỉ đó. Bước tiếp theo là lấy IP và cổng thật hiển thị trong DroidCam trên iPhone. Chỉ đánh giá khả năng đọc `/video` sau khi thử đúng địa chỉ.
+- **Kiểm chứng trên iPhone thật:** Thử địa chỉ DroidCam từ ảnh màn hình. Fedora ping được; ban đầu cổng từ chối kết nối, sau đó trả HTTP 200 và MJPEG. `postcare probe` đọc 149 khung 1280×720 trong 10,1 giây, 14,8 FPS xử lý, 0 lần mất kết nối. Bước tiếp theo là nhập URL đã kiểm chứng vào Camera A01, chạy worker và kiểm tra hai khung live. Chưa thay cấu hình giường trong phiên này.
+
+## 2026-11-20 – Codex – F07 kết nối camera từ Theo dõi trực tiếp
+
+- **Đã làm:** Trên `feat/F07-camera-connect`, thêm nút “Kết nối camera” cho quản trị viên. Form F03 dùng lại cho đúng giường và giữ ràng buộc phiên đang mở. Worker báo phiên bản nguồn trên JPEG; live view đợi cả hai khung mới và hướng dẫn khởi động worker khi thiếu heartbeat. Clip ghi đè bằng `--video` tiếp tục phát được.
+- **Kiểm tra:** `make check` xanh (1368 pytest, 257 Vitest, web build). Playwright trên bản build kiểm tra luồng URL RTSP và Webcam với API giả lập. Dùng PostgreSQL test riêng `postcare_camera_connect_test` vì DB test mặc định chưa tồn tại.
+- **Đang dở / blocker:** Chưa thử iPhone thật qua Wi-Fi hoặc cáp USB.
+- **Bước tiếp theo:** Khởi động API/web bằng `make dev`, thiết lập nguồn iPhone theo [hướng dẫn Fedora](../04-guides/dev-setup.md#5-dùng-điện-thoại-làm-camera), bấm **Lưu và kết nối** và chạy `make worker CAMERA=1` cho camera seed A01. Kiểm tra lại vùng giường nếu đổi góc.
+
+## 2026-11-20 – Codex – Khảo sát kết nối camera từ Theo dõi trực tiếp
+
+- **Đã làm:** Đối chiếu F03/F05/F07 với biểu mẫu nguồn camera và worker. Camera A01 đã có bản ghi, có thể sửa sang nguồn URL trước khi mở phiên. Worker đang chạy sẽ tải lại cấu hình khi đổi nguồn. Đề xuất đặt nút “Kết nối camera” cạnh trạng thái camera cho quản trị viên, dùng lại biểu mẫu hiện có và xác nhận bằng khung mới từ nguồn vừa chọn.
+- **Giải pháp iPhone:** Thử [IP Camera Lite](https://apps.apple.com/vn/app/ip-camera-lite/id1013455241) phát RTSP nội bộ. [DroidCam trên Linux](https://www.droidcam.app/linux/) là phương án qua webcam ảo nếu cần dùng USB. Bản Lite có watermark.
+- **Kiểm tra:** CLI `postcare probe --help` xác nhận nhận URL RTSP, `make -n worker CAMERA=1` xác nhận lệnh chạy worker A01, 31 test camera/CLI probe đạt. `make check` tới pytest thì gặp lỗi kết nối PostgreSQL test ở `localhost:5432`. Chưa kiểm tra trên iPhone thật.
+- **Đang dở / blocker:** Chờ thử với thiết bị thật và chốt phạm vi nút. Đây là khảo sát, chưa bắt đầu triển khai feature.
+- **Bước tiếp theo:** Trên máy chạy worker, dùng `uv --directory server run postcare probe --source '<URL RTSP từ iPhone>' --seconds 30`. Nếu đọc được hình, nhập cùng URL vào Camera A01 trong Quản lý giường, chạy `make worker CAMERA=1` và kiểm tra hai khung live. Kiểm tra lại vùng giường theo góc camera mới trước khi mở phiên.
+
+## 2026-11-20 – Codex – Kiểm tra lỗi khởi tạo PostgreSQL local
+
+- **Đã làm:** Đọc lỗi kết nối của `make db-seed` và đối chiếu log Docker. PostgreSQL có giai đoạn khởi tạo rồi mới lắng nghe TCP; lỗi phù hợp với việc chạy lệnh trước khi DB nhận kết nối.
+- **Kiểm tra:** `docker exec postcare-db pg_isready -h 127.0.0.1 -U postcare -d postcare` báo nhận kết nối. Chạy `make db-upgrade` tới migration 0006 và `make db-seed` thành công, thêm 4 tài khoản, 3 ca, 1 khu vực, 3 giường và 1 camera.
+- **Đang dở / blocker:** Không còn bước migration hoặc seed. Chưa khởi động API/web trong lần kiểm tra này.
+- **Bước tiếp theo:** Chạy `make dev` và mở `http://localhost:5173`.
+
+## 2026-11-20 – Codex – Hướng dẫn chạy local
+
+- **Đã làm:** Đối chiếu README, hướng dẫn dev, Makefile và điều kiện phiên theo dõi để trả lời cách chạy PostgreSQL, API, web và worker hoặc giả lập.
+- **Kiểm tra:** Chạy `make -n` để kiểm tra các target được hướng dẫn. Phiên này chỉ hướng dẫn nên chưa khởi động dịch vụ hoặc chạy bộ test.
+- **Đang dở / blocker:** Không có việc triển khai.
+- **Bước tiếp theo:** Sau khi PostgreSQL chạy và có `.env`, chạy `make setup`, `make db-upgrade`, `make db-seed` và `make dev`.
+
 ## 2026-11-19 – Codex – Xuất bản code live view hai khung
 
 - **Phạm vi:** Người dùng yêu cầu push code và merge vào main, không đưa dữ liệu local lên GitHub. Chỉ thao tác clone PostCareAI-fresh và worktree tạm của clone này.

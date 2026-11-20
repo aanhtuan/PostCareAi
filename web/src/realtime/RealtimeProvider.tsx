@@ -1,9 +1,12 @@
+import { Anchor, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
+import { Link } from 'react-router';
 
 import type { AlertCreatedOut } from '../api/types';
 import { useAuth } from '../auth/useAuth';
+import { vi } from '../i18n/vi';
 import { createAlertNotifier } from './alertNotifier';
 import { applyMessage, invalidateAll } from './invalidation';
 import { playAlertSound } from './sound';
@@ -18,7 +21,26 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<WsStatus>('connecting');
   // Một notifier cho cả vòng đời provider: khử trùng toast/âm thanh qua các lần kết nối lại.
   const [notifyAlert] = useState(() =>
-    createAlertNotifier({ show: (t) => notifications.show(t), play: playAlertSound }),
+    createAlertNotifier({
+      show: ({ alertId, message, ...toast }) =>
+        notifications.show({
+          ...toast,
+          message: (
+            <Stack gap={4}>
+              <Text size="sm">{message}</Text>
+              <Anchor
+                component={Link}
+                to={`/alerts?alert=${alertId}`}
+                size="sm"
+                onClick={() => notifications.hide(toast.id)}
+              >
+                {vi.alerts.detail}
+              </Anchor>
+            </Stack>
+          ),
+        }),
+      play: playAlertSound,
+    }),
   );
 
   useEffect(() => {

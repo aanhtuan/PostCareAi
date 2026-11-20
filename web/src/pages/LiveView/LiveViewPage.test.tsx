@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi as vitest } from 'vitest';
 
@@ -60,7 +60,7 @@ const ROI = [
   [0.2, 0.85],
 ];
 
-function setup(b: Bed, cam = camera(b.camera?.status ?? 'UNKNOWN', ROI)) {
+function setup(b: Bed, cam = camera(b.camera?.status ?? 'UNKNOWN', ROI), user = nurse) {
   mockFetch({
     '/api/v1/overview': { current_shift: null, beds: [b] },
     '/api/v1/cameras/1': cam,
@@ -70,7 +70,7 @@ function setup(b: Bed, cam = camera(b.camera?.status ?? 'UNKNOWN', ROI)) {
     <Routes>
       <Route path="/beds/:bedId/live" element={<LiveViewPage />} />
     </Routes>,
-    nurse,
+    user,
     '/beds/1/live',
   );
 }
@@ -78,6 +78,86 @@ function setup(b: Bed, cam = camera(b.camera?.status ?? 'UNKNOWN', ROI)) {
 const streamImg = () => screen.queryByRole('img', { name: 'Giường A01' });
 
 describe('LiveViewPage', () => {
+  const admin: UserOut = { ...nurse, role: 'ADMIN' };
+
+  it('only lets an admin connect a camera outside an active session', async () => {
+    const { unmount } = setup(bed({ session: null }));
+    await screen.findByText(vi.live.noSession);
+    expect(screen.queryByRole('button', { name: vi.live.connectCamera })).toBeNull();
+    unmount();
+    setup(bed(), undefined, admin);
+    expect(await screen.findByRole('button', { name: vi.live.connectCamera })).toBeDisabled();
+  });
+
+  it('creates a camera assigned to the selected bed', async () => {
+    setup(bed({ camera: null, session: null }), undefined, admin);
+    const fetchGet = globalThis.fetch;
+    const post = vitest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method !== 'POST') return fetchGet(input, init);
+      expect(input).toBe('/api/v1/cameras');
+      expect(JSON.parse(String(init.body))).toEqual({
+        name: 'Camera A01',
+        source_type: 'WEBCAM',
+        source: '2',
+        bed_id: 1,
+      });
+      return Response.json({ id: 3, config_version: 1 }, { status: 201 });
+    });
+    globalThis.fetch = post as typeof fetch;
+    fireEvent.click(await screen.findByRole('button', { name: vi.live.connectCamera }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('textbox', { name: vi.camera.name })).toHaveValue('Camera A01');
+    expect(within(dialog).queryByLabelText(vi.common.bed)).toBeNull();
+    fireEvent.change(within(dialog).getByRole('textbox', { name: vi.camera.source }), {
+      target: { value: '2' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: vi.live.saveAndConnect }));
+    expect(await screen.findByText(/make worker CAMERA=3/)).toBeInTheDocument();
+  });
+
+  it('waits for the new source instead of showing the old online stream', async () => {
+    const previous = { ...camera('ONLINE', ROI), source: '0', source_type: 'WEBCAM' };
+    const changed = { ...previous, source: '2', config_version: 2 };
+    const routes = {
+      '/api/v1/overview': { current_shift: null, beds: [bed({ session: null })] },
+      '/api/v1/cameras/1': { ...previous, has_current_frames: true, worker_active: true },
+      '/api/v1/events': { items: [], total: 0 },
+    };
+    const fetchGet = mockFetch(routes);
+    const requests = vitest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method !== 'PATCH') return fetchGet(input);
+      expect(input).toBe('/api/v1/cameras/1');
+      expect(JSON.parse(String(init.body))).toMatchObject({ source: '2', bed_id: 1 });
+      routes['/api/v1/cameras/1'] = { ...changed, has_current_frames: false, worker_active: false };
+      return Response.json(changed);
+    });
+    globalThis.fetch = requests as typeof fetch;
+    renderWithProviders(
+      <Routes>
+        <Route path="/beds/:bedId/live" element={<LiveViewPage />} />
+      </Routes>,
+      admin,
+      '/beds/1/live',
+      {},
+      { ws: 'open' },
+    );
+    await screen.findByRole('img', { name: 'Giường A01' });
+    const connect = screen.getByRole('button', { name: vi.live.connectCamera });
+    await waitFor(() => expect(connect).toBeEnabled());
+    fireEvent.click(connect);
+    fireEvent.change(screen.getByRole('textbox', { name: vi.camera.source }), {
+      target: { value: '2' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: vi.live.saveAndConnect }));
+    expect(await screen.findByText(/make worker CAMERA=1/)).toBeInTheDocument();
+    expect(streamImg()).toBeNull();
+
+    routes['/api/v1/cameras/1'] = { ...changed, has_current_frames: true, worker_active: true };
+    expect(
+      await screen.findByRole('img', { name: 'Giường A01' }, { timeout: 3000 }),
+    ).toBeInTheDocument();
+  });
+
   it('LiveViewPage shows bed, session and camera status', async () => {
     setup(bed());
     expect(await screen.findByText(vi.cameraStatus.ONLINE)).toBeInTheDocument();
@@ -92,14 +172,20 @@ describe('LiveViewPage', () => {
     expect(screen.queryByText(vi.live.roiNotConfigured)).toBeNull();
   });
 
-  it('shows a separate skeleton stream while preserving the privacy mode', async () => {
+  it('shows a single camera stream in the configured privacy mode', async () => {
     setup(bed(), { ...camera('ONLINE', ROI), display_mode: 'BLUR' });
     const display = await screen.findByRole('img', { name: 'Giường A01' });
-    const skeleton = await screen.findByRole('img', { name: vi.live.skeletonTitle });
     expect(display.getAttribute('src')).not.toContain('view=skeleton');
-    expect(skeleton.getAttribute('src')).toContain('view=skeleton');
-    expect(screen.getByText(vi.displayMode.BLUR)).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: vi.live.skeletonTitle })).toBeNull();
+    expect(await screen.findByText(vi.displayMode.BLUR)).toBeInTheDocument();
     expect(screen.getByText(vi.live.displayTitle)).toBeInTheDocument();
+  });
+
+  it('shows the skeleton in the same camera area when skeleton mode is configured', async () => {
+    setup(bed(), { ...camera('ONLINE', ROI), display_mode: 'SKELETON' });
+    const skeleton = await screen.findByRole('img', { name: vi.live.skeletonTitle });
+    expect(skeleton.getAttribute('src')).toContain('view=skeleton');
+    expect(streamImg()).toBeNull();
   });
 
   it('LiveViewPage links to the bed timeline (F22 R7)', async () => {
@@ -137,7 +223,20 @@ describe('LiveViewPage', () => {
   it('LiveViewPage notes when the bed region is not configured', async () => {
     setup(bed(), camera('ONLINE', null));
     expect(await screen.findByText(vi.live.roiNotConfigured)).toBeInTheDocument();
+    expect(screen.getByText(vi.live.askAdminForRoi)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: vi.live.drawRoi })).toBeNull();
   });
+
+  it.each([{ roi: null }, { roi: ROI }])(
+    'links an admin to the assigned camera region ($roi)',
+    async ({ roi }) => {
+      setup(bed(), camera('ONLINE', roi), admin);
+      const link = await screen.findByRole('link', {
+        name: roi ? vi.live.editRoi : vi.live.drawRoi,
+      });
+      expect(link).toHaveAttribute('href', '/cameras/1/config?from=live');
+    },
+  );
 
   it('LiveViewPage shows no internal codes', async () => {
     const { container } = setup(bed());
@@ -194,7 +293,7 @@ describe('LiveViewPage', () => {
     function live(b: Bed, events: EventOut[] = []) {
       const routes: Record<string, unknown> = {
         '/api/v1/overview': { current_shift: null, beds: [b] },
-        '/api/v1/cameras/1': camera('ONLINE', ROI),
+        '/api/v1/cameras/1': camera(b.camera?.status ?? 'UNKNOWN', ROI),
         '/api/v1/events': { items: events, total: events.length },
       };
       const fetchFn = mockFetch(routes);
@@ -247,6 +346,62 @@ describe('LiveViewPage', () => {
       expect(await screen.findByText(vi.bodyState.NO_OBSERVATION)).toBeInTheDocument();
       expect(screen.getByText(vi.live.noState)).toBeInTheDocument();
       expect(screen.queryByText('Nằm')).toBeNull();
+    });
+
+    it('keeps one observation reason and shows the labeled details without expanding anything', async () => {
+      live(
+        bed({
+          state: state({
+            body_state: 'NO_OBSERVATION',
+            observation_quality: 'NO_PERSON',
+            activity_level: 'UNKNOWN',
+          }),
+        }),
+      );
+      expect(await screen.findByText(vi.quality.NO_PERSON)).toBeInTheDocument();
+      expect(screen.getAllByText(vi.quality.NO_PERSON)).toHaveLength(1);
+      expect(screen.getByRole('rowheader', { name: vi.live.activity })).toBeVisible();
+      expect(screen.getByText(vi.activity.UNKNOWN)).toBeVisible();
+      expect(screen.getByRole('rowheader', { name: vi.live.rest })).toBeVisible();
+      expect(screen.getByRole('rowheader', { name: vi.live.faceSignals })).toBeVisible();
+    });
+
+    it('does not show the previous body state during a camera disconnection', async () => {
+      live(bed({ state: state(), camera: { id: 1, name: 'Camera A01', status: 'OFFLINE' } }));
+      expect(await screen.findByText(vi.bodyState.NO_OBSERVATION)).toBeInTheDocument();
+      expect(screen.queryByText('Nằm')).toBeNull();
+      expect(screen.queryByText(vi.quality.GOOD)).toBeNull();
+    });
+
+    it('opens an event summary and fetches alert details by alert id', async () => {
+      const cameraEvent = ev({ code: 'CAMERA_ONLINE', priority: 'LOG' });
+      const edge = ev({
+        id: 31,
+        code: 'BED_EDGE',
+        priority: 'MEDIUM',
+        alert_id: 82,
+        alert_status: 'PENDING',
+      });
+      const { routes } = live(bed({ state: state() }), [cameraEvent, edge]);
+      const fetchFn = mockFetch({
+        ...routes,
+        '/api/v1/alerts/82': {
+          id: 82,
+          status: 'PENDING',
+          event: edge,
+          bed: { id: 1, code: 'A01' },
+        },
+      });
+      const eventButton = await screen.findByRole('button', { name: /Camera hoạt động lại/ });
+      fireEvent.click(eventButton);
+      expect(eventButton).toHaveAttribute('aria-expanded', 'true');
+      fireEvent.click(screen.getByRole('button', { name: /Bệnh nhân đang ở mép giường/ }));
+      expect(
+        await screen.findByRole('dialog', { name: vi.alerts.detailTitle }),
+      ).toBeInTheDocument();
+      await waitFor(() =>
+        expect(fetchFn).toHaveBeenCalledWith('/api/v1/alerts/82', expect.anything()),
+      );
     });
 
     it('no polling while WebSocket open', async () => {

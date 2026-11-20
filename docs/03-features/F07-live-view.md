@@ -196,3 +196,77 @@ Nguồn: yêu cầu trực tiếp của người dùng muốn sản phẩm giố
 - AC8: `shows a separate skeleton stream while preserving the privacy mode`, các test offline hiện có; layout SimpleGrid responsive, text trong vi.ts.
 - Rà soát phạm vi: không đổi engine, DB hoặc dependency; không thêm ảnh/video/model/cấu hình local vào Git. Chỉ hợp nhất code F07 và tài liệu đi cùng.
 - `make test-vision` trong clone fresh: 5 passed, 1 skipped (thiếu clip cận mặt), 1364 deselected, 7.89 s. `make check` đầy đủ chạy qua hook trước khi push bản merge; kết quả cuối trong bàn giao xuất bản.
+
+## 13. Kết nối camera từ Theo dõi trực tiếp (2026-11-20)
+
+Nguồn: yêu cầu người dùng trong phiên 20/11, F03 R2/R7/R14, F05 R2, QA#24. Phụ thuộc F03, F05, F06 và F07 hiện có đều Done.
+
+### Kế hoạch triển khai
+
+1. Dùng lại biểu mẫu camera F03 từ thẻ giường. Chỉ quản trị viên được thêm hoặc sửa nguồn, giường điền sẵn theo màn hình và khóa trong biểu mẫu. Giữ điều kiện bảo vệ phiên đang mở.
+2. Worker gửi phiên bản cấu hình trên khung JPEG. Chi tiết camera báo cả hai khung mới thuộc cấu hình hiện tại và có heartbeat gần đây. Sau khi lưu, live view đợi ảnh mới, kể cả khi WebSocket đang mở. Nếu thiếu heartbeat thì hướng dẫn chạy worker cho đúng ID *(giả định)*. Không thêm migration, phụ thuộc hay điều khiển tiến trình qua web.
+3. Sinh lại API types, thêm ca kiểm tra quyền, thêm/sửa nguồn, trạng thái chờ và khung cũ. Giữ tương thích worker gửi frame không kèm phiên bản và hai luồng MJPEG hiện có. Worker phát clip với `--video` không xác nhận nguồn camera đã lưu.
+4. Bổ sung hướng dẫn iPhone qua Wi-Fi và USB trên Fedora vào `docs/04-guides/dev-setup.md`.
+
+### Acceptance criteria bổ sung
+
+- [x] AC9: Quản trị viên mở biểu mẫu trên live view để thêm hoặc đổi nguồn cho giường hiện tại. Vai trò khác không thấy nút và phiên mở không cho đổi nguồn. Kiểm tra bằng `LiveViewPage.test.tsx` với quản trị viên, điều dưỡng và phiên đang mở.
+- [x] AC10: Sau khi lưu, luồng hình cũ ẩn đi, giao diện báo chờ hoặc hướng dẫn chạy worker nếu chưa có heartbeat. Chỉ báo camera hoạt động khi nhận được cả hai khung mới thuộc cấu hình hiện tại. Kiểm tra bằng `test_camera_detail_confirms_only_fresh_frames_from_current_config` và `test_worker_online_then_offline`, cùng kiểm tra UI tự làm mới khi WebSocket mở.
+- [x] AC11: [Hướng dẫn iPhone qua Wi-Fi và cáp USB](../04-guides/dev-setup.md#5-dùng-điện-thoại-làm-camera) có bước thiết lập nguồn, kiểm tra và kết nối từ giao diện. Playwright trên bản build xác nhận cấu hình URL RTSP và Webcam theo index, với API và hình ảnh giả lập. Còn bước thử trên iPhone thật.
+
+### Review (2026-11-20) – Codex: Đạt
+
+- `make check` xanh với PostgreSQL test riêng. Pytest: 1368 đạt, 6 test vision không được chọn. Vitest: 257 đạt. Web build thành công.
+- Đối chiếu quyền ghi và audit với F03. Giao diện chờ cả hai khung của cấu hình đã lưu, worker phát clip ghi đè không xác nhận kết nối. Dùng lại các ngưỡng heartbeat và giới hạn tuổi khung của API.
+
+## 14. Lối vào vùng giường và bố cục hai khung trên laptop (2026-11-20)
+
+Trạng thái mở rộng: **Done**. Nguồn: yêu cầu người dùng 20/11, F07 R6–R7 và F08 R8 (QA#15, QA#26). F07 và F08 nền đã Done.
+
+### Kế hoạch triển khai
+
+1. Trong `web/src/pages/LiveView/LiveViewPage.tsx`, khi giường có camera, cho quản trị viên mở **Vẽ vùng giường** hoặc **Sửa vùng giường** theo cấu hình đã lưu. Mở đúng camera và vùng vẽ F08. Trong `CameraConfigPage.tsx`, cho phép quay lại Theo dõi trực tiếp của đúng giường khi đi từ lối này. Vai trò xem có hướng dẫn liên hệ quản trị viên khi vùng giường còn thiếu. Mọi nhãn trong `vi.ts`.
+2. Dùng lại `RoiEditor` và `useSaveRoi`. Hướng dẫn chờ hình trực tiếp, bấm các góc mặt nệm theo vòng quanh, kéo chỉnh điểm, bấm **Lưu vùng giường**. Khi mất hình, giải thích cần kết nối lại để canh vùng đầu tiên trên hình, giữ khả năng sửa vùng đã lưu theo F08. Sau khi lưu, kiểm tra vùng xuất hiện đúng trên live view. ROI được lưu thủ công theo camera (QA#15); luồng đề xuất dùng lại xác thực và audit F08, giữ API và DB hiện tại.
+3. Cho cụm hai khung dùng toàn bộ chiều rộng vùng nội dung. Hai khung cân nhau trên laptop, giữ tỷ lệ và hiển thị đủ ảnh; xếp dọc nếu vùng nội dung hẹp. Chuyển chi tiết trạng thái và sự kiện gần nhất xuống dưới, giữ trạng thái kết nối và thao tác camera cạnh mã giường *(giả định về bố cục)*.
+4. Kiểm tra `LiveViewPage.test.tsx` và `CameraConfigPage.test.tsx` cho lối vào đúng camera, quyền, nhãn theo ROI và đường quay lại đúng giường. Kiểm tra trình duyệt ở 1280×720, 1366×768 và viewport hẹp; thao tác lưu vùng, so overlay với mặt nệm và xác nhận không cuộn ngang. Dùng iPhone A01 qua DroidCam với giường mô phỏng, kiểm tra lại vùng khi đổi góc. Chạy `make check` sau khi triển khai.
+
+### Kiểm chứng
+
+- [x] Quản trị viên thấy **Vẽ vùng giường** cạnh thông báo thiếu vùng và **Sửa vùng giường** sau khi lưu. Điều dưỡng chỉ thấy hướng dẫn. Trang cấu hình giữ đường quay lại đúng giường theo camera; lối vào từ Quản lý giường vẫn quay lại Quản lý giường.
+- [x] Khi camera chưa có hình, không tạo vùng đầu tiên trên nền trống. Vùng đã lưu vẫn sửa được theo F08. Trình vẽ nhắc chuyển sang **Làm mờ khuôn mặt** để thấy mặt nệm nếu camera đang chỉ hiển thị skeleton.
+- [x] Playwright trên bản build với camera giả lập vẽ bốn góc, lưu, quay lại đúng giường và kiểm tra overlay theo kích thước ảnh sau resize. Mỗi khung đo được 491 px ở 1280×720 và 534 px ở 1366×768; hai khung xếp dọc ở 640 px và 390 px, không cuộn ngang. Còn nghiệm thu lưu vùng giường với iPhone thật trên giường mô phỏng.
+- [x] Review Codex đạt. `make check` xanh với 1368 test Python, 261 test web và build. Thao tác lưu dùng lại API F08 và quyền quản trị hiện có.
+
+## 15. Trạng thái gọn và nhật ký cạnh khung quan sát (2026-11-20)
+
+Trạng thái mở rộng: **Done**. Nguồn: yêu cầu người dùng, F07, F17/F20/F22 và QA#29. Giữ nguyên kho metadata vận hành của F17 và cách trình bày riêng tư F28.
+
+### Hiện trạng đã đối chiếu
+
+- PostgreSQL lưu sự kiện theo giường, camera và phiên nếu có, thời điểm, loại, ưu tiên, chất lượng, độ tin cậy và lý do kỹ thuật. Cảnh báo liên kết sự kiện và có trạng thái, người/thời điểm tiếp nhận, kết quả, ghi chú, người/thời điểm xử lý. Lịch sử ghép sự kiện và thao tác từ audit. Khung live và trạng thái hiện tại chỉ ở RAM; QA#29 quy định không lưu ảnh hoặc video vận hành.
+- **Cảnh báo → Xem chi tiết** hiển thị metadata và liên kết theo dõi/lịch sử. Toast không có thao tác mở chi tiết. Live view chỉ lấy một sự kiện gần nhất và hiển thị dưới dạng văn bản. DB A01 tại lúc rà soát có 2 sự kiện, 1 cảnh báo. Sự kiện camera hoạt động lại 23:26:28 là nhật ký, cảnh báo mất kết nối trước đó đang chờ tiếp nhận.
+
+### Kế hoạch triển khai
+
+1. Trong `LiveViewPage.tsx`, gom **trạng thái camera**, **trạng thái quan sát + lý do** và **giờ cập nhật quan sát** thành dải ngắn cạnh video. Sắp gọn phần đầu trang để hai khung vẫn giữ chiều rộng hiện tại và thấy được trạng thái chính trong cùng viewport laptop. Khi không đủ dữ liệu quan sát, chỉ hiện lý do cụ thể một lần. Dùng chi tiết thu gọn cho vận động, nghỉ/hoạt động và khuôn mặt; giữ riêng các giá trị hoặc tín hiệu đang có. Phân biệt mất kết nối, chưa có vùng giường, chưa có dữ liệu và không thấy người trong vùng bằng tín hiệu hiện có, không đổi rule engine.
+2. Ngay dưới hai khung chia hai cột theo chiều rộng vùng nội dung. Trái **Quan sát hiện tại**, phải **Nhật ký gần đây**. Dùng `useEvents` cho khoảng 4 sự kiện mới theo giường *(giả định)*, mỗi dòng có giờ, tên và mức/nhãn trạng thái nếu có. Giới hạn chiều cao danh sách desktop để cập nhật không đẩy video khỏi tầm nhìn; xếp dọc khi hẹp. Giữ link **Lịch sử theo dõi** đã lọc đúng giường/phiên. Thời gian sự kiện tách khỏi giờ cập nhật trạng thái.
+3. Cho bấm dòng nhật ký để xem tóm tắt sự kiện tại chỗ. Dòng có cảnh báo tải chi tiết từ API F19 và dùng lại `AlertDetailModal`. Thêm thao tác **Xem chi tiết** vào toast để mở đúng cảnh báo theo ID; quyền và quy trình tiếp nhận hiện có theo F19/F20. Dùng lại nhãn và màu mức độ, không thêm API hay bảng dữ liệu. Mọi nhãn trong `vi.ts`.
+4. Dùng màu theo ý nghĩa: trung tính cho trạng thái chưa có/nhật ký, xanh cho kết nối hoạt động, hổ phách cho thiếu quan sát/cần chú ý, đỏ mang tính vận hành khi mất kết nối hoặc cảnh báo ưu tiên cao. Luôn kèm nhãn chữ. Chỉ làm nổi chuyển trạng thái có ý nghĩa, tránh nháy màu theo nhịp cập nhật giờ. Màu và độ tương phản kiểm tra cùng UI sau khi triển khai.
+5. Test live view với dữ liệu đủ/thiếu, camera offline, không có sự kiện, sự kiện chỉ thuộc nhật ký và sự kiện có cảnh báo; test mở đúng cảnh báo từ toast, không mở nhầm giường khi đổi lựa chọn. Kiểm tra ở 1280×720, 1366×768 và màn hình hẹp, cuộn danh sách và xem chi tiết, kiểm chứng hai video và thông tin chính cùng tầm nhìn khi bắt đầu. Chạy `make check` sau khi triển khai.
+
+### Kiểm chứng triển khai
+
+- [x] `LiveViewPage.test.tsx` kiểm tra trạng thái thay đổi, lý do quan sát xuất hiện một lần, chi tiết thu gọn, trạng thái cũ được ẩn khi camera offline, và mở đúng sự kiện/cảnh báo.
+- [x] `AlertsPage.test.tsx` kiểm tra mở từ toast theo đúng ID khi cảnh báo chưa nằm trong danh sách. Playwright kiểm tra lại luồng toast và nhật ký trên bản build với dữ liệu giả lập, kể cả sau khi đổi giường.
+- [x] Playwright đo mỗi video rộng 491 px ở 1280×720, 534 px ở 1366×768. Hai video và phần đầu nhật ký cùng trong viewport; nhật ký cuộn độc lập. Ở 390 px các cột xếp dọc. Nhãn thiếu quan sát dùng chữ rõ trên nền hổ phách (đo tương phản 18,76:1 với giao diện sáng).
+- [x] Review Codex đạt. `make check` xanh (1368 test Python, 265 test web và build); lặp kiểm tra format, lint, typecheck, import và API types sau lần chỉnh màu cuối.
+
+## 16. Một khung camera và cột thông tin (2026-11-21)
+
+Nguồn: yêu cầu người dùng 21/11 sau khi thử bố cục mục 15. Bố cục này thay cách xếp các khung trên màn hình ở các mục trước.
+
+### Kế hoạch và kiểm chứng
+
+- Dùng một khung video bên trái. Bộ chọn chế độ dưới khung có dấu tick ở chế độ hiện tại, chuyển giữa video gốc, làm mờ và skeleton theo quyền F28. Khi chọn skeleton, dùng luồng skeleton sẵn có và vùng đã render trong khung. Các chế độ hình còn lại dùng khung theo quyền riêng tư và lớp phủ vùng giường của F07.
+- Thu chiều rộng camera khoảng 20% so với bố cục một khung ban đầu để mở rộng cột thông tin. Bên phải trình bày trạng thái và lý do với chữ lớn hơn, bảng vận động, nghỉ/hoạt động và khuôn mặt hiển thị trực tiếp. Nhật ký cao tối đa 300 px, cuộn riêng khi tràn và mở cảnh báo theo ID. Màn hình hẹp xếp camera trước thông tin.
+- `LiveViewPage.test.tsx` kiểm tra chế độ làm mờ và skeleton chỉ hiện một luồng, dữ liệu quan sát nằm đúng hàng. Playwright với dữ liệu giả lập xác nhận dấu tick khi làm mờ, đổi chế độ trong cùng khung và thấy dòng nhật ký đầu trên laptop. Khung quan sát đo 509 px ở 1280×720 và 555 px ở 1366×768; 390 px xếp dọc.

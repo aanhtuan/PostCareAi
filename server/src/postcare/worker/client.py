@@ -100,10 +100,13 @@ class WorkerApiClient:
             raise WorkerApiError(f"heartbeat lỗi {r.status_code} ({_error_code(r)})")
         return int(r.json()["config_version"])
 
-    def post_frame(self, jpeg: bytes, *, view: str = "display") -> None:
+    def post_frame(self, jpeg: bytes, *, config_version: int | None, view: str = "display") -> None:
+        headers = {"Content-Type": "image/jpeg"}
+        if config_version is not None:
+            headers["X-Camera-Config-Version"] = str(config_version)
         kwargs: dict[str, Any] = {
             "content": jpeg,
-            "headers": {"Content-Type": "image/jpeg"},
+            "headers": headers,
         }
         if view != "display":
             kwargs["params"] = {"view": view}
