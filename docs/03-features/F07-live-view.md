@@ -267,6 +267,6 @@ Nguồn: yêu cầu người dùng 21/11 sau khi thử bố cục mục 15. Bố
 
 ### Kế hoạch và kiểm chứng
 
-- Dùng một khung video bên trái. Bộ chọn chế độ nằm dưới khung, chuyển giữa video gốc, làm mờ và skeleton theo quyền F28. Khi chọn skeleton, dùng luồng skeleton sẵn có và vùng đã render trong khung. Các chế độ hình còn lại dùng khung theo quyền riêng tư và lớp phủ vùng giường của F07.
-- Gom trạng thái kết nối, phiên, lý do quan sát, nút cấu hình vùng giường, chi tiết và nhật ký trong một cột bên phải. Nhật ký vẫn cuộn riêng, mở được cảnh báo theo ID; màn hình hẹp xếp khung camera trước thông tin.
-- `LiveViewPage.test.tsx` kiểm tra chế độ làm mờ và skeleton chỉ hiện một luồng. Playwright với dữ liệu giả lập xác nhận chuyển chế độ thay hình trong cùng chỗ, mở chi tiết và đổi giường. Khung quan sát đo 647 px ở 1280×720 và 705 px ở 1366×768, thông tin nằm cạnh video; 390 px xếp dọc.
+- Dùng một khung video bên trái. Bộ chọn chế độ dưới khung có dấu tick ở chế độ hiện tại, chuyển giữa video gốc, làm mờ và skeleton theo quyền F28. Khi chọn skeleton, dùng luồng skeleton sẵn có và vùng đã render trong khung. Các chế độ hình còn lại dùng khung theo quyền riêng tư và lớp phủ vùng giường của F07.
+- Thu chiều rộng camera khoảng 20% so với bố cục một khung ban đầu để mở rộng cột thông tin. Bên phải trình bày trạng thái và lý do với chữ lớn hơn, bảng vận động, nghỉ/hoạt động và khuôn mặt hiển thị trực tiếp. Nhật ký cao tối đa 300 px, cuộn riêng khi tràn và mở cảnh báo theo ID. Màn hình hẹp xếp camera trước thông tin.
+- `LiveViewPage.test.tsx` kiểm tra chế độ làm mờ và skeleton chỉ hiện một luồng, dữ liệu quan sát nằm đúng hàng. Playwright với dữ liệu giả lập xác nhận dấu tick khi làm mờ, đổi chế độ trong cùng khung và thấy dòng nhật ký đầu trên laptop. Khung quan sát đo 509 px ở 1280×720 và 555 px ở 1366×768; 390 px xếp dọc.

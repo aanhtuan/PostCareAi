@@ -348,7 +348,7 @@ describe('LiveViewPage', () => {
       expect(screen.queryByText('Nằm')).toBeNull();
     });
 
-    it('keeps a single observation reason visible and folds unavailable signals', async () => {
+    it('keeps one observation reason and shows the labeled details without expanding anything', async () => {
       live(
         bed({
           state: state({
@@ -360,12 +360,10 @@ describe('LiveViewPage', () => {
       );
       expect(await screen.findByText(vi.quality.NO_PERSON)).toBeInTheDocument();
       expect(screen.getAllByText(vi.quality.NO_PERSON)).toHaveLength(1);
-      const details = screen.getByRole('button', { name: vi.live.observationDetails });
-      expect(details).toHaveAttribute('aria-expanded', 'false');
-      fireEvent.click(details);
-      await waitFor(() =>
-        expect(screen.getByText(`${vi.live.activity} · ${vi.activity.UNKNOWN}`)).toBeVisible(),
-      );
+      expect(screen.getByRole('rowheader', { name: vi.live.activity })).toBeVisible();
+      expect(screen.getByText(vi.activity.UNKNOWN)).toBeVisible();
+      expect(screen.getByRole('rowheader', { name: vi.live.rest })).toBeVisible();
+      expect(screen.getByRole('rowheader', { name: vi.live.faceSignals })).toBeVisible();
     });
 
     it('does not show the previous body state during a camera disconnection', async () => {

@@ -20,7 +20,7 @@ export function LiveJournal({ bedId, sessionId }: { bedId: number; sessionId?: n
     <>
       <Stack gap="xs">
         <Group justify="space-between" gap="xs">
-          <Title order={3} size="h5">
+          <Title order={3} size="h4">
             {vi.live.recentJournal}
           </Title>
           <Anchor
@@ -34,7 +34,7 @@ export function LiveJournal({ bedId, sessionId }: { bedId: number; sessionId?: n
         {items.length > 0 ? (
           <Stack
             gap={6}
-            mah={156}
+            mah={300}
             style={{ overflowY: 'auto' }}
             aria-label={vi.live.recentJournal}
             tabIndex={0}
@@ -48,7 +48,7 @@ export function LiveJournal({ bedId, sessionId }: { bedId: number; sessionId?: n
                 style={{ borderRadius: 'var(--mantine-radius-sm)' }}
               >
                 <UnstyledButton
-                  p="xs"
+                  p="sm"
                   aria-expanded={event.alert_id === null ? expanded === event.id : undefined}
                   onClick={() => {
                     if (event.alert_id !== null) setAlertId(event.alert_id);
@@ -60,13 +60,13 @@ export function LiveJournal({ bedId, sessionId }: { bedId: number; sessionId?: n
                       component="time"
                       dateTime={event.occurred_at}
                       c="dimmed"
-                      size="xs"
+                      size="sm"
                       style={{ fontVariantNumeric: 'tabular-nums' }}
                     >
                       {formatTime(event.occurred_at)}
                     </Text>
                     <Stack gap={4}>
-                      <Text size="sm" fw={600}>
+                      <Text size="md" fw={600}>
                         {vi.event[event.code]}
                       </Text>
                       <Group gap={4}>

@@ -115,8 +115,9 @@ export function LiveViewPage() {
           breakpoints={{ xs: '540px', sm: '720px', md: '900px', lg: '1100px', xl: '1280px' }}
           gutter="sm"
           align="flex-start"
+          columns={15}
         >
-          <Grid.Col span={{ base: 12, sm: 8 }}>
+          <Grid.Col span={{ base: 15, sm: 8 }}>
             <Card withBorder>
               <Stack gap="xs">
                 {bed.camera && cameraStatus ? (
@@ -150,46 +151,45 @@ export function LiveViewPage() {
               </Stack>
             </Card>
           </Grid.Col>
-          <Grid.Col span={{ base: 12, sm: 4 }}>
+          <Grid.Col span={{ base: 15, sm: 7 }}>
             <Card withBorder>
               <Stack gap="xs">
                 <Group justify="space-between">
-                  <Text fw={700} size="lg">
+                  <Text fw={700} size="xl">
                     {fmt(vi.bed.title, { code: bed.code })}
                   </Text>
+                  <Badge
+                    color={waiting ? 'yellow' : cameraStatus ? STATUS_COLOR[cameraStatus] : 'gray'}
+                    variant="light"
+                    size="md"
+                    c="var(--mantine-color-text)"
+                    role="status"
+                  >
+                    {statusText}
+                  </Badge>
+                </Group>
+                {isAdmin && (
                   <Group gap="xs">
-                    <Badge
-                      color={
-                        waiting ? 'yellow' : cameraStatus ? STATUS_COLOR[cameraStatus] : 'gray'
-                      }
+                    <Button
+                      size="sm"
                       variant="light"
-                      c="var(--mantine-color-text)"
-                      role="status"
+                      disabled={!!bed.session || (!!bed.camera && detail?.id !== bed.camera.id)}
+                      onClick={() => setEditBed(bed.bed_id)}
                     >
-                      {statusText}
-                    </Badge>
-                    {isAdmin && (
-                      <Button
-                        size="xs"
-                        variant="light"
-                        disabled={!!bed.session || (!!bed.camera && detail?.id !== bed.camera.id)}
-                        onClick={() => setEditBed(bed.bed_id)}
-                      >
-                        {vi.live.connectCamera}
-                      </Button>
-                    )}
-                    {isAdmin && bed.camera && roi && (
+                      {vi.live.connectCamera}
+                    </Button>
+                    {bed.camera && roi && (
                       <Button
                         component={Link}
                         to={`/cameras/${bed.camera.id}/config?from=live`}
-                        size="xs"
+                        size="sm"
                         variant="light"
                       >
                         {vi.live.editRoi}
                       </Button>
                     )}
                   </Group>
-                </Group>
+                )}
                 {isAdmin && editBed === bed.bed_id && !bed.session && (
                   <CameraForm
                     camera={bed.camera && detail?.id === bed.camera.id ? detail : null}
@@ -234,30 +234,35 @@ export function LiveViewPage() {
                     {vi.live.noSession}
                   </Text>
                 )}
-                <Group
-                  justify="space-between"
-                  gap={6}
+                <Stack
+                  gap={4}
                   bg="var(--mantine-color-default-hover)"
                   p="xs"
                   style={{ borderRadius: 'var(--mantine-radius-sm)' }}
                 >
-                  <Group gap="xs" role="status">
+                  <Group gap={4} justify="space-between">
                     <Badge
                       color={bodyState === 'NO_OBSERVATION' ? (state ? 'yellow' : 'gray') : 'teal'}
                       variant="light"
+                      size="lg"
                       c="var(--mantine-color-text)"
                       tt="none"
+                      role="status"
                     >
                       {vi.bodyState[bodyState]}
                     </Badge>
-                    {observationReason && <Text size="sm">{observationReason}</Text>}
+                    {state && (
+                      <Text size="sm" c="dimmed">
+                        {fmt(vi.live.updatedAt, { time: formatTime(state.updated_at) })}
+                      </Text>
+                    )}
                   </Group>
-                  {state && (
-                    <Text size="xs" c="dimmed">
-                      {fmt(vi.live.updatedAt, { time: formatTime(state.updated_at) })}
+                  {observationReason && (
+                    <Text size="md" role="status">
+                      {observationReason}
                     </Text>
                   )}
-                </Group>
+                </Stack>
                 {bed.camera && cameraDetail.isSuccess && !roi && (
                   <Alert color="yellow" variant="light">
                     <Group justify="space-between" gap="xs">

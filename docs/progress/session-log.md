@@ -2,6 +2,13 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-21 – Codex – Tăng khả năng đọc cột thông tin Live View
+
+- **Đã làm:** Thêm dấu tick chế độ đang chọn. Thu khung camera khoảng 20% để mở rộng cột thông tin; tăng cỡ chữ và hiển thị bảng vận động, nghỉ/hoạt động, khuôn mặt thay cho khối phải bấm mở. Kéo cao nhật ký tới tối đa 300 px.
+- **Kiểm tra:** Playwright thử dấu tick Làm mờ khuôn mặt, đổi chế độ, bảng quan sát và mở chi tiết cảnh báo. Ở 1280×720 và 1366×768, camera và dòng nhật ký đầu cùng tầm nhìn. Ở 390 px hiển thị dọc.
+- **Bước tiếp theo:** Chạy pre-push rồi mở PR F07 vào `main`.
+
+
 ## 2026-11-21 – Codex – Một khung camera và cột thông tin
 
 - **Đã làm:** Theo phản hồi người dùng trong lúc chuẩn bị push, chuyển F07 sang một khung camera bên trái và một cột trạng thái/nhật ký bên phải. Chọn Skeleton thay hình trong cùng khung. Giữ thao tác camera, vùng giường và chi tiết cảnh báo.

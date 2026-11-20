@@ -68,7 +68,7 @@ make setup && make db-upgrade && make seed && make models && make check
 
 ## Đã xong gần đây
 
-- [x] 2026-11-21: F07 hiển thị một khung camera theo chế độ đã chọn, gom trạng thái và nhật ký vào cột bên. Kiểm tra bố cục laptop và màn hình hẹp bằng Playwright.
+- [x] 2026-11-21: F07 hiển thị một khung camera theo chế độ có dấu tick, cột thông tin rộng hơn với bảng quan sát hiện trực tiếp và nhật ký cao tối đa 300 px. Kiểm tra bố cục bằng Playwright.
 
 - [x] 2026-11-21: F07/F20 thu gọn trạng thái, chia hai cột quan sát/nhật ký, mở chi tiết từ Live View và toast. `make check` và Playwright đạt.
 
