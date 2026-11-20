@@ -62,7 +62,18 @@ function renderPage() {
   );
 }
 
-const cards = () => screen.getAllByText(/^Giường A0\d - /).map((h) => h.textContent);
+// F38: cảnh báo đang chờ cũng hiện toast cùng tiêu đề; chỉ xét tiêu đề nằm trong thẻ cảnh báo.
+const inCard = (el: HTMLElement) => el.closest('[data-priority]') !== null;
+const cards = () =>
+  screen
+    .getAllByText(/^Giường A0\d - /)
+    .filter(inCard)
+    .map((h) => h.textContent);
+async function cardTitle(text: string | RegExp): Promise<HTMLElement> {
+  const el = (await screen.findAllByText(text)).find(inCard);
+  if (!el) throw new Error(`không thấy thẻ cảnh báo: ${String(text)}`);
+  return el;
+}
 
 function push(type: string, payload: unknown) {
   act(() => ws.handlers?.onMessage({ type, payload }));
@@ -114,10 +125,10 @@ describe('AlertsPage', () => {
       }),
     ]);
     renderPage();
-    expect(await screen.findByText('Giường A03 - Cảnh báo ưu tiên cao')).toBeInTheDocument();
-    expect(screen.getByText('Giường A04 - Cảnh báo cần chú ý')).toBeInTheDocument();
+    expect(await cardTitle('Giường A03 - Cảnh báo ưu tiên cao')).toBeInTheDocument();
+    expect(await cardTitle('Giường A04 - Cảnh báo cần chú ý')).toBeInTheDocument();
     expect(
-      screen.getByText(fmt(vi.alerts.sentence, { event: vi.event.BED_EXIT, time: '14:38:34' })),
+      await cardTitle(fmt(vi.alerts.sentence, { event: vi.event.BED_EXIT, time: '14:38:34' })),
     ).toBeInTheDocument();
     expect(screen.getAllByText(vi.alertStatus.PENDING).length).toBeGreaterThan(0);
     expect(screen.getAllByText(vi.alertStatus.ACKNOWLEDGED).length).toBeGreaterThan(0);
@@ -133,7 +144,7 @@ describe('AlertsPage', () => {
       makeAlert(3, { status: 'RESOLVED', bed: { id: 5, code: 'A05' } }),
     ]);
     renderPage();
-    await screen.findByText(/^Giường A01 - /);
+    await cardTitle(/^Giường A01 - /);
     expect(cards().map((c) => c?.slice(0, 11))).toEqual([
       'Giường A01 ',
       'Giường A02 ',
@@ -201,8 +212,8 @@ describe('AlertsPage', () => {
       }),
     ]);
     renderPage();
-    const high = (await screen.findByText(/^Giường A03 - /)).closest('[data-priority]');
-    const medium = screen.getByText(/^Giường A04 - /).closest('[data-priority]');
+    const high = (await cardTitle(/^Giường A03 - /)).closest('[data-priority]');
+    const medium = (await cardTitle(/^Giường A04 - /)).closest('[data-priority]');
     expect(high).toHaveAttribute('data-priority', 'HIGH');
     expect(medium).toHaveAttribute('data-priority', 'MEDIUM');
     // Ưu tiên cao: viền đỏ đậm; Cần chú ý: viền thường.
