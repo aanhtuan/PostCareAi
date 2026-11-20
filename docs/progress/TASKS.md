@@ -21,6 +21,8 @@ Cập nhật theo [update-progress.md](../ai/workflows/update-progress.md). Th�
 | F38 Hồ sơ quan sát camera | `feat/F38-observation-profiles` | Đang triển khai | API/DB, seed ba hồ sơ, worker không ROI cho hai hồ sơ, UI chọn hồ sơ, fallback toast đã có; cần review và chạy kiểm tra cuối |
 | F30 Sẵn sàng demo | `main` (một phần) | Đã có `--loop` cho worker phát file (20/11) | Phụ thuộc F24, F31, F36: runbook, `make demo-seed`, E2E Playwright, chạy trọn 3 lần |
 
+**Lưu ý khi làm tiếp (21/11/2026, sau khi pull F38):** `main` đã có migration `0007` (F38 observation profiles). Nhánh `feat/F36-family-access` có `0007_f36` cũng trỏ `down_revision = "0006"` → khi làm tiếp phải đổi thành nối sau `"0007"` (nếu không Alembic có hai head); F36 còn xung đột ở `api/internal/cameras.py`, `domain/cameras.py`, `domain/dto.py`, `schemas/enums.py`, `worker/loop.py`. Nhánh `feat/F29-final-eval` xung đột nhẹ ở `cli/main.py`. `feat/F24-handover` merge sạch.
+
 **Tiếp tục trên máy khác (Windows):**
 
 ```bash

@@ -6,7 +6,8 @@
   - `BLUR` (mặc định, A08): pixelate vùng đầu của mọi người pose phát hiện. Vùng đầu lấy từ
     keypoint pose (`head_region`, dùng chung với F25), không phụ thuộc Face Landmarker. Không ước
     lượng được vùng đầu → giữ vùng gần nhất tối đa `privacy.head_hold_s`, sau đó giữ khung hình.
-  - `SKELETON`: vẽ trên nền trơn mới tạo, chỉ có Bed ROI và skeleton; hàm chỉ nhận kích thước
+  - `BLUR`: pixelate vùng đầu rồi vẽ skeleton phần thân đè lên (không chấm điểm trên mặt).
+- `SKELETON`: vẽ trên nền trơn mới tạo, chỉ có Bed ROI và skeleton; hàm chỉ nhận kích thước
     khung nên không thể chép pixel gốc.
 - `draw_debug_overlay`: skeleton, ROI, `body_state` + `observation_quality`, nhãn sự kiện vừa
   phát cho `postcare replay --preview`. Nhãn dùng mã nội bộ (công cụ dev, không phải UI).
@@ -180,7 +181,10 @@ class PrivacyRenderer:
         if mode is DisplayMode.SKELETON:
             return render_skeleton(image.shape, persons, roi)
         h, w = image.shape[:2]
-        return render_blur(image, self._head_boxes(persons, (w, h), ts_ms), self.pixelate_blocks)
+        out = render_blur(image, self._head_boxes(persons, (w, h), ts_ms), self.pixelate_blocks)
+        # Yêu cầu người dùng 21/11/2026: video làm mờ có skeleton thân người vẽ đè (không chấm mặt).
+        draw_body_skeleton(out, persons)
+        return out
 
     def _head_boxes(
         self, persons: Sequence[PersonPose], size: tuple[int, int], ts_ms: int
@@ -242,6 +246,30 @@ def draw_debug_overlay(
         org = (round(6 * scale), line_h * (i + 1) - line_h // 4)
         cv2.putText(out, text, org, cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thick, cv2.LINE_AA)
     return out
+
+
+_FACE_KEYPOINTS = frozenset(
+    {
+        KeypointName.NOSE,
+        KeypointName.LEFT_EYE,
+        KeypointName.RIGHT_EYE,
+        KeypointName.LEFT_EAR,
+        KeypointName.RIGHT_EAR,
+    }
+)
+
+
+def draw_body_skeleton(out: Image, persons: Sequence[PersonPose]) -> None:
+    """Vẽ skeleton phần thân lên `out` (sửa tại chỗ) cho chế độ `BLUR`.
+
+    Bỏ các điểm mắt/mũi/tai và xương nối tới chúng: chấm điểm lên vùng mặt đã làm mờ sẽ làm lộ
+    vị trí các bộ phận trên mặt.
+    """
+    h, w = out.shape[:2]
+    thick = _thickness(h)
+    for person in persons:
+        body = {n: kp for n, kp in person.keypoints.items() if n not in _FACE_KEYPOINTS}
+        _draw_person(out, person.model_copy(update={"keypoints": body}), w, h, thick)
 
 
 def _draw_person(out: Image, person: PersonPose, w: int, h: int, thick: int) -> None:

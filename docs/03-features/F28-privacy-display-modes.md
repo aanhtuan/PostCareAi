@@ -15,6 +15,8 @@
 
 Giảm lượng hình ảnh nhận dạng mà người dùng phải xem trên dashboard, nhưng vẫn giữ nguyên khả năng phát hiện sự kiện (PDF §11, §16; HS §6.3). Mỗi camera có một trong ba chế độ hiển thị: **Video gốc** (`RAW`, chỉ dùng trong môi trường thử nghiệm), **Làm mờ khuôn mặt** (`BLUR`, mặc định) và **Chỉ skeleton + ROI** (`SKELETON`). Khung hình được render theo chế độ **ngay trong worker**, trước khi gửi lên API. Nhờ vậy ở chế độ `SKELETON`, ảnh gốc không rời khỏi tiến trình worker. HS §7.3 đặt "privacy mode" trong đầu ra tuần 9–10.
 
+> **Bổ sung 21/11/2026 (yêu cầu người dùng):** ở chế độ `BLUR`, sau khi làm mờ vùng đầu, worker vẽ thêm **skeleton phần thân** (vai, tay, hông, chân) đè lên video. Không vẽ điểm mắt/mũi/tai để không làm lộ vị trí bộ phận trên mặt. Hàm `draw_body_skeleton` (`vision/render.py`); test `test_blur_draws_body_skeleton_over_video`, `test_blur_skeleton_skips_face_keypoints`, `test_blur_without_person_has_no_skeleton`. `SKELETON` và `RAW` không đổi.
+
 ## 2. Phạm vi
 
 **Trong phạm vi**

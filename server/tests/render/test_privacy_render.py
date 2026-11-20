@@ -11,6 +11,7 @@ from postcare.schemas.observation import KeypointName, PersonPose
 from postcare.vision.inference.head_region import estimate_head_box
 from postcare.vision.render import (
     PrivacyRenderer,
+    draw_body_skeleton,
     encode_jpeg,
     render_skeleton,
     resolve_display_mode,
@@ -93,6 +94,16 @@ def _outside(bounds: list[tuple[int, int, int, int]]) -> np.ndarray:
     return mask
 
 
+def _overlay_mask(persons: list[PersonPose]) -> np.ndarray:
+    """Pixel mà lớp skeleton trên video làm mờ có thể vẽ (vẽ lên nền đen và nền trắng)."""
+    marks = []
+    for value in (0, 255):
+        canvas = np.full((H, W, 3), value, dtype=np.uint8)
+        draw_body_skeleton(canvas, persons)
+        marks.append(np.any(canvas != value, axis=-1))
+    return marks[0] | marks[1]
+
+
 def _has_color(image: np.ndarray, color: tuple[int, int, int]) -> bool:
     return bool(np.all(image == np.array(color, dtype=np.uint8), axis=-1).any())
 
@@ -170,7 +181,7 @@ def test_blur_uses_pose_head_region_without_face() -> None:
     # Pixelate: vùng đầu chỉ còn ≤ blocks² màu (ảnh nhiễu gốc gần như mỗi pixel một màu).
     blocks = _config().privacy.pixelate_blocks
     assert len(np.unique(head_out.reshape(-1, 3), axis=0)) <= blocks**2
-    mask = _outside([(x0, y0, x1, y1)])
+    mask = _outside([(x0, y0, x1, y1)]) & ~_overlay_mask([person])
     assert np.array_equal(out[mask], image[mask])
 
 
@@ -181,7 +192,7 @@ def test_blur_two_people() -> None:
     bounds = [_head_bounds(a), _head_bounds(b)]
     for x0, y0, x1, y1 in bounds:
         assert not np.array_equal(image[y0:y1, x0:x1], out[y0:y1, x0:x1])
-    mask = _outside(bounds)
+    mask = _outside(bounds) & ~_overlay_mask([a, b])
     assert np.array_equal(out[mask], image[mask])
 
 
@@ -195,7 +206,7 @@ def test_blur_holds_last_head_box_within_hold() -> None:
         out = renderer.render(image, persons, ts_ms=_hold_ms(), mode=DisplayMode.BLUR, roi=None)
         x0, y0, x1, y1 = _head_bounds(person)
         assert not np.array_equal(image[y0:y1, x0:x1], out[y0:y1, x0:x1])
-        mask = _outside([(x0, y0, x1, y1)])
+        mask = _outside([(x0, y0, x1, y1)]) & ~_overlay_mask(persons)
         assert np.array_equal(out[mask], image[mask])
 
 
@@ -220,7 +231,8 @@ def test_blur_partial_head_detection_only_blurs_found_head() -> None:
     out = _renderer().render(image, persons, ts_ms=0, mode=DisplayMode.BLUR, roi=None)
     x0, y0, x1, y1 = _head_bounds(persons[0])
     assert not np.array_equal(image[y0:y1, x0:x1], out[y0:y1, x0:x1])
-    assert np.array_equal(out[_outside([(x0, y0, x1, y1)])], image[_outside([(x0, y0, x1, y1)])])
+    mask = _outside([(x0, y0, x1, y1)]) & ~_overlay_mask(persons)
+    assert np.array_equal(out[mask], image[mask])
 
 
 def test_blur_timestamp_going_back_expires_hold() -> None:
@@ -237,3 +249,38 @@ def test_blur_does_not_modify_input() -> None:
     _renderer().render(image, [_body()], ts_ms=0, mode=DisplayMode.BLUR, roi=None)
     _renderer().render(image, [], ts_ms=0, mode=DisplayMode.SKELETON, roi=BED_ROI)
     assert np.array_equal(image, before)
+
+
+# ---------- Yêu cầu người dùng 21/11/2026: skeleton vẽ đè trên video làm mờ ----------
+
+
+def test_blur_draws_body_skeleton_over_video() -> None:
+    image = _marked()
+    person = _body()
+    out = _renderer().render(image, [person], ts_ms=0, mode=DisplayMode.BLUR, roi=BED_ROI)
+    overlay = _overlay_mask([person])
+    assert overlay.any(), "phải có nét skeleton"
+    # Nét xương vai-hông nằm trên video (ngoài vùng đầu) và khác ảnh gốc.
+    assert not np.array_equal(out[overlay], image[overlay])
+    x0, y0, x1, y1 = _head_bounds(person)
+    assert not np.array_equal(image[y0:y1, x0:x1], out[y0:y1, x0:x1]), "mặt vẫn bị làm mờ"
+
+
+def test_blur_skeleton_skips_face_keypoints() -> None:
+    """Không chấm điểm mắt/mũi/tai lên vùng mặt đã làm mờ (không làm lộ vị trí trên mặt)."""
+    person = _body()
+    overlay = _overlay_mask([person])
+    x0, y0, x1, y1 = _head_bounds(person)
+    face = np.zeros((H, W), dtype=bool)
+    for name in (K.NOSE, K.LEFT_EYE, K.RIGHT_EYE, K.LEFT_EAR, K.RIGHT_EAR):
+        kp = person.keypoints[name]
+        px, py = round(kp.x * (W - 1)), round(kp.y * (H - 1))
+        face[max(py - 1, 0) : py + 2, max(px - 1, 0) : px + 2] = True
+    assert not (overlay & face).any()
+    assert y1 > y0 and x1 > x0
+
+
+def test_blur_without_person_has_no_skeleton() -> None:
+    image = _noise(21)
+    out = _renderer().render(image, [], ts_ms=0, mode=DisplayMode.BLUR, roi=BED_ROI)
+    assert np.array_equal(out, image)

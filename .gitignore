@@ -55,3 +55,6 @@ Thumbs.db
 
 # Worktree tam cua AI agent
 .claude/worktrees/
+
+# Bản nén dữ liệu video chép giữa các máy (không commit)
+/data*.zip
