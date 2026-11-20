@@ -29,6 +29,8 @@ Quy tắc chung:
 
 Độ dài linh hoạt theo thời lượng ban tổ chức cho phép.
 
+Kịch bản chi tiết theo từng cảnh, với clip đã kiểm chứng là sinh cảnh báo: [DEMO-SCRIPT.md](DEMO-SCRIPT.md).
+
 ### Bản ngắn (khoảng 90 giây)
 
 1. Người trong clip (hoặc trước camera) ngồi dậy ở giữa giường → lịch sử có mốc mới.
