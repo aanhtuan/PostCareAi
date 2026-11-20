@@ -74,7 +74,13 @@ make setup && make db-upgrade && make seed && make models && make check
 
 - [x] 2026-11-20: F07/F08 đưa thao tác vẽ vùng giường vào Theo dõi trực tiếp và mở rộng hai khung hình trên laptop. `make check` và kiểm tra trình duyệt với nguồn giả lập đạt.
 
-- [x] 2026-11-20: F07 thêm nút “Kết nối camera” trên Theo dõi trực tiếp cho quản trị viên và hướng dẫn iPhone qua Wi-Fi/USB. Kiểm chứng iPhone thật còn chờ thiết bị.
+- [x] 2026-11-20: F07 thêm nút “Kết nối camera” trên Theo dõi trực tiếp cho quản trị viên và hướng dẫn iPhone qua Wi-Fi/USB. Probe đã đọc được hình iPhone thật qua DroidCam Wi-Fi. Còn kiểm tra hai khung live với iPhone và thử USB.
+
+- [x] 2026-11-20: Khảo sát kết nối iPhone với worker trên Fedora và luồng thao tác kết nối camera cho A01.
+
+- [x] 2026-11-20: Kiểm tra lỗi kết nối PostgreSQL khi khởi tạo local. Migration 0006 và seed nền đã chạy được sau khi PostgreSQL sẵn sàng.
+
+- [x] 2026-11-20: Đối chiếu hướng dẫn chạy local, bao gồm worker webcam và giả lập. Xem [nhật ký phiên](session-log.md).
 
 - [x] 2026-11-19: Rà soát và chuẩn bị xuất bản code F07 hai khung cùng test/API types/spec; hợp nhất báo cáo hiện có, giữ dữ liệu/cấu hình local ngoài Git. Push nhánh feature và main cùng một lượt, không bỏ hook.
 
