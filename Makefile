@@ -55,10 +55,10 @@ dev-web:
 	npm --prefix web run dev
 
 worker:
-	uv --directory server run postcare worker --camera-id $(CAMERA) $(if $(VIDEO),--video $(VIDEO),)
+	uv --directory server run postcare worker --camera-id $(CAMERA) $(if $(VIDEO),--video $(VIDEO),) $(if $(LOOP),--loop,)
 
 workers:
-	uv --directory server run postcare workers $(foreach c,$(CAMERAS),--camera-id $(c)) $(foreach v,$(VIDEOS),--video $(v))
+	uv --directory server run postcare workers $(foreach c,$(CAMERAS),--camera-id $(c)) $(foreach v,$(VIDEOS),--video $(v)) $(if $(LOOP),--loop,)
 
 seed:
 	uv --directory server run postcare seed --reset

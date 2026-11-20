@@ -173,6 +173,9 @@ def worker(
     ] = DEFAULT_ENGINE_CONFIG,
     api: Annotated[str | None, typer.Option(help="Địa chỉ API, mặc định API_BASE_URL")] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="In log chi tiết")] = False,
+    loop: Annotated[
+        bool, typer.Option("--loop", help="Nguồn file: hết video thì phát lại từ đầu (demo)")
+    ] = False,
 ) -> None:
     """Worker realtime cho một camera (F06): camera → pose → engine → API nội bộ.
 
@@ -237,6 +240,7 @@ def worker(
         frame_fps=settings.worker_frame_fps,
         jpeg_max_side=settings.worker_jpeg_max_side,
         jpeg_quality=settings.worker_jpeg_quality,
+        loop=loop,
     )
     base_url = api or settings.api_base_url
     http = httpx.Client(base_url=base_url, timeout=5.0)
@@ -285,6 +289,9 @@ def workers(
     api: Annotated[str | None, typer.Option(help="Địa chỉ API, mặc định API_BASE_URL")] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="In log chi tiết")] = False,
     dry_run: Annotated[bool, typer.Option(help="Chỉ in lệnh của từng worker, không chạy")] = False,
+    loop: Annotated[
+        bool, typer.Option("--loop", help="Worker phát file: hết video thì phát lại từ đầu (demo)")
+    ] = False,
 ) -> None:
     """Chạy nhiều worker cùng lúc, mỗi camera một tiến trình (F31). Ctrl+C dừng tất cả.
 
@@ -319,6 +326,8 @@ def workers(
         extra += ["--api", api]
     if verbose:
         extra.append("--verbose")
+    if loop:
+        extra.append("--loop")
     specs = [WorkerSpec(camera_id=cid, video=videos.get(cid)) for cid in ids]
 
     def command(spec: WorkerSpec) -> list[str]:

@@ -83,6 +83,8 @@ class WorkerOptions:
     idle_s: float = 0.1
     max_wait_s: float = 0.5
     """Mỗi lần chờ không quá giá trị này để Ctrl+C phản hồi nhanh."""
+    loop: bool = False
+    """Phát lại nguồn file từ đầu khi hết (`--loop`, dùng cho demo). Engine tạo mới mỗi vòng."""
 
 
 @dataclass
@@ -271,6 +273,10 @@ class Worker:
             return
         assert self.source is not None
         if self.source.ended:
+            if self.options.loop:
+                logger.info("Hết video, phát lại từ đầu (--loop)")
+                self._close_source()
+                return
             self._wait_until(min(self._next_heartbeat, self._next_poll))
             return
         frame = self.source.read(timeout_s=self.options.read_timeout_s)

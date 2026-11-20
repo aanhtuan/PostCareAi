@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from postcare.schemas.enums import BodyState, CameraStatus
-from postcare.worker.loop import WorkerStopError
+from postcare.worker.loop import WorkerOptions, WorkerStopError
 from tests.worker.helpers import T0_UTC, frames_script, make_harness
 
 
@@ -304,3 +304,19 @@ def test_file_source_played_at_real_speed(tmp_path: Path) -> None:
             break
     # Khung cuối ở 59/15 = 3,93 s: tổng thời gian chờ giả lập ≈ thời lượng video.
     assert 3.7 <= h.time.slept <= 4.3, h.time.slept
+
+
+def test_loop_reopens_file_source_when_it_ends() -> None:
+    """`--loop` (demo): hết clip thì mở lại nguồn từ đầu, engine và adapter tạo mới."""
+    h = make_harness(script=lambda: frames_script(10), options=WorkerOptions(loop=True))
+    h.run_until(30.0)
+    assert len(h.sources) >= 2, "nguồn phải được mở lại sau khi hết"
+    assert len(h.adapters) >= 2, "adapter MediaPipe VIDEO cần tạo mới vì ts bắt đầu lại"
+
+
+def test_without_loop_ended_source_is_not_reopened() -> None:
+    """Mặc định (camera thật, replay): hết file thì dừng gửi khung, không mở lại."""
+    h = make_harness(script=lambda: frames_script(10))
+    h.run_until(30.0)
+    assert len(h.sources) == 1
+    assert h.worker.source is not None and h.worker.source.ended

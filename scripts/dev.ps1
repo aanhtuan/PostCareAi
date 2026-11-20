@@ -5,7 +5,7 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 setup
 #   powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 check
 #   powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 simulate -Bed A01 -Scenario bed-exit -Speed 1
-#   powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 worker -Camera 1 [-Video D:\clip.mp4]
+#   powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 worker -Camera 1 [-Video D:\clip.mp4] [-Loop]
 #   powershell -ExecutionPolicy Bypass -File scripts\dev.ps1 workers [-Cameras 1,2] [-Videos 2=D:\clip.mp4]
 param(
     [Parameter(Position = 0)]
@@ -21,7 +21,8 @@ param(
     [string]$Video = '',
     [string[]]$Cameras = @(),
     [string[]]$Videos = @(),
-    [int]$Port = 8000
+    [int]$Port = 8000,
+    [switch]$Loop
 )
 
 $ErrorActionPreference = 'Stop'
@@ -43,6 +44,7 @@ function Invoke-Worker {
     if (-not $Camera) { Write-Host 'Missing -Camera <id>' -ForegroundColor Yellow; exit 2 }
     $argList = @('run', 'postcare', 'worker', '--camera-id', $Camera)
     if ($Video) { $argList += @('--video', $Video) }
+    if ($Loop) { $argList += @('--loop') }
     Invoke-Uv $argList
 }
 
@@ -50,6 +52,7 @@ function Invoke-Workers {
     $argList = @('run', 'postcare', 'workers')
     foreach ($c in $Cameras) { $argList += @('--camera-id', $c) }
     foreach ($v in $Videos) { $argList += @('--video', $v) }
+    if ($Loop) { $argList += @('--loop') }
     Invoke-Uv $argList
 }
 
