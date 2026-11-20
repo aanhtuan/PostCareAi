@@ -63,6 +63,7 @@ EXPECTED: dict[str, dict[str, tuple[str, bool, str | None]]] = {
         "roi_polygon": ("JSONB", True, None),
         "thresholds": ("JSONB", False, "'{}'"),
         "display_mode": ("display_mode", False, "'BLUR'"),
+        "observation_profile": ("observation_profile", False, "'BED_MONITORING'"),  # F38
         "config_version": ("INTEGER", False, "1"),
         "status": ("camera_status", False, "'UNKNOWN'"),
         "last_seen_at": (TS, True, None),

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from postcare.db.models import Bed, Camera, Event
 from postcare.domain.cameras import mark_offline_cameras
+from postcare.schemas.enums import ObservationProfile
 from postcare.vision.camera import SourceOpenError
 from postcare.vision.fake import FakeFrameSource
 from postcare.vision.inference.fake import FakePoseAdapter
@@ -111,7 +112,12 @@ def _run_all(workers: dict[int, tuple[Worker, NowFakeTime]], until_rel: float) -
 def _prepare(db: Session, client: TestClient, login: Any) -> dict[int, int]:
     """ROI cho 3 camera, phiên mở cho A01–A03. Trả camera_id → session_id."""
     roi = [list(p) for p in BED_ROI.points]
-    db.execute(update(Camera).where(Camera.id.in_(CAMERAS)).values(roi_polygon=roi))
+    # F38: seed đổi hồ sơ A02/A03; test sự kiện giường nên đặt cả ba theo dõi giường.
+    db.execute(
+        update(Camera)
+        .where(Camera.id.in_(CAMERAS))
+        .values(roi_polygon=roi, observation_profile=ObservationProfile.BED_MONITORING)
+    )
     db.commit()
     sessions: dict[int, int] = {}
     for cam_id in CAMERAS:

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from postcare.db.models import Alert, Camera, Event
 from postcare.domain.notifications import InMemoryPublisher
+from postcare.schemas.enums import ObservationProfile
 from tests.conftest import WORKER_TOKEN
 
 
@@ -128,13 +129,37 @@ def test_camera_unknown_or_without_bed_400(
     r = client.post("/internal/v1/events", headers=worker_headers, json=_body(camera_id=999))
     assert r.status_code == 400
     assert r.json()["error"]["code"] == "VALIDATION_ERROR"
-    db.execute(update(Camera).where(Camera.id == 2).values(bed_id=None))
+    # F38: hồ sơ theo dõi giường mà không gắn giường → 400.
+    db.execute(
+        update(Camera)
+        .where(Camera.id == 2)
+        .values(bed_id=None, observation_profile=ObservationProfile.BED_MONITORING)
+    )
     db.commit()
     r = client.post("/internal/v1/events", headers=worker_headers, json=_body(camera_id=2))
     assert r.status_code == 400
     assert r.json()["error"]["code"] == "VALIDATION_ERROR"
-    assert r.json()["error"]["code"] == "VALIDATION_ERROR"
     assert _count(db, Event) == 0
+
+
+def test_abnormal_movement_camera_without_bed_records_event(
+    client: TestClient, worker_headers: dict[str, str], db: Session
+) -> None:
+    """F38 R: hồ sơ chuyển động bất thường ghi được sự kiện khi camera không gắn giường."""
+    db.execute(
+        update(Camera)
+        .where(Camera.id == 2)
+        .values(bed_id=None, observation_profile=ObservationProfile.ABNORMAL_MOVEMENT)
+    )
+    db.commit()
+    r = client.post(
+        "/internal/v1/events",
+        headers=worker_headers,
+        json=_body(camera_id=2, code="ABNORMAL_MOVEMENT", priority="HIGH"),
+    )
+    assert r.status_code == 201, r.text
+    ev = db.scalars(select(Event)).one()
+    assert ev.bed_id is None and ev.session_id is None
 
 
 def test_unknown_code_422(

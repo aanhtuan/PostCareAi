@@ -10,6 +10,7 @@ from postcare.schemas.enums import (
     CameraSourceType,
     CameraStatus,
     DisplayMode,
+    ObservationProfile,
     ObservationQuality,
     Priority,
     UserRole,
@@ -21,6 +22,7 @@ FOUNDATION_ENUMS: dict[str, type[StrEnum]] = {
     "camera_source_type": CameraSourceType,
     "display_mode": DisplayMode,
     "camera_status": CameraStatus,
+    "observation_profile": ObservationProfile,  # F38, migration 0007
 }
 # Bảng events/alerts của prototype (migration 0002; F17 tiếp nhận).
 PROTOTYPE_ENUMS: dict[str, type[StrEnum]] = {
