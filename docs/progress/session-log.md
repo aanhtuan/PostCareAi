@@ -2,6 +2,13 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-21 – Claude Code (Opus) – Pull F38, skeleton trên video làm mờ, sửa test
+
+- **Đã làm:** Pull `main` từ máy khác (F07 kết nối camera + live view mới, F38 hồ sơ quan sát, migration `0007`). Chế độ BLUR vẽ skeleton phần thân đè lên video (không chấm điểm mặt). Sửa 6 test backend và 3 test web chưa cập nhật theo F38. `.gitignore` bỏ qua `data*.zip`.
+- **Kết quả kiểm tra:** test liên quan xanh; lượt `make check` đầy đủ cuối có 1 fail chập chờn `test_stream_mjpeg.py::test_mjpeg_all_staff_roles_allowed[admin]` (404 do chưa kịp có khung; chạy riêng 5/5 lần qua). Theo yêu cầu người dùng đã push `--no-verify` (commit `4c07dac`); CI GitHub sẽ chạy lại.
+- **Bước tiếp theo:** Xem kết quả CI của `4c07dac`; làm test MJPEG ổn định (chờ có khung trước khi mở stream). Sau đó F24 merge, F36 (đổi migration sang nối sau `0007`), F29, F30.
+- **Blocker:** Không.
+
 ## 2026-11-21 – Codex – Tách hồ sơ và chọn clip khuôn mặt
 
 - **Đã làm:** Sửa worker để hồ sơ `ABNORMAL_MOVEMENT` và `FACE_SIGNALS` luôn dùng toàn khung hình, kể cả khi camera còn ROI giường cũ. Bổ sung test hồi quy. Bổ sung mô tả mục đích từng hồ sơ ở form và cột quản lý camera. Giới hạn fallback toast tối đa 3 cảnh báo mỗi lần polling để tránh spam.
