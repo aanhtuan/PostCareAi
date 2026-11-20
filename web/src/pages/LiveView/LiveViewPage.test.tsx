@@ -229,6 +229,12 @@ describe('LiveViewPage', () => {
     expect(screen.queryByRole('link', { name: vi.live.drawRoi })).toBeNull();
   });
 
+  it('allows a no-ROI observation profile to stream without a bed region', async () => {
+    setup(bed(), { ...camera('ONLINE', null), observation_profile: 'ABNORMAL_MOVEMENT' });
+    expect(await screen.findByRole('img', { name: 'Giường A01' })).toBeInTheDocument();
+    expect(screen.queryByText(vi.live.roiNotConfigured)).toBeNull();
+  });
+
   it.each([{ roi: null }, { roi: ROI }])(
     'links an admin to the assigned camera region ($roi)',
     async ({ roi }) => {

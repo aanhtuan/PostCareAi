@@ -75,9 +75,10 @@ export function LiveViewPage() {
     ? (cameraDetail.data?.status ?? bed.camera.status)
     : null;
   const roi = cameraDetail.data?.roi_polygon ?? null;
+  const requiresRoi = detail?.observation_profile === 'BED_MONITORING';
   const showSkeleton = detail?.display_mode === 'SKELETON';
   const paused = !!bed?.session?.paused_at;
-  const canObserve = cameraStatus === 'ONLINE' && !waiting && !paused && (!detail || !!roi);
+  const canObserve = cameraStatus === 'ONLINE' && !waiting && !paused && (!requiresRoi || !!roi);
   const state = canObserve ? (bed?.state ?? null) : null;
   const observationReason = paused
     ? vi.capture.pausedShort
@@ -185,7 +186,7 @@ export function LiveViewPage() {
                     >
                       {vi.live.connectCamera}
                     </Button>
-                    {bed.camera && roi && (
+                    {bed.camera && requiresRoi && roi && (
                       <Button
                         component={Link}
                         to={`/cameras/${bed.camera.id}/config?from=live`}
@@ -270,7 +271,7 @@ export function LiveViewPage() {
                     </Text>
                   )}
                 </Stack>
-                {bed.camera && cameraDetail.isSuccess && !roi && (
+                {bed.camera && cameraDetail.isSuccess && requiresRoi && !roi && (
                   <Alert color="yellow" variant="light">
                     <Group justify="space-between" gap="xs">
                       <div>

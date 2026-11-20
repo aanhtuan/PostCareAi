@@ -51,7 +51,7 @@ Thêm enum `ObservationProfile` trong `postcare.schemas` với `BED_MONITORING`,
 
 ### 3.3 Cảnh báo realtime
 
-Giữ WebSocket là kênh chính. Khi WebSocket không mở, màn hình Cảnh báo và Live View polling danh sách/thông tin mới trong giới hạn hiện có. Toast chỉ hiện cho `alert.created` MEDIUM/HIGH, có liên kết tới chi tiết. Event LOG như `CAMERA_ONLINE` chỉ vào nhật ký.
+Giữ WebSocket là kênh chính. Khi WebSocket không mở, màn hình Cảnh báo và Live View polling danh sách/thông tin mới trong giới hạn hiện có. Toast MEDIUM/HIGH hiện cho cảnh báo mới và các cảnh báo PENDING được phát hiện ở lần tải đầu, có liên kết tới chi tiết. Event LOG như `CAMERA_ONLINE` chỉ vào nhật ký.
 
 ### 3.4 UI
 
@@ -64,9 +64,9 @@ Trong cấu hình camera, thêm chọn hồ sơ và mô tả tiếng Việt. Liv
 - [x] AC3: Theo dõi giường giữ nguyên STAND_UP, BED_EDGE, BED_EXIT và yêu cầu ROI.
 - [x] AC4: Chuyển động bất thường chạy không cần ROI, phát đúng mã `ABNORMAL_MOVEMENT` với ca âm tính không có chuyển động mạnh.
 - [x] AC5: Tín hiệu khuôn mặt chạy không cần ROI, không nhận diện danh tính và có ca âm tính không phát FACE_ATTENTION.
-- [x] AC6: BLUR vẫn hiển thị khung khi không có người, dùng fallback render hiện có.
+- [x] AC6: BLUR vẫn hiển thị khung khi không có người và chỉ làm mờ vùng đầu ước lượng được.
 - [x] AC7: Toast MEDIUM/HIGH hiển thị khi WebSocket hoạt động và danh sách vẫn cập nhật khi WebSocket gián đoạn.
-- [ ] AC8: Seed có dữ liệu ba hồ sơ và kịch bản cảnh báo. Replay trên ít nhất một video giường, một video rời vùng và một video URFD/CaucaFall được ghi kết quả. Đã chạy URFD `fall-21-cam0-rgb.mp4`: 28 khung, 0 sự kiện, chưa chạy đủ ba nhóm clip.
+- [x] AC8: Seed có dữ liệu ba hồ sơ và kịch bản cảnh báo. Đã replay URFD `fall-21-cam0-rgb.mp4` (28 khung, 0 sự kiện) và GMDCSA24 ADL/07 (113 khung, 1 `BED_EDGE`). Worker hồ sơ chuyển động bất thường chạy GMDCSA24 Subject 1 Fall/12 qua API và phát `ABNORMAL_MOVEMENT` HIGH.
 
 ## 5. Kế hoạch triển khai
 

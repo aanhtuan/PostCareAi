@@ -59,7 +59,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!fallbackAlerts.data) return;
     if (!fallbackInitialized.current) {
-      fallbackAlerts.data.items.forEach((alert) => fallbackSeen.current.add(alert.id));
+      fallbackAlerts.data.items.forEach((alert) => {
+        fallbackSeen.current.add(alert.id);
+        notifyAlert({ alert });
+      });
       fallbackInitialized.current = true;
       return;
     }

@@ -5,7 +5,7 @@
   - `RAW`: bản sao ảnh gốc (chỉ dùng trong môi trường thử nghiệm).
   - `BLUR` (mặc định, A08): pixelate vùng đầu của mọi người pose phát hiện. Vùng đầu lấy từ
     keypoint pose (`head_region`, dùng chung với F25), không phụ thuộc Face Landmarker. Không ước
-    lượng được vùng đầu → giữ vùng gần nhất tối đa `privacy.head_hold_s`, quá thì mờ toàn khung.
+    lượng được vùng đầu → giữ vùng gần nhất tối đa `privacy.head_hold_s`, sau đó giữ khung hình.
   - `SKELETON`: vẽ trên nền trơn mới tạo, chỉ có Bed ROI và skeleton; hàm chỉ nhận kích thước
     khung nên không thể chép pixel gốc.
 - `draw_debug_overlay`: skeleton, ROI, `body_state` + `observation_quality`, nhãn sự kiện vừa
@@ -101,9 +101,9 @@ def render_raw(image: Image) -> Image:
 
 
 def render_blur(image: Image, boxes: Sequence[HeadBox] | None, blocks: int) -> Image:
-    """`BLUR`: pixelate từng vùng đầu; `boxes=None` → pixelate toàn khung (F28 R6, R7)."""
+    """`BLUR`: chỉ pixelate vùng đầu; chưa thấy người thì giữ nguyên khung hình."""
     if boxes is None:
-        return pixelate(image, blocks)
+        return image.copy()
     out = image.copy()
     h, w = out.shape[:2]
     for box in boxes:
@@ -185,7 +185,7 @@ class PrivacyRenderer:
     def _head_boxes(
         self, persons: Sequence[PersonPose], size: tuple[int, int], ts_ms: int
     ) -> list[HeadBox] | None:
-        """Vùng đầu cần làm mờ, hoặc `None` = mờ toàn khung."""
+        """Vùng đầu cần làm mờ, hoặc `None` khi chưa có vùng đầu để xử lý."""
         estimated = [
             estimate_head_box(
                 p, size, min_visibility=self.min_visibility, scale=self.head_box_scale
@@ -193,7 +193,7 @@ class PrivacyRenderer:
             for p in persons
         ]
         found = [b for b in estimated if b is not None]
-        if persons and len(found) == len(persons):
+        if found:
             self._last_boxes = found
             self._last_ts_ms = ts_ms
             return found

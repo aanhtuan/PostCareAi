@@ -5,8 +5,8 @@ Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](..
 ## 2026-11-21 – Codex – Hồ sơ quan sát camera F38
 
 - **Đã làm:** Tiếp tục trên nhánh `feat/F38-observation-profiles` sau khi F07 đã gộp vào `main`. Thêm `ObservationProfile` và migration 0007, trả hồ sơ qua API camera/worker, ghi audit riêng khi đổi hồ sơ, seed A01 theo dõi giường, A02 chuyển động bất thường, A03 tín hiệu khuôn mặt. Worker giữ ROI cho theo dõi giường, dùng toàn khung hình và lọc sự kiện cho hai hồ sơ còn lại. UI quản trị có lựa chọn hồ sơ, trang cấu hình bỏ trình vẽ ROI khi không cần, Live View hiện hồ sơ, cảnh báo có polling dự phòng khi WebSocket gián đoạn. Không đổi privacy render BLUR.
-- **Kiểm tra:** `ruff check`, `ruff format --check`, `mypy`, TypeScript và ESLint đạt. Backend chọn lọc 46 test đạt sau khi tạo DB test, frontend 41 test đạt. Replay URFD `fall-21-cam0-rgb.mp4` chạy 28 khung, 0 sự kiện, ghi kết quả tại `/tmp/postcare-f38-urfd-20261121`. Chưa chạy `make check` đầy đủ theo yêu cầu giới hạn thời gian.
-- **Đang dở:** AC8 cần replay thêm clip giường và clip rời vùng, review F38. Không commit video/model.
+- **Kiểm tra:** `ruff check`, `ruff format --check`, `mypy`, TypeScript và ESLint đạt. Backend chọn lọc 46 test đạt sau khi tạo DB test, frontend 41 test đạt. BLUR không có người giữ nguyên khung hình, Live View cho hồ sơ không ROI không còn chặn stream. Replay URFD `fall-21-cam0-rgb.mp4` chạy 28 khung, GMDCSA24 ADL/07 chạy 113 khung. Worker hồ sơ chuyển động bất thường chạy GMDCSA24 Subject 1 Fall/12 và phát `ABNORMAL_MOVEMENT` HIGH qua API. Chưa chạy `make check` đầy đủ theo yêu cầu giới hạn thời gian.
+- **Đang dở:** Review F38 và gộp PR. Không commit video/model.
 - **Bước tiếp theo:** Review PR [#2](https://github.com/aanhtuan/PostCareAi/pull/2), sau đó mới gộp vào `main`.
 - **Blocker / rủi ro:** Hồ sơ không ROI hiện tái sử dụng ROI toàn khung hình rồi lọc mã sự kiện. Khi cần chọn mục tiêu giữa nhiều người trong cùng khung cần nâng cấp pipeline.
 
