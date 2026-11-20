@@ -2,6 +2,14 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-21 – Codex – Kiểm chứng demo F38 và cảnh báo
+
+- **Đã làm:** Khởi động lại worker A01 với mã mới. Webcam index 0 đang trả độ sáng khoảng 6,3 nên khung hình thực tế tối và pose báo `NO_PERSON`. Chạy `postcare simulate --bed A01 --scenario bed-exit --speed 4` tạo chuỗi `SIT_UP`, `BED_EDGE`, `STAND_UP`, `BED_EXIT` và cảnh báo PENDING. Chạy worker A02 hồ sơ `ABNORMAL_MOVEMENT` với GMDCSA24 Subject 1 Fall/12 qua `--video` và `--loop`, hệ thống phát `ABNORMAL_MOVEMENT` HIGH qua API. Fallback toast đã được đổi để hiện cả cảnh báo PENDING lúc tải đầu.
+- **Kiểm tra:** BLUR không có người giữ nguyên khung hình; Live View hồ sơ không ROI vẫn phát stream. Build web, mypy, ruff, 27 test web và 21 test render/API đạt. PR [#2](https://github.com/aanhtuan/PostCareAi/pull/2) đang mở.
+- **Đang dở:** Người dùng cần chọn A02 để xem clip ngã hoặc đổi webcam A01 sang nguồn sáng/nguồn video. Chưa chạy `make check` đầy đủ theo giới hạn thời gian.
+- **Bước tiếp theo:** Dùng runbook ở phản hồi cuối, review và gộp PR #2 khi CI phù hợp.
+- **Rủi ro:** `ABNORMAL_MOVEMENT` mô tả chuyển động bất thường cần kiểm tra, không kết luận té ngã. Webcam hiện tại có tín hiệu rất tối.
+
 ## 2026-11-21 – Codex – Hồ sơ quan sát camera F38
 
 - **Đã làm:** Tiếp tục trên nhánh `feat/F38-observation-profiles` sau khi F07 đã gộp vào `main`. Thêm `ObservationProfile` và migration 0007, trả hồ sơ qua API camera/worker, ghi audit riêng khi đổi hồ sơ, seed A01 theo dõi giường, A02 chuyển động bất thường, A03 tín hiệu khuôn mặt. Worker giữ ROI cho theo dõi giường, dùng toàn khung hình và lọc sự kiện cho hai hồ sơ còn lại. UI quản trị có lựa chọn hồ sơ, trang cấu hình bỏ trình vẽ ROI khi không cần, Live View hiện hồ sơ, cảnh báo có polling dự phòng khi WebSocket gián đoạn. Không đổi privacy render BLUR.
