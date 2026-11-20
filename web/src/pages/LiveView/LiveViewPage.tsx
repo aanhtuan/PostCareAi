@@ -4,6 +4,7 @@
 import {
   Anchor,
   Badge,
+  Button,
   Card,
   Center,
   Group,
@@ -15,7 +16,7 @@ import {
   Text,
   Title,
 } from '@mantine/core';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import { useCameraDetail, useEvents, useOverview } from '../../api/hooks';
@@ -26,6 +27,7 @@ import { PriorityBadge } from '../../components/Badges';
 import { RestStatusBadge } from '../../components/RestStatusBadge';
 import { fmt, vi } from '../../i18n/vi';
 import { formatTime } from '../../utils/time';
+import { CameraForm } from '../Management/CameraForm';
 import { DisplayModeControl } from './DisplayModeControl';
 import { FaceSignalsPanel } from './FaceSignalsPanel';
 
@@ -40,13 +42,34 @@ const STATUS_COLOR: Record<CameraStatus, string> = {
 export function LiveViewPage() {
   const { bedId } = useParams();
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+  const [editBed, setEditBed] = useState<number | null>(null);
+  const [connection, setConnection] = useState<{
+    bedId: number;
+    cameraId: number;
+    version: number;
+  } | null>(null);
   const overview = useOverview();
   const beds = overview.data?.beds ?? [];
   const selectedId = bedId ? Number(bedId) : beds[0]?.bed_id;
   const bed = beds.find((b) => b.bed_id === selectedId);
-  const cameraDetail = useCameraDetail(bed?.camera?.id, POLL_MS);
+  const connecting = connection?.bedId === selectedId ? connection : null;
+  const cameraDetail = useCameraDetail(
+    connecting?.cameraId ?? bed?.camera?.id,
+    POLL_MS,
+    connecting !== null,
+  );
   const latest = useEvents({ bed_id: selectedId, limit: 1 });
+  const detail = cameraDetail.data;
+  const ready =
+    connecting &&
+    bed?.camera?.id === connecting.cameraId &&
+    detail?.status === 'ONLINE' &&
+    detail.has_current_frames &&
+    detail.config_version >= connecting.version;
+  if (ready) setConnection(null);
+  const waiting = connecting && !ready;
 
   if (overview.isPending) return <Loader />;
   const state = bed?.state ?? null;
@@ -56,6 +79,11 @@ export function LiveViewPage() {
     ? (cameraDetail.data?.status ?? bed.camera.status)
     : null;
   const roi = cameraDetail.data?.roi_polygon ?? null;
+  const statusText = waiting
+    ? vi.live.waitingForCamera
+    : cameraStatus
+      ? vi.cameraStatus[cameraStatus]
+      : vi.camera.notAssigned;
 
   return (
     <Stack>
@@ -81,10 +109,54 @@ export function LiveViewPage() {
                 <Text fw={700} size="lg">
                   {fmt(vi.bed.title, { code: bed.code })}
                 </Text>
-                <Badge color={cameraStatus ? STATUS_COLOR[cameraStatus] : 'gray'} variant="light">
-                  {cameraStatus ? vi.cameraStatus[cameraStatus] : vi.camera.notAssigned}
-                </Badge>
+                <Group gap="xs">
+                  <Badge
+                    color={waiting ? 'yellow' : cameraStatus ? STATUS_COLOR[cameraStatus] : 'gray'}
+                    variant="light"
+                    role="status"
+                  >
+                    {statusText}
+                  </Badge>
+                  {isAdmin && (
+                    <Button
+                      size="xs"
+                      variant="light"
+                      disabled={!!bed.session || (!!bed.camera && detail?.id !== bed.camera.id)}
+                      onClick={() => setEditBed(bed.bed_id)}
+                    >
+                      {vi.live.connectCamera}
+                    </Button>
+                  )}
+                </Group>
               </Group>
+              {isAdmin && editBed === bed.bed_id && !bed.session && (
+                <CameraForm
+                  camera={bed.camera && detail?.id === bed.camera.id ? detail : null}
+                  onClose={() => setEditBed(null)}
+                  connect={{
+                    bedId: bed.bed_id,
+                    bedCode: bed.code,
+                    onSaved: (saved) =>
+                      setConnection({
+                        bedId: bed.bed_id,
+                        cameraId: saved.id,
+                        version: saved.config_version,
+                      }),
+                  }}
+                />
+              )}
+              {waiting && (
+                <Text size="sm" c="dimmed" role="status">
+                  {!detail?.worker_active
+                    ? fmt(vi.live.startWorkerHint, { id: String(connecting.cameraId) })
+                    : vi.live.checkCameraSource}
+                </Text>
+              )}
+              {isAdmin && bed.session && cameraStatus !== 'ONLINE' && (
+                <Text size="sm" c="dimmed">
+                  {vi.live.connectActiveSession}
+                </Text>
+              )}
               {bed.session ? (
                 <Text size="sm">
                   <Text span fw={600}>
@@ -119,8 +191,8 @@ export function LiveViewPage() {
                       <CameraStream
                         cameraId={bed.camera.id}
                         token={token}
-                        online={cameraStatus === 'ONLINE'}
-                        offlineText={vi.cameraStatus[cameraStatus]}
+                        online={!waiting && cameraStatus === 'ONLINE'}
+                        offlineText={statusText}
                         roi={roi}
                         alt={fmt(vi.live.streamAlt, { code: bed.code })}
                       />
@@ -132,8 +204,8 @@ export function LiveViewPage() {
                       <CameraStream
                         cameraId={bed.camera.id}
                         token={token}
-                        online={cameraStatus === 'ONLINE'}
-                        offlineText={vi.cameraStatus[cameraStatus]}
+                        online={!waiting && cameraStatus === 'ONLINE'}
+                        offlineText={statusText}
                         roi={null}
                         view="skeleton"
                         alt={vi.live.skeletonTitle}
@@ -157,7 +229,7 @@ export function LiveViewPage() {
                 </>
               ) : (
                 <Center bg="gray.1" style={{ aspectRatio: '16 / 9', borderRadius: 8 }}>
-                  <Text c="dimmed">{vi.camera.notAssigned}</Text>
+                  <Text c="dimmed">{statusText}</Text>
                 </Center>
               )}
             </Stack>

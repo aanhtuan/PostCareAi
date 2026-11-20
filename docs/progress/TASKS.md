@@ -68,6 +68,8 @@ make setup && make db-upgrade && make seed && make models && make check
 
 ## Đã xong gần đây
 
+- [x] 2026-11-20: F07 thêm nút “Kết nối camera” trên Theo dõi trực tiếp cho quản trị viên và hướng dẫn iPhone qua Wi-Fi/USB. Kiểm chứng iPhone thật còn chờ thiết bị.
+
 - [x] 2026-11-19: Rà soát và chuẩn bị xuất bản code F07 hai khung cùng test/API types/spec; hợp nhất báo cáo hiện có, giữ dữ liệu/cấu hình local ngoài Git. Push nhánh feature và main cùng một lượt, không bỏ hook.
 
 - [x] 2026-11-19: Viết [báo cáo nghiệm thu webcam A01](../../reports/REALTIME-WEBCAM-VERIFICATION-2026-11-19.md): ROI, phiên demo, mép giường → cảnh báo → ADMIN tiếp nhận/xác nhận → timeline. Rời giường còn BLOCKED do góc webcam. Báo cáo đã có trên main; lần xuất bản tiếp theo bổ sung code hai khung theo yêu cầu người dùng.

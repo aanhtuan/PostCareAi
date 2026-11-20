@@ -2,6 +2,14 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-20 – Codex – F07 kết nối camera từ Theo dõi trực tiếp
+
+- **Đã làm:** Trên `feat/F07-camera-connect`, thêm nút “Kết nối camera” cho quản trị viên. Form F03 dùng lại cho đúng giường và giữ ràng buộc phiên đang mở. Worker báo phiên bản nguồn trên JPEG; live view đợi cả hai khung mới và hướng dẫn khởi động worker khi thiếu heartbeat. Clip ghi đè bằng `--video` tiếp tục phát được.
+- **Kiểm tra:** `make check` xanh (1368 pytest, 257 Vitest, web build). Playwright trên bản build kiểm tra luồng URL RTSP và Webcam với API giả lập. Dùng PostgreSQL test riêng `postcare_camera_connect_test` vì DB test mặc định chưa tồn tại.
+- **Đang dở / blocker:** Chưa thử iPhone thật qua Wi-Fi hoặc cáp USB.
+- **Bước tiếp theo:** Khởi động API/web bằng `make dev`, thiết lập nguồn iPhone theo [hướng dẫn Fedora](../04-guides/dev-setup.md#5-dùng-điện-thoại-làm-camera), bấm **Lưu và kết nối** và chạy `make worker CAMERA=1` cho camera seed A01. Kiểm tra lại vùng giường nếu đổi góc.
+
+
 ## 2026-11-19 – Codex – Xuất bản code live view hai khung
 
 - **Phạm vi:** Người dùng yêu cầu push code và merge vào main, không đưa dữ liệu local lên GitHub. Chỉ thao tác clone PostCareAI-fresh và worktree tạm của clone này.

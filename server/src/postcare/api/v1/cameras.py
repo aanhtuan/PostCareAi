@@ -4,13 +4,17 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from postcare.api.deps import (
+    get_frames,
     get_session,
+    get_settings_dep,
     get_store,
     require_admin,
     require_roles,
     require_staff,
 )
+from postcare.api.frame_buffer import LatestFrameStore
 from postcare.db.models import Camera, User
+from postcare.db.types import utcnow
 from postcare.domain import camera_config, catalog
 from postcare.domain.dto import (
     CameraCreate,
@@ -27,6 +31,7 @@ from postcare.domain.dto import (
 )
 from postcare.domain.runtime import RuntimeStore
 from postcare.schemas.enums import UserRole
+from postcare.settings import Settings
 
 router = APIRouter(prefix="/cameras", tags=["catalog"])
 
@@ -50,7 +55,11 @@ def create_camera(
 
 @router.get("/{camera_id}", response_model=CameraDetailOut, dependencies=[Depends(require_staff)])
 def get_camera(
-    camera_id: int, db: Session = Depends(get_session), store: RuntimeStore = Depends(get_store)
+    camera_id: int,
+    db: Session = Depends(get_session),
+    store: RuntimeStore = Depends(get_store),
+    frames: LatestFrameStore = Depends(get_frames),
+    settings: Settings = Depends(get_settings_dep),
 ) -> CameraDetailOut:
     """Kèm `runtime` từ heartbeat trong RAM (F06 R9) và `roi_polygon` (F07 R6)."""
     out = catalog.get_camera(db, camera_id)
@@ -66,7 +75,20 @@ def get_camera(
         )
     camera = db.get(Camera, camera_id)
     roi = camera.roi_polygon if camera is not None else None
-    return CameraDetailOut(**out.model_dump(), runtime=runtime, roi_polygon=roi)
+    now = utcnow()
+    return CameraDetailOut(
+        **out.model_dump(),
+        runtime=runtime,
+        roi_polygon=roi,
+        worker_active=runtime is not None
+        and (now - runtime.updated_at).total_seconds() <= settings.camera_offline_after_s,
+        has_current_frames=all(
+            frame is not None
+            and frame.config_version == out.config_version
+            and frame.is_fresh(now, settings.stream_stale_frame_s)
+            for frame in (frames.get(camera_id), frames.get(camera_id, view="skeleton"))
+        ),
+    )
 
 
 @router.patch("/{camera_id}", response_model=CameraOut)

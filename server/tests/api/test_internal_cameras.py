@@ -252,3 +252,56 @@ def test_frame_without_jpeg_magic_400(client: TestClient, worker_headers) -> Non
     r = _frame(client, worker_headers, b"\x89PNG\r\n\x1a\n" + b"\x00" * 16)
     assert r.status_code == 400
     assert r.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_camera_detail_confirms_only_fresh_frames_from_current_config(
+    app: Any, client: TestClient, worker_headers, login, settings
+) -> None:
+    admin = login("admin")
+
+    def detail() -> Any:
+        return client.get("/api/v1/cameras/1", headers=admin).json()
+
+    def post(version: int, view: str = "display", data: bytes = JPEG) -> None:
+        response = client.post(
+            "/internal/v1/cameras/1/frame",
+            params={"view": view},
+            headers={
+                **worker_headers,
+                "Content-Type": "image/jpeg",
+                "X-Camera-Config-Version": str(version),
+            },
+            content=data,
+        )
+        assert response.status_code == 204
+
+    assert detail()["worker_active"] is False
+    assert _hb(client, worker_headers, source_status="ONLINE").status_code == 200
+    assert detail()["worker_active"] is True
+    assert _frame(client, worker_headers, JPEG).status_code == 204
+    assert detail()["has_current_frames"] is False
+    post(1)
+    assert detail()["has_current_frames"] is False
+    post(1, "skeleton")
+    assert detail()["has_current_frames"] is True
+
+    res = client.patch("/api/v1/cameras/1", headers=admin, json={"source": "9"})
+    assert res.status_code == 200, res.text
+    version = res.json()["config_version"]
+    assert version == 2
+    post(1)
+    assert detail()["has_current_frames"] is False
+    post(version)
+    assert detail()["has_current_frames"] is False
+    post(version, "skeleton")
+    post(1, data=JPEG + b"old")
+    assert app.state.frames.get(1).data == JPEG
+    assert detail()["has_current_frames"] is True
+
+    app.state.frames.put(
+        1,
+        JPEG,
+        received_at=utcnow() - timedelta(seconds=settings.stream_stale_frame_s + 1),
+        config_version=version,
+    )
+    assert detail()["has_current_frames"] is False

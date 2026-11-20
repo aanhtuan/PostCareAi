@@ -37,7 +37,7 @@ def _part(data: bytes) -> bytes:
 
 
 def _fresh(frame: LatestFrame | None, now: datetime, stale_after_s: float) -> bool:
-    return frame is not None and (now - frame.received_at).total_seconds() <= stale_after_s
+    return frame is not None and frame.is_fresh(now, stale_after_s)
 
 
 async def mjpeg_parts(

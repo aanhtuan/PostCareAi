@@ -1,6 +1,6 @@
 """API nội bộ cho worker / giả lập (ADR-0002). Xác thực bằng header `X-Worker-Token`."""
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -79,6 +79,7 @@ async def frame(
     camera_id: int,
     request: Request,
     view: str = Query("display"),
+    x_camera_config_version: int | None = Header(default=None, ge=1),
     db: Session = Depends(get_session),
     frames: LatestFrameStore = Depends(get_frames),
     settings: Settings = Depends(get_settings_dep),
@@ -102,6 +103,7 @@ async def frame(
         raise validation_error("Khung hình rỗng")
     if not data.startswith(JPEG_MAGIC):
         raise validation_error("Khung hình không phải JPEG")
-    await run_in_threadpool(svc.ensure_worker_camera, db, camera_id)
-    frames.put(camera_id, bytes(data), view=view)  # type: ignore[arg-type]
+    current_version = await run_in_threadpool(svc.worker_camera_config_version, db, camera_id)
+    if x_camera_config_version is None or x_camera_config_version == current_version:
+        frames.put(camera_id, bytes(data), view=view, config_version=x_camera_config_version)  # type: ignore[arg-type]
     return Response(status_code=204)

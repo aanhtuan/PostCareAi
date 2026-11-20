@@ -279,6 +279,8 @@ class CameraDetailOut(CameraOut):
     """`GET /cameras/{id}`: thêm `runtime` (null khi chưa có heartbeat từ lúc API khởi động)."""
 
     runtime: CameraRuntimeOut | None = None
+    worker_active: bool = False
+    has_current_frames: bool = False
     # Bed ROI chuẩn hóa 0–1 để màn hình "Theo dõi trực tiếp" vẽ đè (F07 R6); null = chưa cấu hình.
     roi_polygon: list[list[float]] | None = None
 

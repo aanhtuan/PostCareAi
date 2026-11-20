@@ -1134,6 +1134,16 @@ export interface components {
             /** Is Active */
             is_active: boolean;
             runtime?: components["schemas"]["CameraRuntimeOut"] | null;
+            /**
+             * Worker Active
+             * @default false
+             */
+            worker_active: boolean;
+            /**
+             * Has Current Frames
+             * @default false
+             */
+            has_current_frames: boolean;
             /** Roi Polygon */
             roi_polygon?: number[][] | null;
         };
@@ -4084,6 +4094,7 @@ export interface operations {
                 view?: string;
             };
             header?: {
+                "x-camera-config-version"?: number | null;
                 "x-worker-token"?: string | null;
             };
             path: {

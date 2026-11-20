@@ -196,3 +196,25 @@ Nguồn: yêu cầu trực tiếp của người dùng muốn sản phẩm giố
 - AC8: `shows a separate skeleton stream while preserving the privacy mode`, các test offline hiện có; layout SimpleGrid responsive, text trong vi.ts.
 - Rà soát phạm vi: không đổi engine, DB hoặc dependency; không thêm ảnh/video/model/cấu hình local vào Git. Chỉ hợp nhất code F07 và tài liệu đi cùng.
 - `make test-vision` trong clone fresh: 5 passed, 1 skipped (thiếu clip cận mặt), 1364 deselected, 7.89 s. `make check` đầy đủ chạy qua hook trước khi push bản merge; kết quả cuối trong bàn giao xuất bản.
+
+## 13. Kết nối camera từ Theo dõi trực tiếp (2026-11-20)
+
+Nguồn: yêu cầu người dùng trong phiên 20/11, F03 R2/R7/R14, F05 R2, QA#24. Phụ thuộc F03, F05, F06 và F07 hiện có đều Done.
+
+### Kế hoạch triển khai
+
+1. Dùng lại biểu mẫu camera F03 từ thẻ giường. Chỉ quản trị viên được thêm hoặc sửa nguồn, giường điền sẵn theo màn hình và khóa trong biểu mẫu. Giữ điều kiện bảo vệ phiên đang mở.
+2. Worker gửi phiên bản cấu hình trên khung JPEG. Chi tiết camera báo cả hai khung mới thuộc cấu hình hiện tại và có heartbeat gần đây. Sau khi lưu, live view đợi ảnh mới, kể cả khi WebSocket đang mở. Nếu thiếu heartbeat thì hướng dẫn chạy worker cho đúng ID *(giả định)*. Không thêm migration, phụ thuộc hay điều khiển tiến trình qua web.
+3. Sinh lại API types, thêm ca kiểm tra quyền, thêm/sửa nguồn, trạng thái chờ và khung cũ. Giữ tương thích worker gửi frame không kèm phiên bản và hai luồng MJPEG hiện có. Worker phát clip với `--video` không xác nhận nguồn camera đã lưu.
+4. Bổ sung hướng dẫn iPhone qua Wi-Fi và USB trên Fedora vào `docs/04-guides/dev-setup.md`.
+
+### Acceptance criteria bổ sung
+
+- [x] AC9: Quản trị viên mở biểu mẫu trên live view để thêm hoặc đổi nguồn cho giường hiện tại. Vai trò khác không thấy nút và phiên mở không cho đổi nguồn. Kiểm tra bằng `LiveViewPage.test.tsx` với quản trị viên, điều dưỡng và phiên đang mở.
+- [x] AC10: Sau khi lưu, luồng hình cũ ẩn đi, giao diện báo chờ hoặc hướng dẫn chạy worker nếu chưa có heartbeat. Chỉ báo camera hoạt động khi nhận được cả hai khung mới thuộc cấu hình hiện tại. Kiểm tra bằng `test_camera_detail_confirms_only_fresh_frames_from_current_config` và `test_worker_online_then_offline`, cùng kiểm tra UI tự làm mới khi WebSocket mở.
+- [x] AC11: [Hướng dẫn iPhone qua Wi-Fi và cáp USB](../04-guides/dev-setup.md#5-dùng-điện-thoại-làm-camera) có bước thiết lập nguồn, kiểm tra và kết nối từ giao diện. Playwright trên bản build xác nhận cấu hình URL RTSP và Webcam theo index, với API và hình ảnh giả lập. Còn bước thử trên iPhone thật.
+
+### Review (2026-11-20) – Codex: Đạt
+
+- `make check` xanh với PostgreSQL test riêng. Pytest: 1368 đạt, 6 test vision không được chọn. Vitest: 257 đạt. Web build thành công.
+- Đối chiếu quyền ghi và audit với F03. Giao diện chờ cả hai khung của cấu hình đã lưu, worker phát clip ghi đè không xác nhận kết nối. Dùng lại các ngưỡng heartbeat và giới hạn tuổi khung của API.

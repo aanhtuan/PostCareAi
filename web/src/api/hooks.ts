@@ -268,13 +268,13 @@ export function useCaptureToggle() {
 export type CatalogResource = 'beds' | 'patients' | 'cameras' | 'areas' | 'shifts';
 
 /** Thêm (`id` rỗng) hoặc sửa (`PATCH`) một mục danh mục. Chỉ ADMIN (F03 R2). */
-export function useSaveCatalogItem<TBody>(resource: CatalogResource) {
+export function useSaveCatalogItem<TBody, TResult = unknown>(resource: CatalogResource) {
   const invalidate = useInvalidateMonitoring();
   return useMutation({
     mutationFn: ({ id, body }: { id?: number; body: TBody }) =>
       id === undefined
-        ? api<unknown>(`/${resource}`, { method: 'POST', body })
-        : api<unknown>(`/${resource}/${id}`, { method: 'PATCH', body }),
+        ? api<TResult>(`/${resource}`, { method: 'POST', body })
+        : api<TResult>(`/${resource}/${id}`, { method: 'PATCH', body }),
     onSettled: invalidate,
   });
 }
@@ -303,13 +303,14 @@ export function useCatalogLifecycle() {
  * Chi tiết camera (trạng thái, Bed ROI) cho "Theo dõi trực tiếp". `camera.status` qua WebSocket
  * làm mới query này (F21); `pollMs` chỉ áp dụng khi WebSocket không mở.
  */
-export function useCameraDetail(cameraId: number | undefined, pollMs?: number) {
+export function useCameraDetail(cameraId: number | undefined, pollMs?: number, connecting = false) {
   const ws = useRealtimeStatus();
   return useQuery({
     queryKey: ['cameras', 'detail', cameraId] as const,
     queryFn: () => api<CameraDetailOut>(`/cameras/${cameraId}`),
     enabled: cameraId !== undefined,
-    refetchInterval: pollMs === undefined ? false : fallbackInterval(ws, pollMs),
+    refetchInterval:
+      pollMs === undefined ? false : connecting ? pollMs : fallbackInterval(ws, pollMs),
   });
 }
 

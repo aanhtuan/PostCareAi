@@ -13,6 +13,7 @@ type Props = {
   saving: boolean;
   error: unknown;
   children: ReactNode;
+  submitLabel?: string;
 };
 
 export function CatalogFormModal({
@@ -23,6 +24,7 @@ export function CatalogFormModal({
   saving,
   error,
   children,
+  submitLabel = vi.catalog.save,
 }: Props) {
   const message = apiErrorMessage(error);
   const submit = (e: FormEvent) => {
@@ -44,7 +46,7 @@ export function CatalogFormModal({
               {vi.common.cancel}
             </Button>
             <Button type="submit" loading={saving}>
-              {vi.catalog.save}
+              {submitLabel}
             </Button>
           </Group>
         </Stack>

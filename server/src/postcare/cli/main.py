@@ -241,6 +241,7 @@ def worker(
         jpeg_max_side=settings.worker_jpeg_max_side,
         jpeg_quality=settings.worker_jpeg_quality,
         loop=loop,
+        source_overridden=video is not None,
     )
     base_url = api or settings.api_base_url
     http = httpx.Client(base_url=base_url, timeout=5.0)
