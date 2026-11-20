@@ -107,7 +107,11 @@ def default_engine_factory(engine_config_path: Path | str) -> EngineFactory:
 
     def _make(cfg: WorkerConfig) -> FrameEngine:
         # shortcut: no-ROI profiles use full-frame ROI until multi-person targeting.
-        roi = cfg.roi_polygon or [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
+        roi = (
+            cfg.roi_polygon
+            if cfg.observation_profile == ObservationProfile.BED_MONITORING
+            else None
+        ) or [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
         config = EngineConfig.load(engine_config_path, cfg.thresholds)
         context = EngineContext(camera_id=cfg.camera_id, roi_polygon=validate_roi_polygon(roi))
         return Engine(config, context)
@@ -584,12 +588,17 @@ class Worker:
 
     def _roi(self, cfg: WorkerConfig) -> RoiPolygon | None:
         """Bed ROI để vẽ ở chế độ SKELETON; ROI không hợp lệ → không vẽ."""
-        key = repr(cfg.roi_polygon)
+        polygon = (
+            cfg.roi_polygon
+            if cfg.observation_profile == ObservationProfile.BED_MONITORING
+            else None
+        )
+        key = repr(polygon)
         if self._roi_cache is None or self._roi_cache[0] != key:
             roi: RoiPolygon | None = None
-            if cfg.roi_polygon is not None:
+            if polygon is not None:
                 try:
-                    roi = validate_roi_polygon(cfg.roi_polygon)
+                    roi = validate_roi_polygon(polygon)
                 except ValueError:
                     roi = None
             self._roi_cache = (key, roi)

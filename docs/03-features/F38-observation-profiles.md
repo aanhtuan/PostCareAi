@@ -46,8 +46,8 @@ Thêm enum `ObservationProfile` trong `postcare.schemas` với `BED_MONITORING`,
 ### 3.2 Pipeline
 
 - `BED_MONITORING` giữ pipeline hiện tại và từ chối chạy engine nếu thiếu ROI.
-- `ABNORMAL_MOVEMENT` tạo engine với ROI toàn khung hình khi không có ROI và chỉ phát `ABNORMAL_MOVEMENT`. Cần kiểm tra nhiều người và chất lượng quan sát trước khi phát sự kiện. Camera không gắn giường vẫn có thể ghi sự kiện với `bed_id` và `session_id` rỗng. Event code vẫn là `ABNORMAL_MOVEMENT`.
-- `FACE_SIGNALS` giữ pose/face gate, phát `FACE_ATTENTION` theo rule hiện tại và không yêu cầu ROI. Khung BLUR vẫn hiển thị khung mới nhất khi không có người. Không thay đổi privacy render F28.
+- `ABNORMAL_MOVEMENT` tạo engine với ROI toàn khung hình, kể cả khi dữ liệu camera còn ROI cũ, và chỉ phát `ABNORMAL_MOVEMENT`. Cần kiểm tra nhiều người và chất lượng quan sát trước khi phát sự kiện. Camera không gắn giường vẫn có thể ghi sự kiện với `bed_id` và `session_id` rỗng. Event code vẫn là `ABNORMAL_MOVEMENT`.
+- `FACE_SIGNALS` giữ pose/face gate, phát `FACE_ATTENTION` theo rule hiện tại và dùng toàn khung hình, kể cả khi dữ liệu camera còn ROI cũ. Khung BLUR vẫn hiển thị khung mới nhất khi không có người. Không thay đổi privacy render F28.
 
 ### 3.3 Cảnh báo realtime
 
@@ -81,3 +81,9 @@ Trong cấu hình camera, thêm chọn hồ sơ và mô tả tiếng Việt. Liv
 
 - Cần chốt chính sách khi hồ sơ `ABNORMAL_MOVEMENT` thấy nhiều người trong khung. Mặc định an toàn là `NO_OBSERVATION` và không phát sự kiện *(giả định)*.
 - Đã chốt seed A01 theo dõi giường, A02 chuyển động bất thường, A03 tín hiệu khuôn mặt.
+
+## 7. Kịch bản demo hồ sơ khuôn mặt
+
+- Clip có sẵn phù hợp để kiểm tra khung hình và chất lượng khuôn mặt là `data/external/pexels/pexels-6130032.mp4` (137 khung) và `pexels-6130226.mp4` (106 khung). Replay cho thấy clip đầu có nhiều khung `FaceStatus.OK`, nhưng không giữ đủ tín hiệu để phát `FACE_ATTENTION`. Dùng simulator `face-attention` để kiểm tra chắc chắn cảnh báo trên giao diện.
+- Góc quay nên đặt cao hơn mặt khoảng 20–30 độ, khuôn mặt chiếm ít nhất 15–20% chiều rộng khung, ánh sáng chiếu từ phía trước, tránh đèn phía sau và tránh quay quá nghiêng. Mục tiêu là kiểm tra tín hiệu quan sát được, không suy luận cảm xúc hay danh tính.
+- Bộ dữ liệu nghiên cứu phù hợp để tham khảo là DynEmo, có camera cận toàn mặt và camera tổng quan cho biểu hiện cảm xúc động, cùng dữ liệu theo thời gian. BP4D và DISFA có video/khung hình biểu hiện khuôn mặt được gán nhãn, nhưng cần kiểm tra quyền truy cập trước khi đưa vào dự án.

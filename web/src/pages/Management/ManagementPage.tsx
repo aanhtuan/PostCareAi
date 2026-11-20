@@ -224,6 +224,7 @@ export function ManagementPage() {
                 <Table.Th>{vi.camera.sourceType}</Table.Th>
                 <Table.Th>{vi.camera.source}</Table.Th>
                 <Table.Th>{vi.common.bed}</Table.Th>
+                <Table.Th>{vi.camera.observationProfileColumn}</Table.Th>
                 <Table.Th>{vi.camera.status}</Table.Th>
                 {isAdmin && <Table.Th>{vi.management.actions}</Table.Th>}
               </Table.Tr>
@@ -235,6 +236,7 @@ export function ManagementPage() {
                   <Table.Td>{vi.sourceType[c.source_type]}</Table.Td>
                   <Table.Td ff="monospace">{c.source}</Table.Td>
                   <Table.Td>{c.bed_code ?? vi.common.none}</Table.Td>
+                  <Table.Td>{vi.observationProfile[c.observation_profile]}</Table.Td>
                   <Table.Td>
                     {c.is_active ? vi.cameraStatus[c.status] : <UsageBadge active={false} />}
                   </Table.Td>

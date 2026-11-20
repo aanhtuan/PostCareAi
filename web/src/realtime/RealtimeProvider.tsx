@@ -16,6 +16,8 @@ import { RealtimeClient, type WsStatus } from './wsClient';
 
 export { RealtimeContext } from './status';
 
+const MAX_FALLBACK_TOASTS_PER_SYNC = 3;
+
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { token, logout, reloadUser } = useAuth();
   const qc = useQueryClient();
@@ -59,21 +61,21 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!fallbackAlerts.data) return;
     if (!fallbackInitialized.current) {
-      fallbackAlerts.data.items.forEach((alert) => {
+      fallbackAlerts.data.items.forEach((alert, index) => {
         fallbackSeen.current.add(alert.id);
-        notifyAlert({ alert });
+        if (index < MAX_FALLBACK_TOASTS_PER_SYNC) notifyAlert({ alert });
       });
       fallbackInitialized.current = true;
       return;
     }
-    fallbackAlerts.data.items.forEach((alert) => {
-      if (fallbackSeen.current.has(alert.id)) return;
+    const fresh = fallbackAlerts.data.items.filter((alert) => !fallbackSeen.current.has(alert.id));
+    fresh.forEach((alert) => {
       fallbackSeen.current.add(alert.id);
       if (fallbackSeen.current.size > 500) {
         fallbackSeen.current.delete(fallbackSeen.current.values().next().value as number);
       }
-      notifyAlert({ alert });
     });
+    fresh.slice(0, MAX_FALLBACK_TOASTS_PER_SYNC).forEach((alert) => notifyAlert({ alert }));
   }, [fallbackAlerts.data, notifyAlert]);
 
   useEffect(() => {

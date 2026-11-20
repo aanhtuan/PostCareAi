@@ -1,5 +1,5 @@
 // Form thêm/sửa camera: tên, loại nguồn, địa chỉ nguồn, giường (F03 R5, R7).
-import { Select, TextInput } from '@mantine/core';
+import { Select, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useState } from 'react';
 
@@ -103,6 +103,9 @@ export function CameraForm({ camera, onClose, connect }: Props) {
         value={observationProfile}
         onChange={(value) => value && setObservationProfile(value as ObservationProfile)}
       />
+      <Text size="xs" c="dimmed">
+        {vi.observationProfileDescription[observationProfile]}
+      </Text>
       <Select
         label={vi.camera.sourceType}
         required

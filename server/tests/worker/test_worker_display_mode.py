@@ -7,8 +7,10 @@ from typing import Any
 import cv2
 import numpy as np
 
-from postcare.schemas.enums import DisplayMode
+from postcare.schemas.enums import DisplayMode, ObservationProfile
+from postcare.settings import REPO_ROOT
 from postcare.worker.config import WorkerConfig
+from postcare.worker.loop import default_engine_factory
 from tests.worker.helpers import default_config, make_harness
 
 SOURCE_GRAY = 80  # FakeFrameSource: khung xám 80
@@ -117,3 +119,19 @@ def test_no_roi_observes_pose_for_display_without_engine_or_events() -> None:
     assert not h.api.paths("/state")
     assert not h.api.paths("/events")
     assert h.api.paths("/frame?view=skeleton")
+
+
+def test_non_bed_profile_ignores_saved_bed_roi() -> None:
+    cfg = WorkerConfig.model_validate(
+        default_config(
+            observation_profile=ObservationProfile.ABNORMAL_MOVEMENT,
+            roi_polygon=[[0.2, 0.2], [0.8, 0.2], [0.8, 0.9], [0.2, 0.9]],
+        )
+    )
+    engine = default_engine_factory(REPO_ROOT / "config" / "engine.default.yaml")(cfg)
+    assert engine.context.roi_polygon.points == [
+        (0.0, 0.0),
+        (1.0, 0.0),
+        (1.0, 1.0),
+        (0.0, 1.0),
+    ]

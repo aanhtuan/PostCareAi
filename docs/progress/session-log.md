@@ -2,6 +2,13 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-21 – Codex – Tách hồ sơ và chọn clip khuôn mặt
+
+- **Đã làm:** Sửa worker để hồ sơ `ABNORMAL_MOVEMENT` và `FACE_SIGNALS` luôn dùng toàn khung hình, kể cả khi camera còn ROI giường cũ. Bổ sung test hồi quy. Bổ sung mô tả mục đích từng hồ sơ ở form và cột quản lý camera. Giới hạn fallback toast tối đa 3 cảnh báo mỗi lần polling để tránh spam.
+- **Kiểm tra:** Worker profile test đạt 7 ca, frontend typecheck/lint và 33 test Live View/Management đạt. Clip `pexels-6130032.mp4` có 137 khung với nhiều `FaceStatus.OK`; `pexels-6130226.mp4` có 106 khung nhưng ít khuôn mặt rõ. Cả hai không tự phát `FACE_ATTENTION`, nên demo cảnh báo khuôn mặt dùng simulator `face-attention`, đã tạo event id 37 qua API A03.
+- **Nghiên cứu:** DynEmo phù hợp tham khảo vì có camera cận toàn mặt và camera tổng quan. BP4D/DISFA phù hợp đánh giá tín hiệu khuôn mặt trong môi trường nghiên cứu, cần kiểm tra quyền truy cập.
+- **Bước tiếp theo:** Review PR #2, chạy demo A02/A03 theo hướng dẫn, gộp vào `main` sau CI.
+
 ## 2026-11-21 – Codex – Kiểm chứng demo F38 và cảnh báo
 
 - **Đã làm:** Khởi động lại worker A01 với mã mới. Webcam index 0 đang trả độ sáng khoảng 6,3 nên khung hình thực tế tối và pose báo `NO_PERSON`. Chạy `postcare simulate --bed A01 --scenario bed-exit --speed 4` tạo chuỗi `SIT_UP`, `BED_EDGE`, `STAND_UP`, `BED_EXIT` và cảnh báo PENDING. Chạy worker A02 hồ sơ `ABNORMAL_MOVEMENT` với GMDCSA24 Subject 1 Fall/12 qua `--video` và `--loop`, hệ thống phát `ABNORMAL_MOVEMENT` HIGH qua API. Fallback toast đã được đổi để hiện cả cảnh báo PENDING lúc tải đầu.
