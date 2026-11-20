@@ -52,11 +52,6 @@ export function DisplayModeControl({ cameraId, mode }: { cameraId: number; mode:
           data={MODES.map((m) => ({ value: m, label: vi.displayMode[m] }))}
         />
       )}
-      {mode === 'RAW' && (
-        <Text size="xs" c="orange">
-          {vi.live.rawHint}
-        </Text>
-      )}
     </Stack>
   );
 }

@@ -125,7 +125,9 @@ Theo HS §9.2 và PDF §18:
 - Chỉ số workflow: thời gian tìm và tiếp nhận cảnh báo, tỷ lệ ghi kết quả, tra cứu timeline.
 - Demo chính khoảng 1 phút chạy trọn chuỗi (HS §8.3).
 
-## 9. Giới hạn sử dụng (phải nêu trong UI và tài liệu)
+## 9. Giới hạn sử dụng (phải nêu trong tài liệu và khi trình bày)
+
+Theo QA#38 (20/11/2026), giao diện không hiển thị các dòng miễn trừ hay ghi chú "bản thử nghiệm". Các giới hạn dưới đây vẫn bắt buộc nêu trong tài liệu, slide và lời trình bày.
 
 - Hỗ trợ quan sát và ưu tiên sự chú ý; **không** chẩn đoán đau, mất ý thức, biến chứng hay nguyên nhân y khoa (HS §9.1).
 - Không thay yêu cầu trực 1:1 khi quy trình chuyên môn yêu cầu (HS §1, §9.1).

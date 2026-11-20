@@ -41,7 +41,6 @@ export function PatientForm({ patient, onClose }: Props) {
     >
       <TextInput
         label={vi.management.patientCode}
-        description={vi.catalog.patientCodeHint}
         required
         value={code}
         onChange={(e) => setCode(e.currentTarget.value)}

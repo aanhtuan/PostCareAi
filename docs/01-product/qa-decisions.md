@@ -88,6 +88,7 @@ Các quyết định dưới đây có sau khi nhóm đề xuất mở rộng (�
 | QA#35 | Model pose | MediaPipe Pose là model chính. Chọn biến thể Lite / Full / Heavy bằng benchmark trên máy dev (CPU). MediaPipe Python trên Windows không có GPU, nên GPU delegate qua WSL2 là phương án tăng tốc. RTMPose (ONNX Runtime CUDA) chỉ là adapter dự phòng. Không dùng MoveNet | Yêu cầu người dùng (2026-11-17); PDF §6; HS §5.5; ADR-0003 |
 | QA#36 | Xóa danh mục | Chỉ xóa mềm (`is_active = false`), có khôi phục. Bản ghi đã xóa vẫn giữ lịch sử, timeline, audit. Quản lý gồm giường, bệnh nhân, camera (F03), tài khoản (F35, nay là MVP), khu vực và ca trực (F37), chuyển bệnh nhân giữa giường (F04) | Yêu cầu người dùng (2026-11-17) |
 | QA#37 | Hai loại độ trễ | "Độ trễ phát hiện" tính từ lúc hành động tới lúc sự kiện hiện trên màn hình, đã gồm `min_duration`. "Delivery latency" (A07, < 1 giây) chỉ tính từ lúc lưu DB tới lúc web nhận. Báo cáo ghi riêng hai số | evaluation.md; đề xuất nhóm |
+| QA#38 | Dòng miễn trừ trên giao diện | Bỏ khỏi UI: dòng "Bản thử nghiệm - dữ liệu mô phỏng. Công cụ hỗ trợ quan sát…" (chân menu, trang đăng nhập), ghi chú "Timeline là nguồn tham khảo…", "Video gốc chỉ dùng trong môi trường thử nghiệm", gợi ý "Chỉ dùng mã thử nghiệm…". Giới hạn sử dụng (PRD §9) vẫn nêu trong tài liệu, slide và khi trình bày. Nhãn "Đang nghỉ - dữ liệu tham khảo" giữ nguyên vì là quy tắc ngôn ngữ (không phân loại ngủ/tỉnh) | Yêu cầu người dùng (2026-11-20) |
 
 ## Danh sách giả định kỹ thuật dùng chung
 

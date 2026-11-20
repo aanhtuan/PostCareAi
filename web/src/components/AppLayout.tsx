@@ -106,9 +106,6 @@ export function AppLayout() {
               />
             ))}
           </div>
-          <Text size="xs" c="dimmed" p="xs">
-            {vi.app.prototype}. {vi.app.disclaimer}
-          </Text>
         </Stack>
       </AppShell.Navbar>
       <AppShell.Main>

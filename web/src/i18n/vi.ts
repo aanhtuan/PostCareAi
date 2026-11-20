@@ -140,9 +140,6 @@ export const vi = {
   app: {
     name: 'PostCare AI',
     tagline: 'Hỗ trợ quan sát bệnh nhân hậu phẫu',
-    disclaimer:
-      'Công cụ hỗ trợ quan sát. Không thay thế việc kiểm tra thực tế và quyết định chuyên môn của nhân viên y tế.',
-    prototype: 'Bản thử nghiệm - dữ liệu mô phỏng',
   },
   nav: {
     overview: 'Tổng quan',
@@ -289,7 +286,6 @@ export const vi = {
     displayMode: 'Chế độ hiển thị',
     changeDisplayMode: 'Đổi chế độ hiển thị',
     displayModeSaved: 'Đã đổi chế độ hiển thị. Hình ảnh sẽ cập nhật trong vài giây.',
-    rawHint: 'Video gốc chỉ dùng trong môi trường thử nghiệm.',
     displayTitle: 'Hình ảnh theo chế độ riêng tư',
     skeletonTitle: 'Skeleton và vùng giường',
     skeletonHint: 'Bộ xương được dựng từ cùng khung hình; không hiển thị pixel ảnh gốc.',
@@ -344,7 +340,6 @@ export const vi = {
     loadMore: 'Xem thêm',
     system: 'hệ thống',
     alertInfo: '{status} · {outcome}',
-    hint: 'Timeline là nguồn tham khảo, không thay thế hồ sơ bệnh án.',
   },
   handover: {
     title: 'Bàn giao ca',
@@ -405,7 +400,6 @@ export const vi = {
     editPatient: 'Sửa bệnh nhân {code}',
     addCamera: 'Thêm camera',
     editCamera: 'Sửa camera {name}',
-    patientCodeHint: 'Chỉ dùng mã thử nghiệm, không nhập họ tên hay thông tin cá nhân.',
     noBed: 'Không gắn giường',
     required: 'Cần nhập thông tin này',
     sourceHint: {

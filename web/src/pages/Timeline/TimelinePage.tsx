@@ -1,5 +1,4 @@
 import {
-  Alert,
   Button,
   Card,
   Divider,
@@ -206,9 +205,6 @@ export function TimelinePage() {
           w={260}
         />
       </Group>
-      <Alert variant="light" color="gray">
-        {vi.timeline.hint}
-      </Alert>
       <Card withBorder>
         {timeline.isPending && filter ? (
           <Loader />

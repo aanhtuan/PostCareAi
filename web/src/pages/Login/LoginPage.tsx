@@ -76,9 +76,6 @@ export function LoginPage() {
             <Button type="submit" loading={busy}>
               {vi.auth.submit}
             </Button>
-            <Text size="xs" c="dimmed">
-              {vi.app.disclaimer}
-            </Text>
           </Stack>
         </form>
       </Paper>
