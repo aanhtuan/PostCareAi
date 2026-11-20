@@ -23,7 +23,7 @@ from postcare.domain.dto import (
 from postcare.domain.errors import DomainError, validation_error
 from postcare.domain.notifications import Publisher, safe_publish
 from postcare.domain.sessions import session_at
-from postcare.schemas.enums import AlertStatus, ObservationQuality, Priority
+from postcare.schemas.enums import AlertStatus, ObservationProfile, ObservationQuality, Priority
 from postcare.schemas.events import ALERT_PRIORITIES, EVENT_CATALOG, EventCode, default_priority
 
 
@@ -37,7 +37,9 @@ def _validate(db: Session, data: EventIn) -> Camera:
             {"code": data.code, "priority": data.priority},
         )
     camera = db.get(Camera, data.camera_id)
-    if camera is None or camera.bed_id is None:
+    if camera is None or (
+        camera.bed_id is None and camera.observation_profile == ObservationProfile.BED_MONITORING
+    ):
         raise validation_error("Camera không tồn tại hoặc chưa gắn giường")
     return camera
 
@@ -120,22 +122,22 @@ def ingest_event(db: Session, data: EventIn, publisher: Publisher) -> tuple[Even
     if existing is not None:
         return EventIngestOut(id=existing.id, created=False), False
     camera = _validate(db, data)
-    assert camera.bed_id is not None
-    session = session_at(db, camera.bed_id, data.occurred_at)
-    if session is None:
-        raise DomainError(
-            "NO_ACTIVE_SESSION", "Giường không có phiên theo dõi tại thời điểm sự kiện", 409
-        )
-    if session.paused_at is not None and data.occurred_at >= session.paused_at:
-        raise DomainError(
-            "CAPTURE_PAUSED", "Phiên theo dõi đang tạm dừng thu hình tại thời điểm sự kiện", 409
-        )
+    session = session_at(db, camera.bed_id, data.occurred_at) if camera.bed_id else None
+    if camera.bed_id is not None:
+        if session is None:
+            raise DomainError(
+                "NO_ACTIVE_SESSION", "Giường không có phiên theo dõi tại thời điểm sự kiện", 409
+            )
+        if session.paused_at is not None and data.occurred_at >= session.paused_at:
+            raise DomainError(
+                "CAPTURE_PAUSED", "Phiên theo dõi đang tạm dừng thu hình tại thời điểm sự kiện", 409
+            )
     try:
         event, alert = _insert(
             db,
             event_uid=data.event_uid,
             camera=camera,
-            session_id=session.id,
+            session_id=session.id if session else None,
             code=data.code,
             priority=data.priority,
             occurred_at=data.occurred_at,

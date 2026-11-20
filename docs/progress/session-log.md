@@ -2,6 +2,14 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-21 – Codex – Hồ sơ quan sát camera F38
+
+- **Đã làm:** Tiếp tục trên nhánh `feat/F38-observation-profiles` sau khi F07 đã gộp vào `main`. Thêm `ObservationProfile` và migration 0007, trả hồ sơ qua API camera/worker, ghi audit riêng khi đổi hồ sơ, seed A01 theo dõi giường, A02 chuyển động bất thường, A03 tín hiệu khuôn mặt. Worker giữ ROI cho theo dõi giường, dùng toàn khung hình và lọc sự kiện cho hai hồ sơ còn lại. UI quản trị có lựa chọn hồ sơ, trang cấu hình bỏ trình vẽ ROI khi không cần, Live View hiện hồ sơ, cảnh báo có polling dự phòng khi WebSocket gián đoạn. Không đổi privacy render BLUR.
+- **Kiểm tra:** `ruff check`, `ruff format --check`, `mypy`, TypeScript và ESLint đạt. Backend chọn lọc 46 test đạt sau khi tạo DB test, frontend 41 test đạt. Replay URFD `fall-21-cam0-rgb.mp4` chạy 28 khung, 0 sự kiện, ghi kết quả tại `/tmp/postcare-f38-urfd-20261121`. Chưa chạy `make check` đầy đủ theo yêu cầu giới hạn thời gian.
+- **Đang dở:** AC8 cần replay thêm clip giường và clip rời vùng, review F38, commit và mở PR. Không commit video/model.
+- **Bước tiếp theo:** `git diff --check`, kiểm tra review, commit `feat(F38): add observation profiles`, push nhánh và mở PR vào `main`.
+- **Blocker / rủi ro:** Hồ sơ không ROI hiện tái sử dụng ROI toàn khung hình rồi lọc mã sự kiện. Khi cần chọn mục tiêu giữa nhiều người trong cùng khung cần nâng cấp pipeline.
+
 ## 2026-11-21 – Codex – Tăng khả năng đọc cột thông tin Live View
 
 - **Đã làm:** Thêm dấu tick chế độ đang chọn. Thu khung camera khoảng 20% để mở rộng cột thông tin; tăng cỡ chữ và hiển thị bảng vận động, nghỉ/hoạt động, khuôn mặt thay cho khối phải bấm mở. Kéo cao nhật ký tới tối đa 300 px.

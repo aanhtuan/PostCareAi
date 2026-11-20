@@ -12,6 +12,7 @@ import type {
   EventCode,
   FaceStatus,
   ObservationQuality,
+  ObservationProfile,
   Priority,
   RestStatus,
   UserRole,
@@ -130,6 +131,12 @@ const displayMode: Record<DisplayMode, string> = {
   SKELETON: 'Chỉ skeleton + ROI',
 };
 
+const observationProfile: Record<ObservationProfile, string> = {
+  BED_MONITORING: 'Theo dõi giường',
+  ABNORMAL_MOVEMENT: 'Chuyển động bất thường',
+  FACE_SIGNALS: 'Tín hiệu khuôn mặt',
+};
+
 const sourceType: Record<CameraSourceType, string> = {
   WEBCAM: 'Webcam',
   URL: 'Địa chỉ stream (URL)',
@@ -233,12 +240,17 @@ export const vi = {
   },
   cameraStatus,
   displayMode,
+  observationProfile,
   camera: {
     notAssigned: 'Chưa gắn camera',
     name: 'Tên camera',
     sourceType: 'Loại nguồn',
     source: 'Địa chỉ nguồn',
     status: 'Trạng thái',
+    observationProfile: 'Mục tiêu quan sát',
+    observationProfileHint:
+      'Theo dõi giường cần khoanh vùng giường. Hai hồ sơ còn lại quan sát toàn khung hình.',
+    observationProfileNoRoi: 'Hồ sơ này quan sát toàn khung hình nên không cần khoanh vùng giường.',
   },
   sourceType,
   event,
@@ -288,6 +300,7 @@ export const vi = {
     faceNoData: 'Không đủ dữ liệu khuôn mặt',
     faceNoSignal: 'Không có tín hiệu nào đang bật',
     camera: 'Camera',
+    observationProfile: 'Hồ sơ quan sát: {profile}',
     connectCamera: 'Kết nối camera',
     connectTitle: 'Kết nối camera cho giường {code}',
     cameraName: 'Camera {code}',

@@ -168,6 +168,13 @@ export function LiveViewPage() {
                     {statusText}
                   </Badge>
                 </Group>
+                {detail && (
+                  <Text size="sm" c="dimmed">
+                    {fmt(vi.live.observationProfile, {
+                      profile: vi.observationProfile[detail.observation_profile],
+                    })}
+                  </Text>
+                )}
                 {isAdmin && (
                   <Group gap="xs">
                     <Button

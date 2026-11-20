@@ -6,9 +6,11 @@ import { useState } from 'react';
 import { useBeds, useSaveCatalogItem } from '../../api/hooks';
 import {
   SOURCE_TYPES,
+  OBSERVATION_PROFILES,
   type CameraCreate,
   type CameraOut,
   type CameraSourceType,
+  type ObservationProfile,
 } from '../../api/types';
 import { fmt, vi } from '../../i18n/vi';
 import { CatalogFormModal } from './CatalogFormModal';
@@ -30,6 +32,9 @@ export function CameraForm({ camera, onClose, connect }: Props) {
   const [sourceType, setSourceType] = useState<CameraSourceType>(camera?.source_type ?? 'WEBCAM');
   const [source, setSource] = useState(camera?.source ?? '');
   const [bedId, setBedId] = useState<string>(camera?.bed_id ? String(camera.bed_id) : NO_BED);
+  const [observationProfile, setObservationProfile] = useState<ObservationProfile>(
+    camera?.observation_profile ?? 'BED_MONITORING',
+  );
   const [touched, setTouched] = useState(false);
 
   // Giường đang dùng, chưa có camera khác (QA#13); giường hiện tại của camera vẫn chọn được.
@@ -48,6 +53,7 @@ export function CameraForm({ camera, onClose, connect }: Props) {
       source_type: sourceType,
       source: source.trim(),
       bed_id: connect?.bedId ?? (bedId === NO_BED ? null : Number(bedId)),
+      observation_profile: observationProfile,
     };
     save.mutate(
       { id: camera?.id, body },
@@ -84,6 +90,18 @@ export function CameraForm({ camera, onClose, connect }: Props) {
         onChange={(e) => setName(e.currentTarget.value)}
         error={touched && !name.trim() ? vi.catalog.required : undefined}
         data-autofocus
+      />
+      <Select
+        label={vi.camera.observationProfile}
+        description={vi.camera.observationProfileHint}
+        required
+        allowDeselect={false}
+        data={OBSERVATION_PROFILES.map((profile) => ({
+          value: profile,
+          label: vi.observationProfile[profile],
+        }))}
+        value={observationProfile}
+        onChange={(value) => value && setObservationProfile(value as ObservationProfile)}
       />
       <Select
         label={vi.camera.sourceType}

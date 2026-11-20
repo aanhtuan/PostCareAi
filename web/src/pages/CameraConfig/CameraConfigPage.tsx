@@ -44,6 +44,7 @@ export function CameraConfigPage() {
   if (camera.isPending) return <Loader />;
   if (!camera.data) return <Alert color="red">{vi.common.loadError}</Alert>;
   const cam = camera.data;
+  const requiresRoi = cam.observation_profile === 'BED_MONITORING';
   const online = cam.status === 'ONLINE';
   const livePath = params.get('from') === 'live' && cam.bed_id ? `/beds/${cam.bed_id}/live` : null;
   const title = livePath ? (cam.roi_polygon ? vi.live.editRoi : vi.live.drawRoi) : t.title;
@@ -71,26 +72,34 @@ export function CameraConfigPage() {
         <Grid.Col span={{ base: 12, lg: 8 }}>
           <Card withBorder>
             <Title order={4} mb="xs">
-              {t.roi.title}
+              {requiresRoi ? t.roi.title : vi.observationProfile[cam.observation_profile]}
             </Title>
-            {online && cam.display_mode === 'SKELETON' && (
-              <Alert mb="sm" color="blue" variant="light">
-                {t.roi.useBlurredImage}
+            {requiresRoi ? (
+              <>
+                {online && cam.display_mode === 'SKELETON' && (
+                  <Alert mb="sm" color="blue" variant="light">
+                    {t.roi.useBlurredImage}
+                  </Alert>
+                )}
+                <RoiEditor
+                  cameraId={cam.id}
+                  token={token}
+                  online={online}
+                  initial={cam.roi_polygon}
+                  saving={saveRoi.isPending}
+                  onSave={(points) =>
+                    saveRoi.mutate(points, {
+                      onSuccess: () => notifications.show({ color: 'green', message: t.roi.saved }),
+                      onError,
+                    })
+                  }
+                />
+              </>
+            ) : (
+              <Alert color="blue" variant="light">
+                {vi.camera.observationProfileNoRoi}
               </Alert>
             )}
-            <RoiEditor
-              cameraId={cam.id}
-              token={token}
-              online={online}
-              initial={cam.roi_polygon}
-              saving={saveRoi.isPending}
-              onSave={(points) =>
-                saveRoi.mutate(points, {
-                  onSuccess: () => notifications.show({ color: 'green', message: t.roi.saved }),
-                  onError,
-                })
-              }
-            />
           </Card>
         </Grid.Col>
         <Grid.Col span={{ base: 12, lg: 4 }}>

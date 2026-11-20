@@ -44,6 +44,7 @@ function camera(status: 'ONLINE' | 'OFFLINE' | 'UNKNOWN', roi: number[][] | null
     source_type: 'FILE',
     source: 'clip.mp4',
     display_mode: 'RAW',
+    observation_profile: 'BED_MONITORING',
     status,
     last_seen_at: T,
     config_version: 1,
@@ -100,6 +101,7 @@ describe('LiveViewPage', () => {
         source_type: 'WEBCAM',
         source: '2',
         bed_id: 1,
+        observation_profile: 'BED_MONITORING',
       });
       return Response.json({ id: 3, config_version: 1 }, { status: 201 });
     });

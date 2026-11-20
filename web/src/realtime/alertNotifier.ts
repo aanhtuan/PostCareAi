@@ -1,7 +1,7 @@
 // Thông báo cảnh báo mới từ WebSocket: toast đúng một lần cho mỗi cảnh báo, âm thanh chỉ cho
 // mức Ưu tiên cao (QA#17; F20 R6). Message `alert.created` có thể tới lại (kết nối lại…),
 // nên khử trùng theo `alert.id`.
-import type { AlertCreatedOut } from '../api/types';
+import type { AlertCreatedOut, AlertOut } from '../api/types';
 import { fmt, vi } from '../i18n/vi';
 import { formatTime } from '../utils/time';
 
@@ -19,7 +19,7 @@ const SEEN_LIMIT = 500; // giới hạn bộ nhớ của tập id đã thông b�
 export function createAlertNotifier(deps: {
   show: (toast: AlertToast) => void;
   play: () => void;
-}): (data: AlertCreatedOut) => void {
+}): (data: AlertCreatedOut | { alert: AlertOut }) => void {
   const seen = new Set<number>();
   return ({ alert }) => {
     if (seen.has(alert.id)) return;

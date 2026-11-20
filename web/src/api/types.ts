@@ -19,6 +19,7 @@ export type EventCode = S['EventCode'];
 export type CameraStatus = S['CameraStatus'];
 export type CameraSourceType = S['CameraSourceType'];
 export type DisplayMode = S['DisplayMode'];
+export type ObservationProfile = S['ObservationProfile'];
 
 export type ShiftOut = S['ShiftOut'];
 // F37: khu vực, quản lý ca trực.
@@ -67,6 +68,11 @@ export const WRITE_ROLES: UserRole[] = ['NURSE', 'CHARGE_NURSE', 'ADMIN'];
 /** Quản lý danh mục giường, bệnh nhân, camera (F03; api-conventions.md). */
 export const CATALOG_ADMIN_ROLES: UserRole[] = ['ADMIN'];
 export const SOURCE_TYPES: CameraSourceType[] = ['WEBCAM', 'URL', 'FILE'];
+export const OBSERVATION_PROFILES: ObservationProfile[] = [
+  'BED_MONITORING',
+  'ABNORMAL_MOVEMENT',
+  'FACE_SIGNALS',
+];
 // F35: vai trò nhân viên (FAMILY không vào được giao diện nhân viên) và thứ tự hiển thị.
 export const STAFF_ROLES: UserRole[] = ['NURSE', 'CHARGE_NURSE', 'DOCTOR', 'ADMIN'];
 export const USER_ROLES: UserRole[] = [...STAFF_ROLES, 'FAMILY'];

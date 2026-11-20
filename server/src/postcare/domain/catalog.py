@@ -35,7 +35,7 @@ from postcare.schemas.enums import CameraSourceType
 
 _URL_PREFIXES = ("http://", "https://", "rtsp://")
 # Đổi các trường này thì worker phải tải lại cấu hình (R8; data-model.md cameras.config_version).
-_CAMERA_CONFIG_FIELDS = ("source_type", "source", "bed_id")
+_CAMERA_CONFIG_FIELDS = ("source_type", "source", "bed_id", "observation_profile")
 
 
 # ---------- Dùng chung ----------
@@ -357,6 +357,7 @@ def _camera_snapshot(c: Camera) -> dict[str, Any]:
         "source_type": c.source_type,
         "source": c.source,
         "bed_id": c.bed_id,
+        "observation_profile": c.observation_profile,
         "is_active": c.is_active,
         "config_version": c.config_version,
     }
@@ -435,7 +436,13 @@ def get_camera(db: Session, camera_id: int) -> CameraOut:
 def create_camera(db: Session, data: CameraCreate, user: User) -> CameraOut:
     source = _clean_source(data.source_type, data.source)
     bed = _check_bed_free(db, data.bed_id, None) if data.bed_id is not None else None
-    camera = Camera(name=data.name, source_type=data.source_type, source=source, bed_id=data.bed_id)
+    camera = Camera(
+        name=data.name,
+        source_type=data.source_type,
+        source=source,
+        bed_id=data.bed_id,
+        observation_profile=data.observation_profile,
+    )
     db.add(camera)
     _flush(db, _bed_has_camera(0, bed.code if bed else ""))
     _audit(db, user, "camera.create", camera, None, _camera_snapshot(camera))
@@ -454,6 +461,8 @@ def update_camera(db: Session, camera_id: int, data: CameraUpdate, user: User) -
         camera.source_type = source_type
     if data.name is not None:
         camera.name = data.name
+    if data.observation_profile is not None:
+        camera.observation_profile = data.observation_profile
     bed_code = ""
     if "bed_id" in fields and data.bed_id != camera.bed_id:
         if data.bed_id is not None:
@@ -472,7 +481,12 @@ def update_camera(db: Session, camera_id: int, data: CameraUpdate, user: User) -
     after = _camera_snapshot(camera)
     if after != before:
         _flush(db, _bed_has_camera(0, bed_code))
-        _audit(db, user, "camera.update", camera, before, after)
+        action = (
+            "camera.update_observation_profile"
+            if before["observation_profile"] != after["observation_profile"]
+            else "camera.update"
+        )
+        _audit(db, user, action, camera, before, after)
     db.commit()
     return _camera_out(db, camera)
 

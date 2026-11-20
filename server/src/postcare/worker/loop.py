@@ -33,8 +33,8 @@ from postcare.engine import Engine
 from postcare.pipeline import FrameEngine, process_frame
 from postcare.schemas.context import EngineContext
 from postcare.schemas.engine_config import EngineConfig
-from postcare.schemas.enums import DisplayMode
-from postcare.schemas.events import EngineEvent, EngineOutput
+from postcare.schemas.enums import DisplayMode, ObservationProfile
+from postcare.schemas.events import EngineEvent, EngineOutput, EventCode
 from postcare.schemas.observation import PersonPose
 from postcare.schemas.roi import RoiPolygon, validate_roi_polygon
 from postcare.schemas.state import BodyStateSnapshot
@@ -106,11 +106,10 @@ def default_engine_factory(engine_config_path: Path | str) -> EngineFactory:
     """`Engine` thật: ngưỡng mặc định hợp nhất với `thresholds` của camera, ROI của camera."""
 
     def _make(cfg: WorkerConfig) -> FrameEngine:
-        assert cfg.roi_polygon is not None
+        # shortcut: no-ROI profiles use full-frame ROI until multi-person targeting.
+        roi = cfg.roi_polygon or [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
         config = EngineConfig.load(engine_config_path, cfg.thresholds)
-        context = EngineContext(
-            camera_id=cfg.camera_id, roi_polygon=validate_roi_polygon(cfg.roi_polygon)
-        )
+        context = EngineContext(camera_id=cfg.camera_id, roi_polygon=validate_roi_polygon(roi))
         return Engine(config, context)
 
     return _make
@@ -437,7 +436,7 @@ class Worker:
         assert cfg is not None
         if self.engine is not None and self._engine_key == cfg.engine_key:
             return self.engine
-        if cfg.roi_polygon is None:
+        if cfg.roi_polygon is None and cfg.observation_profile == ObservationProfile.BED_MONITORING:
             if self._engine_failed_key != cfg.engine_key:
                 logger.warning("Camera chưa có ROI giường: chỉ gửi heartbeat và khung hình")
                 self._engine_failed_key = cfg.engine_key
@@ -497,7 +496,20 @@ class Worker:
         assert cfg is not None
         now = self._clock()
         for event in output.events:
-            if cfg.active_session_id is None:
+            if (
+                cfg.observation_profile == ObservationProfile.ABNORMAL_MOVEMENT
+                and event.code != EventCode.ABNORMAL_MOVEMENT
+            ):
+                continue
+            if (
+                cfg.observation_profile == ObservationProfile.FACE_SIGNALS
+                and event.code != EventCode.FACE_ATTENTION
+            ):
+                continue
+            if (
+                cfg.active_session_id is None
+                and cfg.observation_profile == ObservationProfile.BED_MONITORING
+            ):
                 # Giường không có phiên mở: không gửi sự kiện engine (F17 R6).
                 continue
             self._enqueue(self._event_body(cfg, event))

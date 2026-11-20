@@ -1,10 +1,11 @@
 import { Anchor, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import type { AlertCreatedOut } from '../api/types';
+import { api } from '../api/client';
+import type { AlertCreatedOut, AlertOut, Page } from '../api/types';
 import { useAuth } from '../auth/useAuth';
 import { vi } from '../i18n/vi';
 import { createAlertNotifier } from './alertNotifier';
@@ -19,6 +20,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { token, logout, reloadUser } = useAuth();
   const qc = useQueryClient();
   const [status, setStatus] = useState<WsStatus>('connecting');
+  const fallbackAlerts = useQuery({
+    queryKey: ['realtime', 'pending-alerts'],
+    queryFn: () => api<Page<AlertOut>>('/alerts', { query: { status: 'PENDING', limit: 100 } }),
+    enabled: Boolean(token),
+    refetchInterval: status === 'open' ? false : 3000,
+  });
   // Một notifier cho cả vòng đời provider: khử trùng toast/âm thanh qua các lần kết nối lại.
   const [notifyAlert] = useState(() =>
     createAlertNotifier({
@@ -42,6 +49,29 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       play: playAlertSound,
     }),
   );
+
+  const fallbackInitialized = useRef(false);
+  const fallbackSeen = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    fallbackInitialized.current = false;
+    fallbackSeen.current.clear();
+  }, [token]);
+  useEffect(() => {
+    if (!fallbackAlerts.data) return;
+    if (!fallbackInitialized.current) {
+      fallbackAlerts.data.items.forEach((alert) => fallbackSeen.current.add(alert.id));
+      fallbackInitialized.current = true;
+      return;
+    }
+    fallbackAlerts.data.items.forEach((alert) => {
+      if (fallbackSeen.current.has(alert.id)) return;
+      fallbackSeen.current.add(alert.id);
+      if (fallbackSeen.current.size > 500) {
+        fallbackSeen.current.delete(fallbackSeen.current.values().next().value as number);
+      }
+      notifyAlert({ alert });
+    });
+  }, [fallbackAlerts.data, notifyAlert]);
 
   useEffect(() => {
     if (!token) return;

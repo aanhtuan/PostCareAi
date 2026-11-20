@@ -105,3 +105,4 @@ F10 và F13–F15 dùng dữ liệu tổng hợp, nên bắt đầu được tr�
 | F35 | Quản lý người dùng trên UI | M0 | Done |
 | F36 | Quyền xem của người nhà theo phiên | M4 | In progress |
 | F37 | Quản lý khu vực và ca trực | M0 | Done |
+| F38 | Hồ sơ quan sát camera | Sau MVP | In progress |

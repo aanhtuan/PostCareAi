@@ -101,3 +101,9 @@ class DisplayMode(StrEnum):
     RAW = "RAW"
     BLUR = "BLUR"
     SKELETON = "SKELETON"
+
+
+class ObservationProfile(StrEnum):
+    BED_MONITORING = "BED_MONITORING"
+    ABNORMAL_MOVEMENT = "ABNORMAL_MOVEMENT"
+    FACE_SIGNALS = "FACE_SIGNALS"
