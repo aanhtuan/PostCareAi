@@ -309,7 +309,6 @@ export const vi = {
     rawHint: 'Video gốc chỉ dùng trong môi trường thử nghiệm.',
     displayTitle: 'Hình ảnh theo chế độ riêng tư',
     skeletonTitle: 'Skeleton và vùng giường',
-    skeletonHint: 'Bộ xương được dựng từ cùng khung hình; không hiển thị pixel ảnh gốc.',
   },
   alerts: {
     title: 'Cảnh báo',

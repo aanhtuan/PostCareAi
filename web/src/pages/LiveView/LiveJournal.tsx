@@ -1,4 +1,4 @@
-import { Anchor, Card, Group, Stack, Text, Title, UnstyledButton } from '@mantine/core';
+import { Anchor, Group, Stack, Text, Title, UnstyledButton } from '@mantine/core';
 import { useState } from 'react';
 import { Link } from 'react-router';
 
@@ -17,7 +17,7 @@ export function LiveJournal({ bedId, sessionId }: { bedId: number; sessionId?: n
   const items = events.data?.items ?? [];
 
   return (
-    <Card withBorder>
+    <>
       <Stack gap="xs">
         <Group justify="space-between" gap="xs">
           <Title order={3} size="h5">
@@ -100,6 +100,6 @@ export function LiveJournal({ bedId, sessionId }: { bedId: number; sessionId?: n
         )}
       </Stack>
       <AlertDetailModal alertId={alertId} onClose={() => setAlertId(undefined)} />
-    </Card>
+    </>
   );
 }

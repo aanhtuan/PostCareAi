@@ -7,10 +7,11 @@ import {
   Button,
   Card,
   Center,
+  Divider,
+  Grid,
   Group,
   Loader,
   Select,
-  SimpleGrid,
   Stack,
   Text,
   Title,
@@ -74,6 +75,7 @@ export function LiveViewPage() {
     ? (cameraDetail.data?.status ?? bed.camera.status)
     : null;
   const roi = cameraDetail.data?.roi_polygon ?? null;
+  const showSkeleton = detail?.display_mode === 'SKELETON';
   const paused = !!bed?.session?.paused_at;
   const canObserve = cameraStatus === 'ONLINE' && !waiting && !paused && (!detail || !!roi);
   const state = canObserve ? (bed?.state ?? null) : null;
@@ -108,192 +110,181 @@ export function LiveViewPage() {
         />
       </Group>
       {bed && (
-        <Stack>
-          <Card withBorder>
-            <Stack gap="xs">
-              <Group justify="space-between">
-                <Text fw={700} size="lg">
-                  {fmt(vi.bed.title, { code: bed.code })}
-                </Text>
-                <Group gap="xs">
-                  <Badge
-                    color={waiting ? 'yellow' : cameraStatus ? STATUS_COLOR[cameraStatus] : 'gray'}
-                    variant="light"
-                    c="var(--mantine-color-text)"
-                    role="status"
-                  >
-                    {statusText}
-                  </Badge>
-                  {isAdmin && (
-                    <Button
-                      size="xs"
-                      variant="light"
-                      disabled={!!bed.session || (!!bed.camera && detail?.id !== bed.camera.id)}
-                      onClick={() => setEditBed(bed.bed_id)}
-                    >
-                      {vi.live.connectCamera}
-                    </Button>
-                  )}
-                  {isAdmin && bed.camera && roi && (
-                    <Button
-                      component={Link}
-                      to={`/cameras/${bed.camera.id}/config?from=live`}
-                      size="xs"
-                      variant="light"
-                    >
-                      {vi.live.editRoi}
-                    </Button>
-                  )}
-                </Group>
-              </Group>
-              {isAdmin && editBed === bed.bed_id && !bed.session && (
-                <CameraForm
-                  camera={bed.camera && detail?.id === bed.camera.id ? detail : null}
-                  onClose={() => setEditBed(null)}
-                  connect={{
-                    bedId: bed.bed_id,
-                    bedCode: bed.code,
-                    onSaved: (saved) =>
-                      setConnection({
-                        bedId: bed.bed_id,
-                        cameraId: saved.id,
-                        version: saved.config_version,
-                      }),
-                  }}
-                />
-              )}
-              {waiting && (
-                <Text size="sm" c="dimmed" role="status">
-                  {!detail?.worker_active
-                    ? fmt(vi.live.startWorkerHint, { id: String(connecting.cameraId) })
-                    : vi.live.checkCameraSource}
-                </Text>
-              )}
-              {isAdmin && bed.session && cameraStatus !== 'ONLINE' && (
-                <Text size="sm" c="dimmed">
-                  {vi.live.connectActiveSession}
-                </Text>
-              )}
-              {bed.session ? (
-                <Text size="sm">
-                  <Text span fw={600}>
-                    {vi.live.monitoring}
+        <Grid
+          type="container"
+          breakpoints={{ xs: '540px', sm: '720px', md: '900px', lg: '1100px', xl: '1280px' }}
+          gutter="sm"
+          align="flex-start"
+        >
+          <Grid.Col span={{ base: 12, sm: 8 }}>
+            <Card withBorder>
+              <Stack gap="xs">
+                {bed.camera && cameraStatus ? (
+                  <>
+                    <Text size="sm" fw={600}>
+                      {showSkeleton ? vi.live.skeletonTitle : vi.live.displayTitle}
+                    </Text>
+                    <CameraStream
+                      key={`${bed.camera.id}:${showSkeleton ? 'skeleton' : 'display'}`}
+                      cameraId={bed.camera.id}
+                      token={token}
+                      online={!waiting && cameraStatus === 'ONLINE'}
+                      offlineText={statusText}
+                      roi={showSkeleton ? null : roi}
+                      view={showSkeleton ? 'skeleton' : 'display'}
+                      alt={
+                        showSkeleton
+                          ? vi.live.skeletonTitle
+                          : fmt(vi.live.streamAlt, { code: bed.code })
+                      }
+                    />
+                    {detail && (
+                      <DisplayModeControl cameraId={bed.camera.id} mode={detail.display_mode} />
+                    )}
+                  </>
+                ) : (
+                  <Center bg="gray.1" mih={180} style={{ borderRadius: 8 }}>
+                    <Text c="dimmed">{statusText}</Text>
+                  </Center>
+                )}
+              </Stack>
+            </Card>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 4 }}>
+            <Card withBorder>
+              <Stack gap="xs">
+                <Group justify="space-between">
+                  <Text fw={700} size="lg">
+                    {fmt(vi.bed.title, { code: bed.code })}
                   </Text>
-                  {' · '}
-                  {fmt(vi.live.sessionDetail, {
-                    patient: bed.session.patient_code,
-                    time: formatTime(bed.session.started_at),
-                  })}
-                </Text>
-              ) : (
-                <Text size="sm" c="dimmed">
-                  {vi.live.noSession}
-                </Text>
-              )}
-              <Group
-                justify="space-between"
-                gap={6}
-                bg="var(--mantine-color-default-hover)"
-                p="xs"
-                style={{ borderRadius: 'var(--mantine-radius-sm)' }}
-              >
-                <Group gap="xs" role="status">
-                  <Badge
-                    color={bodyState === 'NO_OBSERVATION' ? (state ? 'yellow' : 'gray') : 'teal'}
-                    variant="light"
-                    c="var(--mantine-color-text)"
-                    tt="none"
-                  >
-                    {vi.bodyState[bodyState]}
-                  </Badge>
-                  {observationReason && <Text size="sm">{observationReason}</Text>}
+                  <Group gap="xs">
+                    <Badge
+                      color={
+                        waiting ? 'yellow' : cameraStatus ? STATUS_COLOR[cameraStatus] : 'gray'
+                      }
+                      variant="light"
+                      c="var(--mantine-color-text)"
+                      role="status"
+                    >
+                      {statusText}
+                    </Badge>
+                    {isAdmin && (
+                      <Button
+                        size="xs"
+                        variant="light"
+                        disabled={!!bed.session || (!!bed.camera && detail?.id !== bed.camera.id)}
+                        onClick={() => setEditBed(bed.bed_id)}
+                      >
+                        {vi.live.connectCamera}
+                      </Button>
+                    )}
+                    {isAdmin && bed.camera && roi && (
+                      <Button
+                        component={Link}
+                        to={`/cameras/${bed.camera.id}/config?from=live`}
+                        size="xs"
+                        variant="light"
+                      >
+                        {vi.live.editRoi}
+                      </Button>
+                    )}
+                  </Group>
                 </Group>
-                {state && (
-                  <Text size="xs" c="dimmed">
-                    {fmt(vi.live.updatedAt, { time: formatTime(state.updated_at) })}
+                {isAdmin && editBed === bed.bed_id && !bed.session && (
+                  <CameraForm
+                    camera={bed.camera && detail?.id === bed.camera.id ? detail : null}
+                    onClose={() => setEditBed(null)}
+                    connect={{
+                      bedId: bed.bed_id,
+                      bedCode: bed.code,
+                      onSaved: (saved) =>
+                        setConnection({
+                          bedId: bed.bed_id,
+                          cameraId: saved.id,
+                          version: saved.config_version,
+                        }),
+                    }}
+                  />
+                )}
+                {waiting && (
+                  <Text size="sm" c="dimmed" role="status">
+                    {!detail?.worker_active
+                      ? fmt(vi.live.startWorkerHint, { id: String(connecting.cameraId) })
+                      : vi.live.checkCameraSource}
                   </Text>
                 )}
-              </Group>
-              {bed.camera && cameraStatus ? (
-                <>
-                  {cameraDetail.isSuccess && !roi && (
-                    <Alert color="yellow" variant="light">
-                      <Group justify="space-between" gap="xs">
-                        <div>
-                          <Text fw={600} size="sm">
-                            {vi.live.roiNotConfigured}
-                          </Text>
-                          <Text size="sm">
-                            {isAdmin ? vi.live.drawRoiHint : vi.live.askAdminForRoi}
-                          </Text>
-                        </div>
-                        {isAdmin && (
-                          <Button
-                            component={Link}
-                            to={`/cameras/${bed.camera.id}/config?from=live`}
-                          >
-                            {vi.live.drawRoi}
-                          </Button>
-                        )}
-                      </Group>
-                    </Alert>
+                {isAdmin && bed.session && cameraStatus !== 'ONLINE' && (
+                  <Text size="sm" c="dimmed">
+                    {vi.live.connectActiveSession}
+                  </Text>
+                )}
+                {bed.session ? (
+                  <Text size="sm">
+                    <Text span fw={600}>
+                      {vi.live.monitoring}
+                    </Text>
+                    {' · '}
+                    {fmt(vi.live.sessionDetail, {
+                      patient: bed.session.patient_code,
+                      time: formatTime(bed.session.started_at),
+                    })}
+                  </Text>
+                ) : (
+                  <Text size="sm" c="dimmed">
+                    {vi.live.noSession}
+                  </Text>
+                )}
+                <Group
+                  justify="space-between"
+                  gap={6}
+                  bg="var(--mantine-color-default-hover)"
+                  p="xs"
+                  style={{ borderRadius: 'var(--mantine-radius-sm)' }}
+                >
+                  <Group gap="xs" role="status">
+                    <Badge
+                      color={bodyState === 'NO_OBSERVATION' ? (state ? 'yellow' : 'gray') : 'teal'}
+                      variant="light"
+                      c="var(--mantine-color-text)"
+                      tt="none"
+                    >
+                      {vi.bodyState[bodyState]}
+                    </Badge>
+                    {observationReason && <Text size="sm">{observationReason}</Text>}
+                  </Group>
+                  {state && (
+                    <Text size="xs" c="dimmed">
+                      {fmt(vi.live.updatedAt, { time: formatTime(state.updated_at) })}
+                    </Text>
                   )}
-                  <SimpleGrid type="container" cols={{ base: 1, '640px': 2 }} spacing="sm">
-                    <Stack gap={4}>
-                      <Text size="sm" fw={600}>
-                        {vi.live.displayTitle}
-                      </Text>
-                      <CameraStream
-                        cameraId={bed.camera.id}
-                        token={token}
-                        online={!waiting && cameraStatus === 'ONLINE'}
-                        offlineText={statusText}
-                        roi={roi}
-                        alt={fmt(vi.live.streamAlt, { code: bed.code })}
-                      />
-                    </Stack>
-                    <Stack gap={4}>
-                      <Text size="sm" fw={600}>
-                        {vi.live.skeletonTitle}
-                      </Text>
-                      <CameraStream
-                        cameraId={bed.camera.id}
-                        token={token}
-                        online={!waiting && cameraStatus === 'ONLINE'}
-                        offlineText={statusText}
-                        roi={null}
-                        view="skeleton"
-                        alt={vi.live.skeletonTitle}
-                      />
-                    </Stack>
-                  </SimpleGrid>
-                </>
-              ) : (
-                <Center bg="gray.1" mih={180} style={{ borderRadius: 8 }}>
-                  <Text c="dimmed">{statusText}</Text>
-                </Center>
-              )}
-            </Stack>
-          </Card>
-          <SimpleGrid
-            type="container"
-            cols={{ base: 1, '640px': 2 }}
-            spacing="sm"
-            style={{ alignItems: 'start' }}
-          >
-            <ObservationDetails cameraName={bed.camera?.name} state={state}>
-              {bed.camera && detail && (
-                <DisplayModeControl cameraId={bed.camera.id} mode={detail.display_mode} />
-              )}
-              {bed.camera && (
-                <Text size="xs" c="dimmed">
-                  {vi.live.skeletonHint}
-                </Text>
-              )}
-            </ObservationDetails>
-            <LiveJournal key={bed.bed_id} bedId={bed.bed_id} sessionId={bed.session?.id} />
-          </SimpleGrid>
-        </Stack>
+                </Group>
+                {bed.camera && cameraDetail.isSuccess && !roi && (
+                  <Alert color="yellow" variant="light">
+                    <Group justify="space-between" gap="xs">
+                      <div>
+                        <Text fw={600} size="sm">
+                          {vi.live.roiNotConfigured}
+                        </Text>
+                        <Text size="sm">
+                          {isAdmin ? vi.live.drawRoiHint : vi.live.askAdminForRoi}
+                        </Text>
+                      </div>
+                      {isAdmin && (
+                        <Button component={Link} to={`/cameras/${bed.camera.id}/config?from=live`}>
+                          {vi.live.drawRoi}
+                        </Button>
+                      )}
+                    </Group>
+                  </Alert>
+                )}
+                <Divider />
+                <ObservationDetails cameraName={bed.camera?.name} state={state} />
+                <Divider />
+                <LiveJournal key={bed.bed_id} bedId={bed.bed_id} sessionId={bed.session?.id} />
+              </Stack>
+            </Card>
+          </Grid.Col>
+        </Grid>
       )}
     </Stack>
   );

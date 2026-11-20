@@ -2,6 +2,13 @@
 
 Entry mới nhất ở trên cùng. Mẫu và quy tắc: [update-progress.md](../ai/workflows/update-progress.md). Không xóa entry cũ.
 
+## 2026-11-21 – Codex – Một khung camera và cột thông tin
+
+- **Đã làm:** Theo phản hồi người dùng trong lúc chuẩn bị push, chuyển F07 sang một khung camera bên trái và một cột trạng thái/nhật ký bên phải. Chọn Skeleton thay hình trong cùng khung. Giữ thao tác camera, vùng giường và chi tiết cảnh báo.
+- **Kiểm tra:** Playwright với dữ liệu giả lập ở 1280×720, 1366×768 và 390 px, thử đổi chế độ, cuộn nhật ký, đổi giường, mở đúng chi tiết từ nhật ký và toast.
+- **Bước tiếp theo:** Push `feat/F07-camera-connect` qua hook `pre-push` và mở PR vào `main`.
+
+
 ## 2026-11-21 – Codex – Triển khai trạng thái và nhật ký trên Live View
 
 - **Đã làm:** Đưa trạng thái và lý do lên cạnh hai khung, thu gọn tín hiệu phụ, thêm cột nhật ký gần đây cuộn riêng. Sự kiện mở tóm tắt tại chỗ; cảnh báo mở chi tiết theo ID từ nhật ký hoặc toast. Giữ quyền hiện có và dữ liệu vận hành theo QA#29.

@@ -172,14 +172,20 @@ describe('LiveViewPage', () => {
     expect(screen.queryByText(vi.live.roiNotConfigured)).toBeNull();
   });
 
-  it('shows a separate skeleton stream while preserving the privacy mode', async () => {
+  it('shows a single camera stream in the configured privacy mode', async () => {
     setup(bed(), { ...camera('ONLINE', ROI), display_mode: 'BLUR' });
     const display = await screen.findByRole('img', { name: 'Giường A01' });
-    const skeleton = await screen.findByRole('img', { name: vi.live.skeletonTitle });
     expect(display.getAttribute('src')).not.toContain('view=skeleton');
-    expect(skeleton.getAttribute('src')).toContain('view=skeleton');
-    expect(screen.getByText(vi.displayMode.BLUR)).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: vi.live.skeletonTitle })).toBeNull();
+    expect(await screen.findByText(vi.displayMode.BLUR)).toBeInTheDocument();
     expect(screen.getByText(vi.live.displayTitle)).toBeInTheDocument();
+  });
+
+  it('shows the skeleton in the same camera area when skeleton mode is configured', async () => {
+    setup(bed(), { ...camera('ONLINE', ROI), display_mode: 'SKELETON' });
+    const skeleton = await screen.findByRole('img', { name: vi.live.skeletonTitle });
+    expect(skeleton.getAttribute('src')).toContain('view=skeleton');
+    expect(streamImg()).toBeNull();
   });
 
   it('LiveViewPage links to the bed timeline (F22 R7)', async () => {

@@ -260,3 +260,13 @@ Trạng thái mở rộng: **Done**. Nguồn: yêu cầu người dùng, F07, F1
 - [x] `AlertsPage.test.tsx` kiểm tra mở từ toast theo đúng ID khi cảnh báo chưa nằm trong danh sách. Playwright kiểm tra lại luồng toast và nhật ký trên bản build với dữ liệu giả lập, kể cả sau khi đổi giường.
 - [x] Playwright đo mỗi video rộng 491 px ở 1280×720, 534 px ở 1366×768. Hai video và phần đầu nhật ký cùng trong viewport; nhật ký cuộn độc lập. Ở 390 px các cột xếp dọc. Nhãn thiếu quan sát dùng chữ rõ trên nền hổ phách (đo tương phản 18,76:1 với giao diện sáng).
 - [x] Review Codex đạt. `make check` xanh (1368 test Python, 265 test web và build); lặp kiểm tra format, lint, typecheck, import và API types sau lần chỉnh màu cuối.
+
+## 16. Một khung camera và cột thông tin (2026-11-21)
+
+Nguồn: yêu cầu người dùng 21/11 sau khi thử bố cục mục 15. Bố cục này thay cách xếp các khung trên màn hình ở các mục trước.
+
+### Kế hoạch và kiểm chứng
+
+- Dùng một khung video bên trái. Bộ chọn chế độ nằm dưới khung, chuyển giữa video gốc, làm mờ và skeleton theo quyền F28. Khi chọn skeleton, dùng luồng skeleton sẵn có và vùng đã render trong khung. Các chế độ hình còn lại dùng khung theo quyền riêng tư và lớp phủ vùng giường của F07.
+- Gom trạng thái kết nối, phiên, lý do quan sát, nút cấu hình vùng giường, chi tiết và nhật ký trong một cột bên phải. Nhật ký vẫn cuộn riêng, mở được cảnh báo theo ID; màn hình hẹp xếp khung camera trước thông tin.
+- `LiveViewPage.test.tsx` kiểm tra chế độ làm mờ và skeleton chỉ hiện một luồng. Playwright với dữ liệu giả lập xác nhận chuyển chế độ thay hình trong cùng chỗ, mở chi tiết và đổi giường. Khung quan sát đo 647 px ở 1280×720 và 705 px ở 1366×768, thông tin nằm cạnh video; 390 px xếp dọc.

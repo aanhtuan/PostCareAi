@@ -100,7 +100,7 @@ HS §4.2 có nhắc DroidCam. Với Android, có thể dùng DroidCam hoặc IP 
    - Với file, `probe` đọc nhanh hết mức (không phát theo tốc độ thực) và dừng khi hết file.
    - Đang `probe` mà tắt app điện thoại: dòng `Trạng thái: OFFLINE` hiện ra, lệnh tự kết nối lại sau 1, 2, 4… tối đa 10 s.
 4. Đăng nhập quản trị viên, vào **Theo dõi trực tiếp**, chọn giường, bấm **Kết nối camera** và chọn **Địa chỉ stream (URL)**. Dán địa chỉ ở bước 2, rồi bấm **Lưu và kết nối**. Giường đã có camera sẽ dùng lại bản ghi hiện tại. Trước khi đổi nguồn, giường cần ở trạng thái chưa có phiên theo dõi đang mở.
-5. Nếu chưa tải model, chạy `make models`. Chạy `make worker CAMERA=<id>` trên máy kết nối camera theo số ID trong thông báo. Worker đang chạy bản mới sẽ tự tải cấu hình. Nếu worker đang phát clip qua `VIDEO=...` hoặc chạy bản cũ, dừng rồi chạy lại lệnh trên. Khi hai khung xuất hiện, bấm **Vẽ vùng giường** hoặc **Sửa vùng giường** ngay trên **Theo dõi trực tiếp**. Bấm lần lượt các góc mặt nệm theo vòng quanh, lưu rồi quay lại giường để xem đường viền. Kiểm tra lại vùng mỗi khi vị trí hoặc góc quay thay đổi.
+5. Nếu chưa tải model, chạy `make models`. Chạy `make worker CAMERA=<id>` trên máy kết nối camera theo số ID trong thông báo. Worker đang chạy bản mới sẽ tự tải cấu hình. Nếu worker đang phát clip qua `VIDEO=...` hoặc chạy bản cũ, dừng rồi chạy lại lệnh trên. Khi khung camera có hình, bấm **Vẽ vùng giường** hoặc **Sửa vùng giường** ở cột thông tin trên **Theo dõi trực tiếp**. Bấm lần lượt các góc mặt nệm theo vòng quanh, lưu rồi quay lại giường để xem đường viền. Kiểm tra lại vùng mỗi khi vị trí hoặc góc quay thay đổi.
 
 ### iPhone qua Wi-Fi nội bộ trên Fedora
 
